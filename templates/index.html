@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Suivi Finance — Portefeuille</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        /* Styles spécifiques à la page d'accueil */
+        .kpis {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.6s ease-out;
+        }
+        
+        .kpis.animate-in {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .kpi-card {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.6s ease-out;
+        }
+        
+        .kpi-card.animate-in {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .fiscal-section {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s ease-out 0.2s;
+        }
+        
+        .fiscal-section.animate-in {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Bouton flottant avec animations ultra satisfaisantes */
+        .floating-action-button {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 64px;
+            height: 64px;
+            background: var(--gradient-primary);
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: var(--shadow-xl), 0 0 0 0 rgba(130,196,255,0.4);
+            transition: all var(--transition-bounce);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #001024;
+            font-size: 1.5rem;
+            overflow: hidden;
+            animation: fabPulse 3s infinite;
+        }
+
+        .floating-action-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.3), transparent);
+            transform: translateX(-100%) rotate(45deg);
+            transition: transform var(--transition-normal);
+        }
+
+        .floating-action-button:hover::before {
+            transform: translateX(100%) rotate(45deg);
+        }
+
+        .floating-action-button:hover {
+            transform: scale(1.15) rotate(5deg);
+            box-shadow: var(--shadow-xl), 0 0 30px rgba(130,196,255,0.6), 0 0 0 8px rgba(130,196,255,0.2);
+            animation: fabHover 0.6s ease-out;
+        }
+
+        .floating-action-button:active {
+            transform: scale(1.05) rotate(0deg);
+            transition: transform 0.1s ease;
+        }
+
+        .floating-action-button.expanded {
+            transform: rotate(45deg);
+            background: var(--gradient-danger);
+        }
+
+        /* Menu flottant */
+        .floating-menu {
+            position: fixed;
+            bottom: 100px;
+            right: 24px;
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(20px) scale(0.8);
+            transition: all var(--transition-bounce);
+        }
+
+        .floating-menu.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0) scale(1);
+        }
+
+        .floating-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 20px;
+            background: var(--card);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 50px;
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            box-shadow: var(--shadow-lg);
+            backdrop-filter: blur(10px);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            white-space: nowrap;
+            position: relative;
+            overflow: hidden;
+            opacity: 0;
+            transform: translateX(20px);
+            animation: slideInMenuItem 0.4s ease-out forwards;
+        }
+
+        .floating-menu-item:nth-child(1) { animation-delay: 0.1s; }
+        .floating-menu-item:nth-child(2) { animation-delay: 0.2s; }
+        .floating-menu-item:nth-child(3) { animation-delay: 0.3s; }
+        .floating-menu-item:nth-child(4) { animation-delay: 0.4s; }
+
+        .floating-menu-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(130,196,255,0.2), transparent);
+            transition: left var(--transition-normal);
+        }
+
+        .floating-menu-item:hover::before {
+            left: 100%;
+        }
+
+        .floating-menu-item:hover {
+            transform: translateX(-8px) scale(1.05);
+            border-color: var(--primary);
+            box-shadow: var(--shadow-xl), var(--shadow-primary);
+            background: rgba(130,196,255,0.1);
+        }
+
+        .floating-menu-item .icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+
+        /* Animations spéciales */
+        @keyframes fabPulse {
+            0%, 100% {
+                box-shadow: var(--shadow-xl), 0 0 0 0 rgba(130,196,255,0.4);
+            }
+            50% {
+                box-shadow: var(--shadow-xl), 0 0 0 8px rgba(130,196,255,0.1);
+            }
+        }
+
+        @keyframes fabHover {
+            0% { transform: scale(1.15) rotate(5deg); }
+            50% { transform: scale(1.25) rotate(-2deg); }
+            100% { transform: scale(1.15) rotate(5deg); }
+        }
+
+        @keyframes slideInMenuItem {
+            from {
+                opacity: 0;
+                transform: translateX(30px) scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+            }
+        }
+
+        /* Mode mobile */
+        @media (max-width: 768px) {
+            .floating-action-button {
+                bottom: 20px;
+                right: 20px;
+                width: 56px;
+                height: 56px;
+                font-size: 1.3rem;
+            }
+            
+            .floating-menu {
+                bottom: 88px;
+                right: 20px;
+            }
+            
+            .floating-menu-item {
+                padding: 10px 16px;
+                font-size: 0.85rem;
+            }
+        }
+
+        
+        .positions-table {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 1s ease-out 0.4s;
+        }
+        
+        .positions-table.animate-in {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .account-selector { 
+            display: flex; 
+            gap: 12px; 
+            margin-bottom: 20px; 
+        }
+        
+        .radio-option { 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            padding: 12px 16px; 
+            border: 1px solid rgba(255,255,255,0.1); 
+            border-radius: var(--border-radius-lg); 
+            cursor: pointer; 
+            transition: all var(--transition-fast); 
+            background: rgba(255,255,255,0.02); 
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .radio-option::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(130,196,255,0.1), transparent);
+            transition: left var(--transition-normal);
+        }
+        
+        .radio-option:hover::before {
+            left: 100%;
+        }
+        
+        .radio-option:hover { 
+            border-color: var(--primary); 
+            background: rgba(130,196,255,0.05); 
+            transform: translateY(-2px);
+        }
+        
+        .radio-option.selected { 
+            border-color: var(--primary); 
+            background: rgba(130,196,255,0.1); 
+            box-shadow: var(--shadow-primary);
+        }
+        
+        .radio-option input[type="radio"] { 
+            margin: 0; 
+        }
+        
+        .radio-option label { 
+            cursor: pointer; 
+            font-weight: 500; 
+            margin: 0; 
+        }
+        
+        .result-cards { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 16px; 
+        }
+        
+        .result-card { 
+            background: rgba(255,255,255,0.03); 
+            border: 1px solid rgba(255,255,255,0.08); 
+            border-radius: var(--border-radius-lg); 
+            padding: 16px; 
+            text-align: center;
+            transition: all var(--transition-fast);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .result-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: var(--gradient-primary);
+            transform: scaleX(0);
+            transition: transform var(--transition-normal);
+        }
+        
+        .result-card:hover {
+            transform: translateY(-4px) scale(1.02);
+            border-color: rgba(130,196,255,0.2);
+        }
+        
+        .result-card:hover::before {
+            transform: scaleX(1);
+        }
+        
+        [data-theme="light"] .result-card {
+            background: rgba(0,0,0,0.02);
+            border: 1px solid rgba(0,0,0,0.08);
+        }
+        
+        .result-label { 
+            color: var(--muted); 
+            font-size: 0.8rem; 
+            font-weight: 600; 
+            margin-bottom: 8px; 
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .result-value { 
+            font-size: 1.5rem; 
+            font-weight: 700; 
+            color: var(--text);
+            background: linear-gradient(135deg, var(--text), var(--primary-accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .details-btn { 
+            margin-top: 16px; 
+            padding: 12px 24px; 
+            background: var(--gradient-primary); 
+            color: #001024; 
+            border: none; 
+            border-radius: var(--border-radius-lg); 
+            font-weight: 600; 
+            cursor: pointer; 
+            box-shadow: var(--shadow-primary); 
+            transition: all var(--transition-fast);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .details-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            transition: all var(--transition-normal);
+            transform: translate(-50%, -50%);
+        }
+        
+        .details-btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+        
+        .details-btn:hover { 
+            transform: translateY(-2px); 
+            box-shadow: var(--shadow-primary-lg); 
+        }
+        
+        /* Animation de chargement améliorée */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: var(--muted);
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(130,196,255,0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary);
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        .loading-text {
+            font-size: 1.1rem;
+            font-weight: 500;
+            animation: pulse 2s infinite;
+        }
+        
+        /* Animation des valeurs numériques */
+        .kpi-value, .result-value {
+            animation: scaleIn 0.5s ease-out;
+        }
+        
+        /* Effet de particules pour les cartes importantes */
+        .kpi-card.total-invested::after,
+        .kpi-card.current-value::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: var(--gradient-primary);
+            border-radius: var(--border-radius-xl);
+            z-index: -1;
+            opacity: 0;
+            transition: opacity var(--transition-normal);
+        }
+        
+        .kpi-card.total-invested:hover::after,
+        .kpi-card.current-value:hover::after {
+            opacity: 0.3;
+        }
+        
+        /* Responsive amélioré */
+        @media (max-width: 768px) {
+            .result-cards {
+                grid-template-columns: 1fr;
+            }
+            
+            .account-selector {
+                flex-direction: column;
+            }
+        }
+    </style>
+    <meta name="robots" content="noindex" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <meta name="description" content="Suivi de votre portefeuille d'investissement" />
+</head>
+<body>
+    <div class="shell">
+        <header class="animate-fadeInDown">
+            <div class="header-content">
+                <div class="logo animate-slideInLeft">
+                    <div class="logo-icon"></div>
+                    <div class="logo-text">Suivi Finance</div>
+                </div>
+                
+                <nav class="nav animate-slideInRight">
+                    <a href="/" class="nav-link active">Portefeuille</a>
+                    <a href="/orders" class="nav-link">Ordres</a>
+                </nav>
+                
+                <button class="theme-switch animate-scaleIn animate-delay-300" onclick="toggleTheme()" aria-label="Changer de thème">
+                    <span class="theme-icon">🌙</span>
+                </button>
+            </div>
+        </header>
+
+        <main>
+            <div id="loadingState" class="loading">
+                <div class="loading-spinner animate-spin"></div>
+                <span class="loading-text">Chargement de votre portefeuille...</span>
+            </div>
+            
+            <div id="portfolioContent" style="display: none;">
+                <!-- KPIs Section -->
+                <div class="kpis">
+                    <div class="kpi-card total-invested">
+                        <div class="kpi-label">Total Investi</div>
+                        <div class="kpi-value number" id="totalInvested">€0</div>
+                    </div>
+                    <div class="kpi-card current-value">
+                        <div class="kpi-label">Valeur Actuelle</div>
+                        <div class="kpi-value number" id="currentValue">€0</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">P/L Total</div>
+                        <div class="kpi-value number" id="plAbs">€0</div>
+                        <div class="kpi-change" id="plPct">0%</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Performance Annuelle</div>
+                        <div class="kpi-value number" id="annualPerformance">0%</div>
+                    </div>
+                </div>
+
+                <!-- Fiscal Analysis Section -->
+                <div class="fiscal-section card">
+                    <div class="fiscal-title">Analyse Fiscale</div>
+                    <div class="account-selector">
+                        <div class="radio-option selected" onclick="selectAccountType('pea')">
+                            <input type="radio" id="pea" name="account_type" value="pea" checked>
+                            <label for="pea">PEA</label>
+                        </div>
+                        <div class="radio-option" onclick="selectAccountType('cto')">
+                            <input type="radio" id="cto" name="account_type" value="cto">
+                            <label for="cto">CTO</label>
+                        </div>
+                    </div>
+                    <div class="result-cards" id="fiscalResults">
+                        <!-- Results will be populated by JavaScript -->
+                    </div>
+                    <button class="details-btn btn btn-primary" onclick="openFiscalDetails()">Voir les détails</button>
+                </div>
+
+                <!-- Positions Table -->
+                <div class="positions-table table-container">
+                    <div class="table-header">
+                        <div class="table-title">Positions du Portefeuille</div>
+                    </div>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ISIN</th>
+                                <th>Quantité</th>
+                                <th>Prix Moyen</th>
+                                <th>Prix Actuel</th>
+                                <th>Valeur</th>
+                                <th>P/L</th>
+                                <th>%</th>
+                            </tr>
+                        </thead>
+                        <tbody id="positionsTableBody">
+                            <!-- Positions will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Bouton flottant avec menu -->
+    <button class="floating-action-button" id="fabButton" onclick="toggleFloatingMenu()">
+        <span id="fabIcon">⚡</span>
+    </button>
+
+    <div class="floating-menu" id="floatingMenu">
+        <div class="floating-menu-item" onclick="exportOrders()">
+            <span class="icon">📄</span>
+            <span>Exporter les ordres</span>
+        </div>
+        <div class="floating-menu-item" onclick="showComingSoon('Import')">
+            <span class="icon">📥</span>
+            <span>Importer des données</span>
+        </div>
+        <div class="floating-menu-item" onclick="showComingSoon('Sauvegarde')">
+            <span class="icon">☁️</span>
+            <span>Sauvegarde cloud</span>
+        </div>
+        <div class="floating-menu-item" onclick="showComingSoon('Paramètres')">
+            <span class="icon">⚙️</span>
+            <span>Paramètres avancés</span>
+        </div>
+    </div>
+
+    <!-- Fiscal Details Popup -->
+    <div class="popup-overlay" id="fiscalDetailsPopup">
+        <div class="popup-content">
+            <div class="popup-header">
+                <div class="popup-title">Détails de l'Analyse Fiscale</div>
+                <button class="popup-close" onclick="closeFiscalDetails()">&times;</button>
+            </div>
+            <div class="popup-body" id="fiscalDetailsContent">
+                <!-- Content will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // État de l'application
+        let portfolioData = null;
+        let isFloatingMenuOpen = false;
+
+        // Gestion du thème
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+        }
+        
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon(newTheme);
+        }
+        
+        function updateThemeIcon(theme) {
+            const themeIcon = document.querySelector('.theme-icon');
+            if (themeIcon) {
+                themeIcon.textContent = theme === 'dark' ? '🌙' : '☀️';
+            }
+        }
+
+        // Chargement des données du portefeuille
+        async function loadPortfolioData() {
+            try {
+                const response = await fetch('/api/portfolio', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Erreur lors du chargement du portefeuille');
+                }
+
+                const result = await response.json();
+                if (result.success) {
+                    portfolioData = result.data;
+                    // Masquer le loading et afficher le contenu
+                    document.getElementById('loadingState').style.display = 'none';
+                    document.getElementById('portfolioContent').style.display = 'block';
+                    
+                    // Déclencher les animations de manière séquentielle
+                    setTimeout(() => {
+                        document.querySelector('.kpis').classList.add('animate-in');
+                        document.querySelectorAll('.kpi-card').forEach((card, index) => {
+                            setTimeout(() => card.classList.add('animate-in'), index * 100);
+                        });
+                    }, 100);
+                    
+                    setTimeout(() => {
+                        document.querySelector('.fiscal-section').classList.add('animate-in');
+                    }, 600);
+                    
+                    setTimeout(() => {
+                        document.querySelector('.positions-table').classList.add('animate-in');
+                    }, 1000);
+                    
+                    updatePortfolioDisplay();
+                } else {
+                    throw new Error(result.error || 'Erreur inconnue');
+                }
+            } catch (error) {
+                console.error('Erreur lors du chargement du portefeuille:', error);
+                // Masquer le loading et afficher l'état vide
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('portfolioContent').style.display = 'block';
+                showEmptyState();
+            }
+        }
+
+        function updatePortfolioDisplay() {
+            if (!portfolioData) return;
+
+            // Animation des KPIs avec compteur
+            animateCounter('totalInvested', portfolioData.total_invested, '€');
+            animateCounter('currentValue', portfolioData.current_value, '€');
+            
+            const plAbs = portfolioData.pl_abs || 0;
+            const plPct = portfolioData.pl_pct || 0;
+            animateCounter('plAbs', plAbs, '€', plAbs >= 0 ? '+' : '');
+            animateCounter('plPct', plPct, '%', plPct >= 0 ? '+' : '');
+            document.getElementById('plPct').className = `kpi-change ${plPct >= 0 ? 'positive' : 'negative'}`;
+            
+            const annualPerf = portfolioData.performance_data?.annual_return || 0;
+            animateCounter('annualPerformance', annualPerf, '%', annualPerf >= 0 ? '+' : '');
+
+            // Mettre à jour l'analyse fiscale
+            setTimeout(() => updateFiscalAnalysis(), 300);
+
+            // Mettre à jour le tableau des positions
+            setTimeout(() => updatePositionsTable(), 600);
+        }
+
+        function animateCounter(elementId, targetValue, suffix = '', prefix = '') {
+            const element = document.getElementById(elementId);
+            const startValue = 0;
+            const duration = 1000; // 1 seconde
+            const startTime = performance.now();
+            
+            function updateCounter(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // Fonction d'easing pour un effet plus naturel
+                const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+                const currentValue = startValue + (targetValue - startValue) * easeOutQuart;
+                
+                if (suffix === '%') {
+                    element.textContent = `${prefix}${currentValue.toFixed(2)}${suffix}`;
+                } else {
+                    element.textContent = `${prefix}${currentValue.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}${suffix}`;
+                }
+                
+                if (progress < 1) {
+                    requestAnimationFrame(updateCounter);
+                } else {
+                    // Animation finale
+                    element.style.transform = 'scale(1.1)';
+                    setTimeout(() => {
+                        element.style.transform = 'scale(1)';
+                    }, 200);
+                }
+            }
+            
+            requestAnimationFrame(updateCounter);
+        }
+
+        function updateFiscalAnalysis() {
+            const selectedAccountType = document.querySelector('input[name="account_type"]:checked').value;
+            const scenario = portfolioData.fiscal_scenarios[selectedAccountType];
+            
+            const resultsContainer = document.getElementById('fiscalResults');
+            resultsContainer.innerHTML = `
+                <div class="result-card">
+                    <div class="result-label">Valeur Nette</div>
+                    <div class="result-value">€${(scenario.net_value || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</div>
+                </div>
+                <div class="result-card">
+                    <div class="result-label">Impôts</div>
+                    <div class="result-value">€${(scenario.tax_amount || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</div>
+                </div>
+                <div class="result-card">
+                    <div class="result-label">Taux Effectif</div>
+                    <div class="result-value">${((scenario.tax_amount || 0) / (portfolioData.pl_abs || 1) * 100).toFixed(1)}%</div>
+                </div>
+            `;
+            
+            // Animer les cartes de résultats avec un délai
+            const resultCards = resultsContainer.querySelectorAll('.result-card');
+            resultCards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    card.style.transition = 'all 0.4s ease-out';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 100);
+            });
+        }
+
+        function updatePositionsTable() {
+            const tbody = document.getElementById('positionsTableBody');
+            
+            if (!portfolioData.aggregated_positions || portfolioData.aggregated_positions.length === 0) {
+                tbody.innerHTML = `
+                    <tr class="empty-state">
+                        <td colspan="7" style="text-align: center; color: var(--muted); padding: 40px;">
+                            <div class="empty-icon">📊</div>
+                            <div class="empty-title">Aucune position</div>
+                            <div class="empty-description">Votre portefeuille ne contient aucune position pour le moment</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = portfolioData.aggregated_positions.map((position, index) => {
+                const plAbs = position.plAbs || 0;
+                const plPct = position.plPct || 0;
+                const plClass = plAbs >= 0 ? 'positive' : 'negative';
+                
+                return `
+                    <tr style="opacity: 0; transform: translateY(20px);">
+                        <td>${position.isin}</td>
+                        <td class="number">${position.quantity.toLocaleString('fr-FR')}</td>
+                        <td class="number">€${(position.avgUnitPrice || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                        <td class="number">€${(position.currentPrice || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                        <td class="number">€${(position.currentValue || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                        <td class="number ${plClass}">${plAbs >= 0 ? '+' : ''}€${plAbs.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                        <td class="number ${plClass}">${plPct >= 0 ? '+' : ''}${plPct.toFixed(2)}%</td>
+                    </tr>
+                `;
+            }).join('');
+            
+            // Animer les lignes du tableau
+            const rows = tbody.querySelectorAll('tr');
+            rows.forEach((row, index) => {
+                setTimeout(() => {
+                    row.style.transition = 'all 0.4s ease-out';
+                    row.style.opacity = '1';
+                    row.style.transform = 'translateY(0)';
+                }, index * 100);
+            });
+        }
+
+        function showEmptyState() {
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('portfolioContent').style.display = 'block';
+            
+            // Déclencher les animations même pour l'état vide
+            setTimeout(() => {
+                document.querySelector('.kpis').classList.add('animate-in');
+                document.querySelectorAll('.kpi-card').forEach((card, index) => {
+                    setTimeout(() => card.classList.add('animate-in'), index * 100);
+                });
+            }, 100);
+            
+            setTimeout(() => {
+                document.querySelector('.fiscal-section').classList.add('animate-in');
+            }, 600);
+            
+            setTimeout(() => {
+                document.querySelector('.positions-table').classList.add('animate-in');
+            }, 1000);
+            
+            document.getElementById('positionsTableBody').innerHTML = `
+                <tr class="empty-state">
+                    <td colspan="7" style="text-align: center; color: var(--muted); padding: 40px;">
+                        <div class="empty-icon">📊</div>
+                        <div class="empty-title">Aucune position</div>
+                        <div class="empty-description">Votre portefeuille ne contient aucune position pour le moment</div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        // Gestion des types de compte
+        function selectAccountType(accountType) {
+            document.querySelectorAll('input[name="account_type"]').forEach(radio => {
+                radio.checked = radio.value === accountType;
+            });
+            document.querySelectorAll('.radio-option').forEach(option => {
+                option.classList.toggle('selected', option.querySelector('input').value === accountType);
+            });
+            updateFiscalAnalysis();
+        }
+
+        // Gestion des détails fiscaux
+        function openFiscalDetails() {
+            const selectedAccountType = document.querySelector('input[name="account_type"]:checked').value;
+            const scenario = portfolioData.fiscal_scenarios[selectedAccountType];
+            
+            const content = document.getElementById('fiscalDetailsContent');
+            content.innerHTML = `
+                <h3>Scénario ${selectedAccountType.toUpperCase()}</h3>
+                <p><strong>Valeur brute du portefeuille :</strong> €${portfolioData.current_value.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</p>
+                <p><strong>Plus-value latente :</strong> €${(portfolioData.pl_abs || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</p>
+                <p><strong>Impôts dus :</strong> €${(scenario.tax_amount || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</p>
+                <p><strong>Valeur nette après impôts :</strong> €${(scenario.net_value || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</p>
+                <p><strong>Taux d'imposition effectif :</strong> ${((scenario.tax_amount || 0) / (portfolioData.pl_abs || 1) * 100).toFixed(1)}%</p>
+                
+                <h3>Détails du calcul</h3>
+                <p>Le calcul des impôts dépend du type de compte :</p>
+                <ul>
+                    <li><strong>PEA :</strong> 17.5% de CSG/CRDS sur les plus-values</li>
+                    <li><strong>CTO :</strong> 30% de flat tax sur les plus-values</li>
+                </ul>
+            `;
+            
+            document.getElementById('fiscalDetailsPopup').classList.add('show');
+        }
+
+        function closeFiscalDetails() {
+            document.getElementById('fiscalDetailsPopup').classList.remove('show');
+        }
+
+        // Initialisation
+        function init() {
+            initTheme();
+            
+            // Charger les données du portefeuille
+            loadPortfolioData();
+        }
+
+        // Démarrer l'application
+        init();
+
+        // Gestion du bouton flottant
+        function toggleFloatingMenu() {
+            const menu = document.getElementById('floatingMenu');
+            const button = document.getElementById('fabButton');
+            const icon = document.getElementById('fabIcon');
+            
+            isFloatingMenuOpen = !isFloatingMenuOpen;
+            
+            if (isFloatingMenuOpen) {
+                menu.classList.add('show');
+                button.classList.add('expanded');
+                icon.textContent = '✕';
+                
+                // Animation de vibration satisfaisante
+                button.style.animation = 'fabHover 0.6s ease-out';
+                setTimeout(() => {
+                    button.style.animation = '';
+                }, 600);
+            } else {
+                menu.classList.remove('show');
+                button.classList.remove('expanded');
+                icon.textContent = '⚡';
+            }
+        }
+
+        // Fonction d'export des ordres
+        async function exportOrders() {
+            try {
+                // Animation de feedback
+                const button = event.target.closest('.floating-menu-item');
+                button.style.transform = 'translateX(-8px) scale(1.1)';
+                button.style.background = 'rgba(76,175,80,0.2)';
+                
+                const response = await fetch('/api/orders');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const orders = result.orders;
+                    const csvContent = convertToCSV(orders);
+                    downloadCSV(csvContent, 'ordres_portefeuille.csv');
+                    
+                    // Animation de succès
+                    button.querySelector('.icon').textContent = '✅';
+                    setTimeout(() => {
+                        button.querySelector('.icon').textContent = '📄';
+                        button.style.transform = '';
+                        button.style.background = '';
+                    }, 2000);
+                    
+                    // Fermer le menu après export
+                    setTimeout(() => {
+                        toggleFloatingMenu();
+                    }, 1000);
+                } else {
+                    throw new Error('Erreur lors de l\'export');
+                }
+            } catch (error) {
+                console.error('Erreur export:', error);
+                
+                // Animation d'erreur
+                const button = event.target.closest('.floating-menu-item');
+                button.style.background = 'rgba(255,107,107,0.2)';
+                button.querySelector('.icon').textContent = '❌';
+                setTimeout(() => {
+                    button.querySelector('.icon').textContent = '📄';
+                    button.style.background = '';
+                    button.style.transform = '';
+                }, 2000);
+            }
+        }
+
+        // Conversion en CSV
+        function convertToCSV(orders) {
+            if (!orders || orders.length === 0) return '';
+            
+            const headers = ['ID', 'Date', 'Date Demandée', 'ISIN', 'Quantité', 'Prix Unitaire EUR', 'Prix Total EUR', 'Source Prix', 'Venue'];
+            const csvRows = [headers.join(',')];
+            
+            orders.forEach(order => {
+                const row = [
+                    order.id || '',
+                    order.date || '',
+                    order.requestedDate || '',
+                    order.isin || '',
+                    order.quantity || 0,
+                    order.unitPriceEUR || 0,
+                    order.totalPriceEUR || 0,
+                    order.priceSource || '',
+                    order.venue || ''
+                ];
+                csvRows.push(row.map(field => `"${field}"`).join(','));
+            });
+            
+            return csvRows.join('\n');
+        }
+
+        // Téléchargement du fichier CSV
+        function downloadCSV(csvContent, filename) {
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', filename);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+
+        // Fonction pour les fonctionnalités à venir
+        function showComingSoon(feature) {
+            const button = event.target.closest('.floating-menu-item');
+            const originalIcon = button.querySelector('.icon').textContent;
+            
+            // Animation de feedback
+            button.style.transform = 'translateX(-8px) scale(1.05)';
+            button.style.background = 'rgba(255,167,38,0.2)';
+            button.querySelector('.icon').textContent = '🚧';
+            
+            // Message temporaire
+            const originalText = button.querySelector('span:last-child').textContent;
+            button.querySelector('span:last-child').textContent = 'Bientôt disponible !';
+            
+            setTimeout(() => {
+                button.querySelector('.icon').textContent = originalIcon;
+                button.querySelector('span:last-child').textContent = originalText;
+                button.style.transform = '';
+                button.style.background = '';
+            }, 2000);
+        }
+
+        // Fermer le menu en cliquant à l'extérieur
+        document.addEventListener('click', (e) => {
+            const fabButton = document.getElementById('fabButton');
+            const floatingMenu = document.getElementById('floatingMenu');
+            
+            if (isFloatingMenuOpen && 
+                !fabButton.contains(e.target) && 
+                !floatingMenu.contains(e.target)) {
+                toggleFloatingMenu();
+            }
+        });
+
+        // Fermer la popup en cliquant à l'extérieur
+        document.getElementById('fiscalDetailsPopup').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                closeFiscalDetails();
+            }
+        });
+    </script>
+</body>
+</html>

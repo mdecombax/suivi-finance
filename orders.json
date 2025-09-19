@@ -1,0 +1,211 @@
+[
+  {
+    "id": 1757703164538,
+    "date": "2024-12-17",
+    "requestedDate": "2024-12-17",
+    "isin": "LU1681043599",
+    "quantity": 1.0,
+    "unitPriceEUR": 577.66,
+    "totalPriceEUR": 577.66,
+    "priceSource": "JustETF",
+    "venue": null
+  },
+  {
+    "id": 1757703164539,
+    "date": "2024-12-16",
+    "requestedDate": "2024-12-16",
+    "isin": "FR0011871128",
+    "quantity": 10.0,
+    "unitPriceEUR": 49.95,
+    "totalPriceEUR": 499.50,
+    "priceSource": "JustETF",
+    "venue": null
+  },
+  {
+    "id": 1757703164540,
+    "date": "2025-01-24",
+    "requestedDate": "2025-01-24",
+    "isin": "LU1681043599",
+    "quantity": 1.0,
+    "unitPriceEUR": 586.80,
+    "totalPriceEUR": 586.80,
+    "priceSource": "JustETF",
+    "venue": null
+  },
+  {
+    "id": 1757703164541,
+    "date": "2025-01-24",
+    "requestedDate": "2025-01-24",
+    "isin": "FR0011871128",
+    "quantity": 10.0,
+    "unitPriceEUR": 50.68,
+    "totalPriceEUR": 506.80,
+    "priceSource": "JustETF",
+    "venue": null
+  },
+  {
+    "id": 1757703164542,
+    "date": "2025-02-17",
+    "requestedDate": "2025-02-17",
+    "isin": "LU1681043599",
+    "quantity": 1.0,
+    "unitPriceEUR": 592.05,
+    "totalPriceEUR": 592.05,
+    "priceSource": "JustETF",
+    "venue": null
+  },
+  {
+    "id": 1757703164543,
+    "date": "2025-02-17",
+    "requestedDate": "2025-02-17",
+    "isin": "FR0011871128",
+    "quantity": 10.0,
+    "unitPriceEUR": 50.72,
+    "totalPriceEUR": 507.20,
+    "priceSource": "JustETF",
+    "venue": null
+  },
+  {
+    "id": 1757703164544,
+    "date": "2025-03-17",
+    "requestedDate": "2025-03-17",
+    "isin": "LU1681047236",
+    "quantity": 4.0,
+    "unitPriceEUR": 139.02,
+    "totalPriceEUR": 556.08,
+    "priceSource": "JustETF",
+    "venue": null
+  },
+  {
+    "id": 1757703164545,
+    "date": "2025-03-17",
+    "requestedDate": "2025-03-17",
+    "isin": "LU1681043599",
+    "quantity": 1.0,
+    "unitPriceEUR": 535.00,
+    "totalPriceEUR": 535.00,
+    "priceSource": "JustETF",
+    "venue": null
+  },
+  {
+    "id": 1757703164546,
+    "date": "2025-04-16",
+    "requestedDate": "2025-04-16",
+    "isin": "LU1681047236",
+    "quantity": 8.0,
+    "unitPriceEUR": 126.84,
+    "totalPriceEUR": 1014.72,
+    "priceSource": "JustETF",
+    "venue": null
+  },
+  {
+    "id": 1757703164547,
+    "date": "2025-05-20",
+    "requestedDate": "2025-05-20",
+    "isin": "LU1681047236",
+    "quantity": 4.0,
+    "unitPriceEUR": 142.38,
+    "totalPriceEUR": 569.52,
+    "priceSource": "JustETF",
+    "venue": null
+  },
+  {
+    "id": 1757703164548,
+    "date": "2025-05-20",
+    "requestedDate": "2025-05-20",
+    "isin": "LU1681043599",
+    "quantity": 1.0,
+    "unitPriceEUR": 550.31,
+    "totalPriceEUR": 550.31,
+    "priceSource": "JustETF",
+    "venue": null
+  },
+  {
+    "id": 1757703164549,
+    "date": "2025-06-17",
+    "requestedDate": "2025-06-17",
+    "isin": "LU1681047236",
+    "quantity": 3.0,
+    "unitPriceEUR": 137.96,
+    "totalPriceEUR": 413.88,
+    "priceSource": "JustETF",
+    "venue": null
+  },
+  {
+    "id": 1757703164550,
+    "date": "2025-06-17",
+    "requestedDate": "2025-06-17",
+    "isin": "LU1681043599",
+    "quantity": 1.0,
+    "unitPriceEUR": 542.10,
+    "totalPriceEUR": 542.10,
+    "priceSource": "JustETF",
+    "venue": null
+  },
+  {
+    "id": 1757703164551,
+    "date": "2025-07-15",
+    "requestedDate": "2025-07-15",
+    "isin": "LU1681047236",
+    "quantity": 4.0,
+    "unitPriceEUR": 140.56,
+    "totalPriceEUR": 562.24,
+    "priceSource": "JustETF",
+    "venue": null
+  },
+  {
+    "id": 1757703164552,
+    "date": "2025-07-15",
+    "requestedDate": "2025-07-15",
+    "isin": "LU1681043599",
+    "quantity": 1.0,
+    "unitPriceEUR": 556.79,
+    "totalPriceEUR": 556.79,
+    "priceSource": "JustETF",
+    "venue": null
+  },
+  {
+    "id": 1757703164553,
+    "date": "2025-08-18",
+    "requestedDate": "2025-08-18",
+    "isin": "LU1681047236",
+    "quantity": 4.0,
+    "unitPriceEUR": 141.62,
+    "totalPriceEUR": 566.48,
+    "priceSource": "JustETF",
+    "venue": null
+  },
+  {
+    "id": 1757703164554,
+    "date": "2025-08-18",
+    "requestedDate": "2025-08-18",
+    "isin": "LU1681043599",
+    "quantity": 1.0,
+    "unitPriceEUR": 571.26,
+    "totalPriceEUR": 571.26,
+    "priceSource": "JustETF",
+    "venue": null
+  },
+  {
+    "id": 1757703164555,
+    "date": "2025-09-16",
+    "requestedDate": "2025-09-16",
+    "isin": "LU1681047236",
+    "quantity": 3.0,
+    "unitPriceEUR": 142.04,
+    "totalPriceEUR": 426.12,
+    "priceSource": "JustETF",
+    "venue": null
+  },
+  {
+    "id": 1757703164556,
+    "date": "2025-09-16",
+    "requestedDate": "2025-09-16",
+    "isin": "LU1681043599",
+    "quantity": 1.0,
+    "unitPriceEUR": 581.13,
+    "totalPriceEUR": 581.13,
+    "priceSource": "JustETF",
+    "venue": null
+  }
+]

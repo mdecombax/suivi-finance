@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Firebase Inline</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .warning { background: #fff3cd; color: #856404; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .test-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 400px;
+        }
+        .test-form input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        #logs {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test Firebase Inline</h1>
+    
+    <div class="test-section">
+        <h2>1. Configuration Firebase</h2>
+        <div id="configStatus" class="status info">Chargement en cours...</div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. Test de Connexion</h2>
+        <div class="test-form">
+            <input type="email" id="testEmail" placeholder="Email de test" value="test@example.com">
+            <input type="password" id="testPassword" placeholder="Mot de passe" value="password123">
+            <button onclick="testLogin()" id="loginBtn">Tester Connexion</button>
+            <button onclick="testSignup()" id="signupBtn">Tester Inscription</button>
+            <button onclick="testLogout()" id="logoutBtn">Déconnexion</button>
+        </div>
+        <div id="authStatus" class="status info">Non connecté</div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Test Firestore</h2>
+        <button onclick="testFirestoreWrite()" id="firestoreWriteBtn">Tester Écriture</button>
+        <button onclick="testFirestoreRead()" id="firestoreReadBtn">Tester Lecture</button>
+        <div id="firestoreStatus" class="status info">Prêt</div>
+    </div>
+    
+    <div class="test-section">
+        <h2>4. Logs de Test</h2>
+        <div id="logs"></div>
+        <button onclick="clearLogs()">Effacer les logs</button>
+    </div>
+
+    <!-- CDN Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    
+    <script>
+        // Configuration Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyBFrk8tZVEuM0LeQ0D8kJ7N2Bt-KyuQv0I",
+            authDomain: "suivi-financ.firebaseapp.com",
+            projectId: "suivi-financ",
+            storageBucket: "suivi-financ.firebasestorage.app",
+            messagingSenderId: "959011615445",
+            appId: "1:959011615445:web:993be6cee77fc6cedae85c",
+            measurementId: "G-8QXCJ8J23S"
+        };
+
+        // Variables globales
+        let app, auth, db;
+        let currentUser = null;
+        let authStateListeners = [];
+
+        function log(message, type = 'info') {
+            const logs = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `status ${type}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logs.appendChild(logEntry);
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+
+        function updateAuthStatus() {
+            const statusDiv = document.getElementById('authStatus');
+            if (currentUser) {
+                statusDiv.className = 'status success';
+                statusDiv.textContent = `✅ Connecté: ${currentUser.email || currentUser.uid}`;
+            } else {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Non connecté';
+            }
+        }
+
+        // Fonctions d'authentification
+        const authFunctions = {
+            async signInWithEmail(email, password) {
+                try {
+                    const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                    return { success: true, user: userCredential.user };
+                } catch (error) {
+                    return { success: false, error: error.message };
+                }
+            },
+
+            async signInWithGoogle() {
+                try {
+                    const provider = new firebase.auth.GoogleAuthProvider();
+                    const result = await auth.signInWithPopup(provider);
+                    return { success: true, user: result.user };
+                } catch (error) {
+                    return { success: false, error: error.message };
+                }
+            },
+
+            async signUpWithEmail(email, password, displayName) {
+                try {
+                    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                    if (displayName) {
+                        await userCredential.user.updateProfile({ displayName });
+                    }
+                    return { success: true, user: userCredential.user };
+                } catch (error) {
+                    return { success: false, error: error.message };
+                }
+            },
+
+            async signOut() {
+                try {
+                    await auth.signOut();
+                    return { success: true };
+                } catch (error) {
+                    return { success: false, error: error.message };
+                }
+            },
+
+            getCurrentUser() {
+                return currentUser;
+            },
+
+            onAuthStateChanged(callback) {
+                authStateListeners.push(callback);
+                return () => {
+                    const index = authStateListeners.indexOf(callback);
+                    if (index > -1) {
+                        authStateListeners.splice(index, 1);
+                    }
+                };
+            }
+        };
+
+        // Fonctions Firestore
+        const firestoreFunctions = {
+            async addOrder(userId, orderData) {
+                try {
+                    const docRef = await db.collection('users').doc(userId).collection('orders').add({
+                        ...orderData,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    return { success: true, id: docRef.id };
+                } catch (error) {
+                    return { success: false, error: error.message };
+                }
+            },
+
+            async getOrders(userId) {
+                try {
+                    const querySnapshot = await db.collection('users').doc(userId).collection('orders')
+                        .orderBy('date', 'asc')
+                        .get();
+                    
+                    const orders = [];
+                    querySnapshot.forEach((doc) => {
+                        orders.push({ id: doc.id, ...doc.data() });
+                    });
+                    
+                    return { success: true, orders };
+                } catch (error) {
+                    return { success: false, error: error.message };
+                }
+            },
+
+            async deleteOrder(userId, orderId) {
+                try {
+                    await db.collection('users').doc(userId).collection('orders').doc(orderId).delete();
+                    return { success: true };
+                } catch (error) {
+                    return { success: false, error: error.message };
+                }
+            }
+        };
+
+        async function testLogin() {
+            const email = document.getElementById('testEmail').value;
+            const password = document.getElementById('testPassword').value;
+            
+            if (!email || !password) {
+                log('Veuillez remplir email et mot de passe', 'error');
+                return;
+            }
+
+            try {
+                log(`Tentative de connexion avec ${email}...`, 'info');
+                const result = await authFunctions.signInWithEmail(email, password);
+                
+                if (result.success) {
+                    currentUser = result.user;
+                    updateAuthStatus();
+                    log('✅ Connexion réussie!', 'success');
+                } else {
+                    log(`❌ Échec de la connexion: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Erreur de connexion: ${error.message}`, 'error');
+            }
+        }
+
+        async function testSignup() {
+            const email = document.getElementById('testEmail').value;
+            const password = document.getElementById('testPassword').value;
+            
+            if (!email || !password) {
+                log('Veuillez remplir email et mot de passe', 'error');
+                return;
+            }
+
+            try {
+                log(`Tentative d'inscription avec ${email}...`, 'info');
+                const result = await authFunctions.signUpWithEmail(email, password, 'Test User');
+                
+                if (result.success) {
+                    currentUser = result.user;
+                    updateAuthStatus();
+                    log('✅ Inscription réussie!', 'success');
+                } else {
+                    log(`❌ Échec de l'inscription: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Erreur d'inscription: ${error.message}`, 'error');
+            }
+        }
+
+        async function testLogout() {
+            try {
+                log('Tentative de déconnexion...', 'info');
+                const result = await authFunctions.signOut();
+                
+                if (result.success) {
+                    currentUser = null;
+                    updateAuthStatus();
+                    log('✅ Déconnexion réussie!', 'success');
+                } else {
+                    log(`❌ Échec de la déconnexion: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Erreur de déconnexion: ${error.message}`, 'error');
+            }
+        }
+
+        async function testFirestoreWrite() {
+            if (!currentUser) {
+                log('❌ Vous devez être connecté pour tester Firestore', 'error');
+                return;
+            }
+
+            try {
+                log('Tentative d\'écriture dans Firestore...', 'info');
+                const testData = {
+                    message: 'Test depuis le frontend',
+                    timestamp: new Date().toISOString(),
+                    user: currentUser.uid
+                };
+
+                const result = await firestoreFunctions.addOrder(currentUser.uid, testData);
+                
+                if (result.success) {
+                    log(`✅ Écriture réussie! ID: ${result.id}`, 'success');
+                } else {
+                    log(`❌ Échec de l'écriture: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Erreur d'écriture: ${error.message}`, 'error');
+            }
+        }
+
+        async function testFirestoreRead() {
+            if (!currentUser) {
+                log('❌ Vous devez être connecté pour tester Firestore', 'error');
+                return;
+            }
+
+            try {
+                log('Tentative de lecture depuis Firestore...', 'info');
+                const result = await firestoreFunctions.getOrders(currentUser.uid);
+                
+                if (result.success) {
+                    log(`✅ Lecture réussie! ${result.orders.length} ordres trouvés`, 'success');
+                    result.orders.forEach((order, index) => {
+                        log(`  Ordre ${index + 1}: ${JSON.stringify(order)}`, 'info');
+                    });
+                } else {
+                    log(`❌ Échec de la lecture: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Erreur de lecture: ${error.message}`, 'error');
+            }
+        }
+
+        // Test de configuration
+        function testConfiguration() {
+            try {
+                log('Vérification de la configuration Firebase...', 'info');
+                
+                if (typeof firebase === 'undefined') {
+                    log('❌ Firebase non disponible', 'error');
+                    return false;
+                }
+                
+                if (typeof authFunctions === 'undefined') {
+                    log('❌ authFunctions non disponible', 'error');
+                    return false;
+                }
+                
+                if (typeof firestoreFunctions === 'undefined') {
+                    log('❌ firestoreFunctions non disponible', 'error');
+                    return false;
+                }
+                
+                log('✅ Configuration Firebase chargée', 'success');
+                return true;
+            } catch (error) {
+                log(`❌ Erreur de configuration: ${error.message}`, 'error');
+                return false;
+            }
+        }
+
+        // Initialisation
+        function init() {
+            log('🚀 Initialisation du test Firebase Inline', 'info');
+            
+            try {
+                // Initialiser Firebase
+                app = firebase.initializeApp(firebaseConfig);
+                auth = firebase.auth();
+                db = firebase.firestore();
+                
+                log('✅ Firebase initialisé', 'success');
+                
+                // Tester la configuration
+                if (testConfiguration()) {
+                    document.getElementById('configStatus').className = 'status success';
+                    document.getElementById('configStatus').textContent = '✅ Configuration Firebase chargée';
+                } else {
+                    document.getElementById('configStatus').className = 'status error';
+                    document.getElementById('configStatus').textContent = '❌ Erreur de configuration';
+                }
+                
+                // Vérifier l'état de connexion
+                currentUser = auth.currentUser;
+                updateAuthStatus();
+                
+                // Écouter les changements d'état
+                auth.onAuthStateChanged((user) => {
+                    currentUser = user;
+                    updateAuthStatus();
+                    log(`Changement d'état d'authentification: ${user ? 'connecté' : 'déconnecté'}`, 'info');
+                });
+                
+            } catch (error) {
+                log(`❌ Erreur d'initialisation: ${error.message}`, 'error');
+                document.getElementById('configStatus').className = 'status error';
+                document.getElementById('configStatus').textContent = '❌ Erreur d\'initialisation Firebase';
+            }
+        }
+
+        // Démarrer les tests
+        init();
+    </script>
+</body>
+</html>

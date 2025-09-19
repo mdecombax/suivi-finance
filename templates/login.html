@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Suivi Finance — Connexion</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        /* Styles spécifiques à la page de connexion */
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .login-container {
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+            animation: fadeInUp 0.8s ease-out;
+        }
+        
+        .login-card { 
+            background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); 
+            border: 1px solid rgba(255,255,255,0.06); 
+            border-radius: var(--border-radius-2xl); 
+            padding: 40px; 
+            box-shadow: var(--shadow-xl), 0 1px 0 rgba(255,255,255,0.05) inset; 
+            backdrop-filter: blur(6px); 
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .login-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: var(--gradient-primary);
+            opacity: 0;
+            transition: opacity var(--transition-normal);
+        }
+        
+        .login-card:hover::before {
+            opacity: 1;
+        }
+        
+        [data-theme="light"] .login-card {
+            background: linear-gradient(180deg, rgba(255,255,255,0.8), rgba(255,255,255,0.6));
+            border: 1px solid rgba(0,0,0,0.08);
+            box-shadow: var(--shadow-xl), 0 1px 0 rgba(255,255,255,0.8) inset;
+        }
+        
+        .logo { 
+            width: 60px; 
+            height: 60px; 
+            border-radius: var(--border-radius-xl); 
+            background: var(--gradient-primary); 
+            box-shadow: var(--shadow-primary-lg), inset 0 1px 4px rgba(255,255,255,0.2); 
+            margin: 0 auto 24px;
+            animation: float 3s ease-in-out infinite;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .logo::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: shimmer 3s infinite;
+        }
+        
+        .title { 
+            font-size: 2rem; 
+            font-weight: 800; 
+            margin-bottom: 8px; 
+            background: linear-gradient(135deg, var(--text), var(--primary-accent)); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+            background-clip: text;
+            animation: fadeInDown 0.6s ease-out 0.2s both;
+        }
+        
+        .subtitle { 
+            color: var(--muted); 
+            font-size: 1.1rem; 
+            margin-bottom: 32px;
+            animation: fadeInDown 0.6s ease-out 0.3s both;
+        }
+        
+        .form-group { 
+            margin-bottom: 20px; 
+            text-align: left;
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        .form-group:nth-child(1) { animation-delay: 0.4s; }
+        .form-group:nth-child(2) { animation-delay: 0.5s; }
+        
+        .form-label { 
+            display: block; 
+            margin-bottom: 8px; 
+            font-weight: 600; 
+            color: var(--text); 
+        }
+        
+        .form-input { 
+            width: 100%; 
+            border: 1px solid rgba(255,255,255,0.08); 
+            background: rgba(255,255,255,0.05); 
+            color: var(--text); 
+            border-radius: var(--border-radius-lg); 
+            padding: 14px 16px; 
+            font-size: 16px; 
+            outline: none; 
+            transition: all var(--transition-fast);
+            position: relative;
+        }
+        
+        .form-input::placeholder { 
+            color: var(--muted); 
+        }
+        
+        .form-input:focus { 
+            border-color: var(--primary); 
+            box-shadow: 0 0 0 6px var(--ring);
+            background: rgba(255,255,255,0.08);
+            transform: scale(1.02);
+        }
+        
+        [data-theme="light"] .form-input {
+            background: rgba(0,0,0,0.02);
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        
+        [data-theme="light"] .form-input:focus {
+            background: rgba(0,0,0,0.05);
+        }
+        
+        .btn { 
+            width: 100%; 
+            appearance: none; 
+            border: 0; 
+            border-radius: var(--border-radius-lg); 
+            background: var(--gradient-primary); 
+            color: #001024; 
+            font-weight: 700; 
+            letter-spacing: .2px; 
+            padding: 16px 20px; 
+            font-size: 16px; 
+            cursor: pointer; 
+            box-shadow: var(--shadow-primary-lg); 
+            transition: all var(--transition-fast); 
+            margin-bottom: 12px;
+            position: relative;
+            overflow: hidden;
+            animation: fadeInUp 0.6s ease-out 0.6s both;
+        }
+        
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            transition: all var(--transition-normal);
+            transform: translate(-50%, -50%);
+        }
+        
+        .btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+        
+        .btn:hover { 
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: var(--shadow-primary-lg);
+        }
+        
+        .btn:active { 
+            transform: translateY(0) scale(0.98); 
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-google {
+            background: linear-gradient(135deg, #4285f4, #34a853);
+            color: white;
+            box-shadow: 0 10px 24px rgba(66, 133, 244, 0.35);
+            animation: fadeInUp 0.6s ease-out 0.7s both;
+        }
+        
+        .btn-google:hover {
+            box-shadow: 0 15px 30px rgba(66, 133, 244, 0.4);
+        }
+        
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 24px 0;
+            color: var(--muted);
+            animation: fadeIn 0.6s ease-out 0.8s both;
+        }
+        
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: rgba(255,255,255,0.1);
+        }
+        
+        .divider span {
+            padding: 0 16px;
+            font-size: 0.9rem;
+        }
+        
+        .links {
+            margin-top: 24px;
+            text-align: center;
+            animation: fadeInUp 0.6s ease-out 0.9s both;
+        }
+        
+        .link {
+            color: var(--primary-accent); 
+            text-decoration: none; 
+            font-weight: 600;
+            transition: all var(--transition-fast);
+        }
+        
+        .link:hover { 
+            text-decoration: underline;
+            transform: scale(1.05);
+        }
+        
+        .theme-switch {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, var(--card), rgba(255,255,255,0.05));
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 50px;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all var(--transition-normal);
+            box-shadow: var(--shadow-md);
+            animation: scaleIn 0.6s ease-out 1s both;
+        }
+        
+        .theme-switch:hover {
+            transform: scale(1.1) rotate(5deg);
+            box-shadow: var(--shadow-primary-lg);
+            border-color: var(--primary);
+        }
+        
+        .theme-icon {
+            font-size: 1.5rem;
+            transition: transform var(--transition-spring);
+        }
+        
+        .theme-switch:hover .theme-icon {
+            transform: rotate(180deg) scale(1.2);
+        }
+        
+        [data-theme="light"] .theme-switch {
+            background: linear-gradient(135deg, var(--card), rgba(0,0,0,0.02));
+            border: 1px solid rgba(0,0,0,0.1);
+            box-shadow: var(--shadow-md);
+        }
+        
+        /* Responsive */
+        @media (max-width: 480px) {
+            .login-container {
+                padding: 16px;
+            }
+            .login-card {
+                padding: 24px;
+            }
+            .title {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+    <meta name="robots" content="noindex" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <meta name="description" content="Connexion à votre compte Suivi Finance" />
+</head>
+<body>
+    <button class="theme-switch" id="themeSwitch" onclick="toggleTheme()" aria-label="Changer de thème">
+        <span class="theme-icon" id="themeIcon">🌙</span>
+    </button>
+
+    <div class="login-container">
+        <div class="login-card">
+            <div class="logo"></div>
+            <h1 class="title">Connexion</h1>
+            <p class="subtitle">Accédez à votre portefeuille d'investissement</p>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label class="form-label" for="email">Email</label>
+                    <input 
+                        class="form-input" 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        placeholder="votre@email.com" 
+                        required 
+                    />
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="password">Mot de passe</label>
+                    <input 
+                        class="form-input" 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        placeholder="••••••••" 
+                        required 
+                    />
+                </div>
+
+                <button type="submit" class="btn" id="loginBtn">
+                    <span id="loginBtnText">Se connecter</span>
+                    <span id="loginBtnLoading" class="loading" style="display: none;"></span>
+                </button>
+            </form>
+
+            <div class="divider">
+                <span>ou</span>
+            </div>
+
+            <button type="button" class="btn btn-google" id="googleBtn">
+                <span id="googleBtnText">Continuer avec Google</span>
+                <span id="googleBtnLoading" class="loading" style="display: none;"></span>
+            </button>
+
+            <div id="messageContainer"></div>
+
+            <div class="links">
+                <p>Pas encore de compte ? <a href="/register" class="link">Créer un compte</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { authFunctions } from '/static/js/firebase-config.js';
+
+        // Gestion du thème
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+        }
+        
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon(newTheme);
+        }
+        
+        function updateThemeIcon(theme) {
+            const themeIcon = document.getElementById('themeIcon');
+            if (themeIcon) {
+                themeIcon.textContent = theme === 'dark' ? '🌙' : '☀️';
+            }
+        }
+
+        // Initialiser le thème
+        initTheme();
+
+        // Gestion des messages
+        function showMessage(message, type = 'error') {
+            const container = document.getElementById('messageContainer');
+            container.innerHTML = `<div class="${type}">${message}</div>`;
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    container.innerHTML = '';
+                }, 3000);
+            }
+        }
+
+        // Gestion du formulaire de connexion
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+            const loginBtnText = document.getElementById('loginBtnText');
+            const loginBtnLoading = document.getElementById('loginBtnLoading');
+            
+            // Afficher le loading
+            loginBtn.disabled = true;
+            loginBtnText.style.display = 'none';
+            loginBtnLoading.style.display = 'inline-block';
+            
+            try {
+                const result = await authFunctions.signInWithEmail(email, password);
+                
+                if (result.success) {
+                    showMessage('Connexion réussie ! Redirection...', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1000);
+                } else {
+                    showMessage(result.error, 'error');
+                }
+            } catch (error) {
+                showMessage('Erreur de connexion', 'error');
+            } finally {
+                // Masquer le loading
+                loginBtn.disabled = false;
+                loginBtnText.style.display = 'inline';
+                loginBtnLoading.style.display = 'none';
+            }
+        });
+
+        // Gestion de la connexion Google
+        document.getElementById('googleBtn').addEventListener('click', async () => {
+            const googleBtn = document.getElementById('googleBtn');
+            const googleBtnText = document.getElementById('googleBtnText');
+            const googleBtnLoading = document.getElementById('googleBtnLoading');
+            
+            // Afficher le loading
+            googleBtn.disabled = true;
+            googleBtnText.style.display = 'none';
+            googleBtnLoading.style.display = 'inline-block';
+            
+            try {
+                const result = await authFunctions.signInWithGoogle();
+                
+                if (result.success) {
+                    showMessage('Connexion réussie ! Redirection...', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1000);
+                } else {
+                    showMessage(result.error, 'error');
+                }
+            } catch (error) {
+                showMessage('Erreur de connexion Google', 'error');
+            } finally {
+                // Masquer le loading
+                googleBtn.disabled = false;
+                googleBtnText.style.display = 'inline';
+                googleBtnLoading.style.display = 'none';
+            }
+        });
+
+        // Vérifier si l'utilisateur est déjà connecté
+        const currentUser = authFunctions.getCurrentUser();
+        if (currentUser) {
+            window.location.href = '/';
+        }
+        
+        authFunctions.onAuthStateChanged((user) => {
+            if (user) {
+                window.location.href = '/';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Suivi Finance — Inscription</title>
+    <style>
+        :root {
+            --bg: #0b0f19;
+            --card: #111729;
+            --muted: #9aa4bf;
+            --primary: #6ea8fe;
+            --primary-accent: #82c4ff;
+            --text: #e6eaf2;
+            --danger: #ff6b6b;
+            --success: #4caf50;
+            --ring: rgba(130,196,255,0.25);
+        }
+        
+        /* Mode clair */
+        [data-theme="light"] {
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --muted: #64748b;
+            --primary: #3b82f6;
+            --primary-accent: #2563eb;
+            --text: #1e293b;
+            --danger: #ef4444;
+            --success: #22c55e;
+            --ring: rgba(59,130,246,0.25);
+        }
+        
+        * { box-sizing: border-box; }
+        body { 
+            margin: 0; 
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; 
+            background: radial-gradient(1200px 600px at 80% -10%, rgba(130,196,255,0.15), transparent 60%), linear-gradient(180deg, var(--bg) 0%, var(--bg) 100%); 
+            color: var(--text); 
+            transition: background 0.3s ease, color 0.3s ease;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        [data-theme="light"] body {
+            background: radial-gradient(1200px 600px at 80% -10%, rgba(59,130,246,0.08), transparent 60%), linear-gradient(180deg, var(--bg) 0%, var(--bg) 100%);
+        }
+        
+        .register-container {
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+        }
+        
+        .register-card { 
+            background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); 
+            border: 1px solid rgba(255,255,255,0.06); 
+            border-radius: 20px; 
+            padding: 40px; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3), 0 1px 0 rgba(255,255,255,0.05) inset; 
+            backdrop-filter: blur(6px); 
+            text-align: center;
+        }
+        
+        [data-theme="light"] .register-card {
+            background: linear-gradient(180deg, rgba(255,255,255,0.8), rgba(255,255,255,0.6));
+            border: 1px solid rgba(0,0,0,0.08);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1), 0 1px 0 rgba(255,255,255,0.8) inset;
+        }
+        
+        .logo { 
+            width: 60px; 
+            height: 60px; 
+            border-radius: 16px; 
+            background: linear-gradient(135deg, var(--primary), var(--primary-accent)); 
+            box-shadow: 0 15px 35px rgba(130,196,255,0.4), inset 0 1px 4px rgba(255,255,255,0.2); 
+            margin: 0 auto 24px;
+        }
+        
+        .title { 
+            font-size: 2rem; 
+            font-weight: 800; 
+            margin-bottom: 8px; 
+            background: linear-gradient(135deg, var(--text), var(--primary-accent)); 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+            background-clip: text; 
+        }
+        
+        .subtitle { 
+            color: var(--muted); 
+            font-size: 1.1rem; 
+            margin-bottom: 32px; 
+        }
+        
+        .form-group { 
+            margin-bottom: 20px; 
+            text-align: left; 
+        }
+        
+        .form-label { 
+            display: block; 
+            margin-bottom: 8px; 
+            font-weight: 600; 
+            color: var(--text); 
+        }
+        
+        .form-input { 
+            width: 100%; 
+            border: 1px solid rgba(255,255,255,0.08); 
+            background: #0e1424; 
+            color: var(--text); 
+            border-radius: 12px; 
+            padding: 14px 16px; 
+            font-size: 16px; 
+            outline: none; 
+            transition: border-color .2s, box-shadow .2s, background .3s ease; 
+        }
+        
+        .form-input::placeholder { color: #6b7490; }
+        .form-input:focus { 
+            border-color: var(--primary); 
+            box-shadow: 0 0 0 6px var(--ring); 
+        }
+        
+        [data-theme="light"] .form-input {
+            background: #f8fafc;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        [data-theme="light"] .form-input::placeholder {
+            color: #94a3b8;
+        }
+        
+        .btn { 
+            width: 100%; 
+            appearance: none; 
+            border: 0; 
+            border-radius: 12px; 
+            background: linear-gradient(135deg, var(--primary), var(--primary-accent)); 
+            color: #001024; 
+            font-weight: 700; 
+            letter-spacing: .2px; 
+            padding: 16px 20px; 
+            font-size: 16px; 
+            cursor: pointer; 
+            box-shadow: 0 10px 24px rgba(130,196,255,0.35); 
+            transition: transform .05s ease, filter .2s ease; 
+            margin-bottom: 12px;
+        }
+        .btn:hover { 
+            filter: brightness(1.05); 
+            transform: translateY(-2px); 
+        }
+        .btn:active { 
+            transform: translateY(0); 
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-google {
+            background: linear-gradient(135deg, #4285f4, #34a853);
+            color: white;
+            box-shadow: 0 10px 24px rgba(66, 133, 244, 0.35);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05)); 
+            color: var(--text); 
+            border: 1px solid rgba(255,255,255,0.2); 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
+        }
+        .btn-secondary:hover { 
+            background: linear-gradient(135deg, rgba(130,196,255,0.2), rgba(130,196,255,0.1)); 
+            border-color: var(--primary); 
+        }
+        
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 24px 0;
+            color: var(--muted);
+        }
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: rgba(255,255,255,0.1);
+        }
+        .divider span {
+            padding: 0 16px;
+            font-size: 0.9rem;
+        }
+        
+        .error { 
+            margin-top: 16px; 
+            padding: 12px 16px; 
+            border-radius: 8px; 
+            color: #1d0a0a; 
+            background: linear-gradient(180deg, rgba(255,107,107,0.15), rgba(255,107,107,0.1)); 
+            border: 1px solid rgba(255,107,107,0.35); 
+            font-size: 0.9rem;
+        }
+        
+        .success { 
+            margin-top: 16px; 
+            padding: 12px 16px; 
+            border-radius: 8px; 
+            color: #d7ffe0; 
+            background: linear-gradient(180deg, rgba(48, 255, 126, 0.18), rgba(48, 255, 126, 0.10)); 
+            border: 1px solid rgba(110,248,138,0.45); 
+            font-size: 0.9rem;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary);
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .links {
+            margin-top: 24px;
+            text-align: center;
+        }
+        
+        .link {
+            color: var(--primary-accent); 
+            text-decoration: none; 
+            font-weight: 600;
+        }
+        .link:hover { 
+            text-decoration: underline; 
+        }
+        
+        .theme-switch {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, var(--card), rgba(255,255,255,0.05));
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 50px;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .theme-switch:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+            border-color: var(--primary);
+        }
+        .theme-icon {
+            font-size: 1.5rem;
+            transition: transform 0.3s ease;
+        }
+        .theme-switch:hover .theme-icon {
+            transform: rotate(15deg);
+        }
+        
+        [data-theme="light"] .theme-switch {
+            background: linear-gradient(135deg, var(--card), rgba(0,0,0,0.02));
+            border: 1px solid rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .password-requirements {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+        
+        .requirement {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        
+        .requirement.valid {
+            color: var(--success);
+        }
+        
+        .requirement.invalid {
+            color: var(--danger);
+        }
+        
+        /* Responsive */
+        @media (max-width: 480px) {
+            .register-container {
+                padding: 16px;
+            }
+            .register-card {
+                padding: 24px;
+            }
+            .title {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+    <meta name="robots" content="noindex" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <meta name="description" content="Créer un compte Suivi Finance" />
+</head>
+<body>
+    <button class="theme-switch" id="themeSwitch" onclick="toggleTheme()" aria-label="Changer de thème">
+        <span class="theme-icon" id="themeIcon">🌙</span>
+    </button>
+
+    <div class="register-container">
+        <div class="register-card">
+            <div class="logo"></div>
+            <h1 class="title">Inscription</h1>
+            <p class="subtitle">Créez votre compte pour commencer à suivre vos investissements</p>
+
+            <form id="registerForm">
+                <div class="form-group">
+                    <label class="form-label" for="displayName">Nom complet</label>
+                    <input 
+                        class="form-input" 
+                        type="text" 
+                        id="displayName" 
+                        name="displayName" 
+                        placeholder="Jean Dupont" 
+                        required 
+                    />
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="email">Email</label>
+                    <input 
+                        class="form-input" 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        placeholder="votre@email.com" 
+                        required 
+                    />
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="password">Mot de passe</label>
+                    <input 
+                        class="form-input" 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        placeholder="••••••••" 
+                        required 
+                        minlength="6"
+                    />
+                    <div class="password-requirements" id="passwordRequirements">
+                        <div class="requirement" id="req-length">
+                            <span>•</span>
+                            <span>Au moins 6 caractères</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="confirmPassword">Confirmer le mot de passe</label>
+                    <input 
+                        class="form-input" 
+                        type="password" 
+                        id="confirmPassword" 
+                        name="confirmPassword" 
+                        placeholder="••••••••" 
+                        required 
+                    />
+                </div>
+
+                <button type="submit" class="btn" id="registerBtn">
+                    <span id="registerBtnText">Créer mon compte</span>
+                    <span id="registerBtnLoading" class="loading" style="display: none;"></span>
+                </button>
+            </form>
+
+            <div class="divider">
+                <span>ou</span>
+            </div>
+
+            <button type="button" class="btn btn-google" id="googleBtn">
+                <span id="googleBtnText">Continuer avec Google</span>
+                <span id="googleBtnLoading" class="loading" style="display: none;"></span>
+            </button>
+
+            <div id="messageContainer"></div>
+
+            <div class="links">
+                <p>Déjà un compte ? <a href="/login" class="link">Se connecter</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { authFunctions } from '/static/js/firebase-config.js';
+
+        // Gestion du thème
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+        }
+        
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon(newTheme);
+        }
+        
+        function updateThemeIcon(theme) {
+            const themeIcon = document.getElementById('themeIcon');
+            if (themeIcon) {
+                themeIcon.textContent = theme === 'dark' ? '🌙' : '☀️';
+            }
+        }
+
+        // Initialiser le thème
+        initTheme();
+
+        // Gestion des messages
+        function showMessage(message, type = 'error') {
+            const container = document.getElementById('messageContainer');
+            container.innerHTML = `<div class="${type}">${message}</div>`;
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    container.innerHTML = '';
+                }, 3000);
+            }
+        }
+
+        // Validation du mot de passe
+        function validatePassword(password) {
+            const requirements = {
+                length: password.length >= 6
+            };
+            
+            const reqLength = document.getElementById('req-length');
+            if (requirements.length) {
+                reqLength.classList.add('valid');
+                reqLength.classList.remove('invalid');
+            } else {
+                reqLength.classList.add('invalid');
+                reqLength.classList.remove('valid');
+            }
+            
+            return Object.values(requirements).every(req => req);
+        }
+
+        // Validation de la confirmation du mot de passe
+        function validateConfirmPassword(password, confirmPassword) {
+            return password === confirmPassword;
+        }
+
+        // Écouter les changements de mot de passe
+        document.getElementById('password').addEventListener('input', (e) => {
+            validatePassword(e.target.value);
+        });
+
+        // Gestion du formulaire d'inscription
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const displayName = document.getElementById('displayName').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const registerBtn = document.getElementById('registerBtn');
+            const registerBtnText = document.getElementById('registerBtnText');
+            const registerBtnLoading = document.getElementById('registerBtnLoading');
+            
+            // Validation
+            if (!validatePassword(password)) {
+                showMessage('Le mot de passe doit contenir au moins 6 caractères', 'error');
+                return;
+            }
+            
+            if (!validateConfirmPassword(password, confirmPassword)) {
+                showMessage('Les mots de passe ne correspondent pas', 'error');
+                return;
+            }
+            
+            // Afficher le loading
+            registerBtn.disabled = true;
+            registerBtnText.style.display = 'none';
+            registerBtnLoading.style.display = 'inline-block';
+            
+            try {
+                const result = await authFunctions.signUpWithEmail(email, password, displayName);
+                
+                if (result.success) {
+                    showMessage('Compte créé avec succès ! Redirection...', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1000);
+                } else {
+                    showMessage(result.error, 'error');
+                }
+            } catch (error) {
+                showMessage('Erreur lors de la création du compte', 'error');
+            } finally {
+                // Masquer le loading
+                registerBtn.disabled = false;
+                registerBtnText.style.display = 'inline';
+                registerBtnLoading.style.display = 'none';
+            }
+        });
+
+        // Gestion de l'inscription Google
+        document.getElementById('googleBtn').addEventListener('click', async () => {
+            const googleBtn = document.getElementById('googleBtn');
+            const googleBtnText = document.getElementById('googleBtnText');
+            const googleBtnLoading = document.getElementById('googleBtnLoading');
+            
+            // Afficher le loading
+            googleBtn.disabled = true;
+            googleBtnText.style.display = 'none';
+            googleBtnLoading.style.display = 'inline-block';
+            
+            try {
+                const result = await authFunctions.signInWithGoogle();
+                
+                if (result.success) {
+                    showMessage('Connexion réussie ! Redirection...', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1000);
+                } else {
+                    showMessage(result.error, 'error');
+                }
+            } catch (error) {
+                showMessage('Erreur de connexion Google', 'error');
+            } finally {
+                // Masquer le loading
+                googleBtn.disabled = false;
+                googleBtnText.style.display = 'inline';
+                googleBtnLoading.style.display = 'none';
+            }
+        });
+
+        // Vérifier si l'utilisateur est déjà connecté
+        const currentUser = authFunctions.getCurrentUser();
+        if (currentUser) {
+            window.location.href = '/';
+        }
+        
+        authFunctions.onAuthStateChanged((user) => {
+            if (user) {
+                window.location.href = '/';
+            }
+        });
+    </script>
+</body>
+</html>
