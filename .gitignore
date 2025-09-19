@@ -75,4 +75,10 @@ secrets.json
 
 # Firebase credentials
 *firebase-adminsdk*.json
-*.json
+
+# Legacy files
+app_legacy.py
+
+# Data files (keep orders.json but ignore other JSON configs)
+firebase-config.json
+*firebase-adminsdk*.json
