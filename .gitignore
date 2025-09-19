@@ -72,3 +72,7 @@ node_modules/
 # Configuration files with sensitive data
 config.py
 secrets.json
+
+# Firebase credentials
+*firebase-adminsdk*.json
+*.json
