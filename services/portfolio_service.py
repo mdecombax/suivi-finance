@@ -97,10 +97,31 @@ class PortfolioService:
         
         return False
     
-    def get_portfolio_summary(self) -> Dict[str, Any]:
+    def get_portfolio_summary(self, orders_data: List[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Get complete portfolio summary including positions, performance, and fiscal scenarios."""
-        orders = self.load_orders()
-        
+        if orders_data is not None:
+            # Convert Firebase orders data to InvestmentOrder objects
+            orders = []
+            for order_dict in orders_data:
+                try:
+                    # Convert Firebase format to InvestmentOrder format
+                    converted_order = {
+                        'id': order_dict.get('id'),
+                        'isin': order_dict.get('isin'),
+                        'quantity': order_dict.get('quantity'),
+                        'date': order_dict.get('date'),
+                        'unitPrice': order_dict.get('unitPrice'),
+                        'totalPriceEUR': order_dict.get('totalPriceEUR'),
+                        'type': order_dict.get('type', 'buy')  # Default to 'buy'
+                    }
+                    order = InvestmentOrder.from_dict(converted_order)
+                    orders.append(order)
+                except Exception as e:
+                    self._log("Failed to convert Firebase order", {"order": order_dict, "error": str(e)})
+                    continue
+        else:
+            orders = self.load_orders()
+
         if not orders:
             return {
                 "total_invested": 0.0,

@@ -19,7 +19,9 @@ from flask_cors import CORS
 
 from services.price_service import PriceService
 from services.portfolio_service import PortfolioService
+from services.firebase_service import firebase_service
 from utils.logger import debug_log
+from utils.auth_middleware import require_auth, get_current_user_id
 
 
 class FinancialPortfolioApp:
@@ -62,16 +64,23 @@ class FinancialPortfolioApp:
         
         # API Routes
         @self.app.route("/api/portfolio", methods=["GET", "POST"])
+        @require_auth
         def portfolio_api():
-            """API endpoint for portfolio data and analytics."""
+            """API endpoint for portfolio data and analytics (authentification requise)."""
             try:
+                user_id = get_current_user_id()
                 account_type = self._get_account_type_from_request()
-                portfolio_summary = self.portfolio_service.get_portfolio_summary()
-                
+
+                # Récupérer les ordres depuis Firebase pour cet utilisateur
+                user_orders = firebase_service.get_user_orders(user_id)
+
+                # Utiliser les ordres Firebase pour les calculs de portefeuille
+                portfolio_summary = self.portfolio_service.get_portfolio_summary(user_orders)
+
                 # Add account type specific data
                 fiscal_scenarios = portfolio_summary.get("fiscal_scenarios", {})
                 selected_scenario = fiscal_scenarios.get(account_type, fiscal_scenarios.get("pea", {}))
-                
+
                 return jsonify({
                     "success": True,
                     "data": {
@@ -84,25 +93,30 @@ class FinancialPortfolioApp:
                         "fiscal_scenarios": portfolio_summary["fiscal_scenarios"],
                         "selected_scenario": selected_scenario,
                         "account_type": account_type,
-                        "orders_count": portfolio_summary["orders_count"]
+                        "orders_count": portfolio_summary["orders_count"],
+                        "user_id": user_id,
+                        "firebase_orders_count": len(user_orders)
                     }
                 })
-                
+
             except Exception as e:
                 debug_log("Portfolio API error", {"error": str(e)})
                 return jsonify({"error": str(e)}), 500
         
         @self.app.route("/api/orders", methods=["GET", "POST", "DELETE"])
+        @require_auth
         def orders_api():
-            """API endpoint for managing investment orders."""
+            """API endpoint for managing investment orders (authentification requise)."""
             try:
+                user_id = get_current_user_id()
+
                 if request.method == "GET":
-                    return self._handle_get_orders()
+                    return self._handle_get_orders(user_id)
                 elif request.method == "POST":
-                    return self._handle_create_order()
+                    return self._handle_create_order(user_id)
                 elif request.method == "DELETE":
-                    return self._handle_delete_order()
-                    
+                    return self._handle_delete_order(user_id)
+
             except Exception as e:
                 debug_log("Orders API error", {"error": str(e)})
                 return jsonify({"error": str(e)}), 500
@@ -200,50 +214,111 @@ class FinancialPortfolioApp:
             return request.form.get("account_type", "pea")
         return request.args.get("account_type", "pea")
     
-    def _handle_get_orders(self) -> Dict[str, Any]:
-        """Handle GET request for orders list."""
-        orders = self.portfolio_service.load_orders()
-        
-        # Sort by date descending (newest first)
-        orders.sort(key=lambda o: (o.order_date, o.id), reverse=True)
-        
-        orders_data = [order.to_dict() for order in orders]
-        return jsonify({"success": True, "orders": orders_data})
+    def _handle_get_orders(self, user_id: str) -> Dict[str, Any]:
+        """Handle GET request for orders list (par utilisateur)."""
+        # Récupérer les ordres Firebase pour cet utilisateur
+        firebase_orders = firebase_service.get_user_orders(user_id)
+
+        # Si pas d'ordres Firebase, utiliser le système local comme fallback
+        if not firebase_orders:
+            orders = self.portfolio_service.load_orders()
+            orders.sort(key=lambda o: (o.order_date, o.id), reverse=True)
+            orders_data = [order.to_dict() for order in orders]
+        else:
+            # Trier par date décroissante
+            firebase_orders.sort(key=lambda o: o.get('date', ''), reverse=True)
+
+            # Convertir le format Firebase vers le format attendu par le frontend
+            orders_data = []
+            for order in firebase_orders:
+                # Mapper les champs pour compatibilité avec le frontend
+                formatted_order = {
+                    'id': order.get('id'),
+                    'isin': order.get('isin'),
+                    'quantity': order.get('quantity'),
+                    'date': order.get('date'),
+                    'unitPriceEUR': order.get('unitPrice'),  # Frontend attend unitPriceEUR
+                    'totalPriceEUR': order.get('totalPriceEUR'),
+                    # Champs supplémentaires pour compatibilité
+                    'unitPrice': order.get('unitPrice'),
+                    'createdAt': order.get('createdAt'),
+                    'updatedAt': order.get('updatedAt')
+                }
+                orders_data.append(formatted_order)
+
+        return jsonify({
+            "success": True,
+            "orders": orders_data,
+            "source": "firebase" if firebase_orders else "local",
+            "user_id": user_id
+        })
     
-    def _handle_create_order(self) -> Dict[str, Any]:
-        """Handle POST request to create a new order."""
+    def _handle_create_order(self, user_id: str) -> Dict[str, Any]:
+        """Handle POST request to create a new order (par utilisateur)."""
         order_data = request.get_json()
-        
-        # Validate required fields
-        required_fields = ['isin', 'quantity', 'unitPrice', 'totalPriceEUR', 'date']
+
+        # Validate required fields (unitPrice and totalPriceEUR are optional, will be calculated)
+        required_fields = ['isin', 'quantity', 'date']
         for field in required_fields:
             if field not in order_data:
                 return jsonify({"error": f"Missing field: {field}"}), 400
-        
+
         try:
-            new_order = self.portfolio_service.add_order(order_data)
-            return jsonify({"success": True, "order_id": new_order.id})
+            # If unitPrice or totalPriceEUR are missing, fetch price automatically
+            if 'unitPrice' not in order_data or 'totalPriceEUR' not in order_data:
+                from datetime import datetime
+
+                # Parse the date
+                order_date = datetime.strptime(order_data['date'], '%Y-%m-%d').date()
+
+                # Fetch price for the given date
+                price_quote = self.price_service.get_historical_price(order_data['isin'], order_date)
+
+                if not price_quote.is_valid:
+                    # Try current price as fallback
+                    price_quote = self.price_service.get_current_price(order_data['isin'])
+
+                if not price_quote.is_valid:
+                    return jsonify({"error": f"Unable to fetch price for ISIN {order_data['isin']}"}), 400
+
+                # Calculate missing fields
+                order_data['unitPrice'] = price_quote.price
+                order_data['totalPriceEUR'] = price_quote.price * float(order_data['quantity'])
+
+            # Ajouter l'ordre à Firebase pour cet utilisateur
+            order_id = firebase_service.add_order(user_id, order_data)
+            return jsonify({
+                "success": True,
+                "order_id": order_id,
+                "user_id": user_id,
+                "source": "firebase"
+            })
         except Exception as e:
             debug_log("Create order error", {"order_data": order_data, "error": str(e)})
             return jsonify({"error": f"Failed to create order: {str(e)}"}), 400
     
-    def _handle_delete_order(self) -> Dict[str, Any]:
-        """Handle DELETE request to remove an order."""
+    def _handle_delete_order(self, user_id: str) -> Dict[str, Any]:
+        """Handle DELETE request to remove an order (par utilisateur)."""
         order_id_str = request.args.get('order_id')
         if not order_id_str:
             return jsonify({"error": "Missing order_id parameter"}), 400
-        
+
         try:
-            order_id = int(order_id_str)
-        except ValueError:
-            return jsonify({"error": "Invalid order_id format"}), 400
-        
-        was_deleted = self.portfolio_service.delete_order(order_id)
-        
-        if was_deleted:
-            return jsonify({"success": True})
-        else:
-            return jsonify({"error": "Order not found"}), 404
+            # Supprimer l'ordre de Firebase pour cet utilisateur
+            was_deleted = firebase_service.delete_order(user_id, order_id_str)
+
+            if was_deleted:
+                return jsonify({
+                    "success": True,
+                    "user_id": user_id,
+                    "source": "firebase"
+                })
+            else:
+                return jsonify({"error": "Order not found"}), 404
+
+        except Exception as e:
+            debug_log("Delete order error", {"order_id": order_id_str, "error": str(e)})
+            return jsonify({"error": f"Failed to delete order: {str(e)}"}), 400
     
     def _extract_history_parameters(self) -> Dict[str, str]:
         """Extract history API parameters from request."""

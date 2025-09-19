@@ -164,6 +164,32 @@
     <meta name="color-scheme" content="light dark" />
     <link rel="icon" href="data:," />
     <meta name="description" content="Gestion des ordres d'investissement" />
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js';
+        import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js';
+
+        // Configuration Firebase
+        const firebaseConfig = {
+            "apiKey": "AIzaSyBFrk8tZVEuM0LeQ0D8kJ7N2Bt-KyuQv0I",
+            "authDomain": "suivi-financ.firebaseapp.com",
+            "projectId": "suivi-financ",
+            "storageBucket": "suivi-financ.firebasestorage.app",
+            "messagingSenderId": "959011615445",
+            "appId": "1:959011615445:web:993be6cee77fc6cedae85c",
+            "measurementId": "G-8QXCJ8J23S"
+        };
+
+        // Initialiser Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // Exposer Firebase globalement
+        window.firebaseAuth = auth;
+        window.onAuthStateChanged = onAuthStateChanged;
+        window.signOut = signOut;
+    </script>
 </head>
 <body>
     <div class="shell">
@@ -272,6 +298,8 @@
     <script>
         // État de l'application
         let orders = [];
+        let currentUser = null;
+        let authToken = null;
 
         // Gestion du thème
         function initTheme() {
@@ -311,10 +339,15 @@
         // Chargement des ordres
         async function loadOrders() {
             try {
+                if (!authToken) {
+                    throw new Error('Utilisateur non authentifié');
+                }
+
                 const response = await fetch('/api/orders', {
                     method: 'GET',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
                     }
                 });
 
@@ -375,10 +408,15 @@
         // Ajout d'un ordre
         async function addOrder(orderData) {
             try {
+                if (!authToken) {
+                    throw new Error('Utilisateur non authentifié');
+                }
+
                 const response = await fetch('/api/orders', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
                     },
                     body: JSON.stringify(orderData)
                 });
@@ -418,7 +456,8 @@
                 const response = await fetch(`/api/orders?order_id=${orderId}`, {
                     method: 'DELETE',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
                     }
                 });
 
@@ -510,20 +549,39 @@
             }
         });
 
+        // Gestion de l'authentification
+        function initAuth() {
+            window.onAuthStateChanged(window.firebaseAuth, async (user) => {
+                if (user) {
+                    // Utilisateur connecté
+                    currentUser = user;
+                    authToken = await user.getIdToken();
+
+                    // Masquer le loading et afficher le contenu
+                    document.getElementById('loadingState').style.display = 'none';
+                    document.getElementById('ordersContent').style.display = 'block';
+
+                    // Charger les ordres
+                    loadOrders();
+                } else {
+                    // Utilisateur non connecté, rediriger vers la page principale
+                    window.location.href = '/';
+                }
+            });
+        }
+
         // Initialisation
         function init() {
             initTheme();
-            
+
             // Définir la date d'aujourd'hui par défaut
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('date').value = today;
-            
-            // Masquer le loading et afficher le contenu
-            document.getElementById('loadingState').style.display = 'none';
-            document.getElementById('ordersContent').style.display = 'block';
-            
-            // Charger les ordres
-            loadOrders();
+
+            // Attendre que Firebase soit chargé puis vérifier l'authentification
+            setTimeout(() => {
+                initAuth();
+            }, 100);
         }
 
         // Démarrer l'application
