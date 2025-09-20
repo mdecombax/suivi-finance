@@ -56,6 +56,16 @@ class FinancialPortfolioApp:
         def orders_management_page():
             """Orders management page."""
             return render_template("orders.html")
+
+        @self.app.route("/login")
+        def login_page():
+            """Login page."""
+            return render_template("login.html")
+
+        @self.app.route("/register")
+        def register_page():
+            """Register page."""
+            return render_template("register.html")
         
         @self.app.route("/health")
         def health_check():
@@ -359,9 +369,9 @@ class FinancialPortfolioApp:
         host = host or os.environ.get("HOST", "0.0.0.0")
         
         try:
-            port = port or int(os.environ.get("PORT", "5050"))
+            port = port or int(os.environ.get("PORT", "8000"))
         except ValueError:
-            port = 5050
+            port = 8000
         
         debug_log("Starting application", {
             "host": host,

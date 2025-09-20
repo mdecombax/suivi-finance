@@ -1,5 +1,25 @@
 // Configuration Firebase pour le frontend
-// Note: Ce fichier doit être chargé après firebase-app.js et firebase-auth.js
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js';
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut,
+  onAuthStateChanged,
+  updateProfile
+} from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js';
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  getDocs,
+  deleteDoc,
+  doc,
+  query,
+  orderBy
+} from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
 
 // Configuration Firebase
 const firebaseConfig = {
@@ -52,7 +72,7 @@ export const authFunctions = {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       // Mettre à jour le nom d'affichage
       if (displayName) {
-        await userCredential.user.updateProfile({ displayName });
+        await updateProfile(userCredential.user, { displayName });
       }
       return { success: true, user: userCredential.user };
     } catch (error) {

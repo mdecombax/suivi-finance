@@ -1131,17 +1131,423 @@
             .result-cards {
                 grid-template-columns: 1fr;
             }
-            
+
             .account-selector {
                 flex-direction: column;
             }
-            
+
             .settings-account-selector {
                 grid-template-columns: 1fr;
             }
-            
+
             .theme-selector {
                 flex-direction: column;
+            }
+        }
+
+        /* Styles pour l'authentification Firebase */
+        .auth-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 20, 36, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .auth-container {
+            background: var(--card);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: var(--border-radius-xl);
+            padding: 40px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: var(--shadow-xl);
+            animation: slideInUp 0.6s ease-out;
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .auth-header h2 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .auth-header p {
+            color: var(--muted);
+            font-size: 1rem;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text);
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: var(--border-radius-lg);
+            color: var(--text);
+            font-size: 1rem;
+            transition: all var(--transition-fast);
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: rgba(255,255,255,0.08);
+            box-shadow: 0 0 0 3px rgba(130,196,255,0.1);
+        }
+
+        .auth-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .auth-btn {
+            padding: 14px 24px;
+            border: none;
+            border-radius: var(--border-radius-lg);
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .auth-btn.primary {
+            background: var(--gradient-primary);
+            color: #001024;
+        }
+
+        .auth-btn.secondary {
+            background: rgba(255,255,255,0.05);
+            color: var(--text);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .auth-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .auth-btn.primary:hover {
+            box-shadow: var(--shadow-primary-lg);
+        }
+
+        .auth-btn.secondary:hover {
+            background: rgba(255,255,255,0.08);
+            border-color: var(--primary);
+        }
+
+        .auth-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .auth-links {
+            text-align: center;
+        }
+
+        .auth-link {
+            background: none;
+            border: none;
+            color: var(--primary);
+            cursor: pointer;
+            font-size: 0.9rem;
+            text-decoration: underline;
+            transition: color var(--transition-fast);
+        }
+
+        .auth-link:hover {
+            color: var(--primary-accent);
+        }
+
+        .auth-status {
+            padding: 12px;
+            border-radius: var(--border-radius-md);
+            margin-top: 16px;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .auth-status.success {
+            background: rgba(76,175,80,0.1);
+            border: 1px solid rgba(76,175,80,0.3);
+            color: #4caf50;
+        }
+
+        .auth-status.error {
+            background: rgba(244,67,54,0.1);
+            border: 1px solid rgba(244,67,54,0.3);
+            color: #f44336;
+        }
+
+        .auth-status.info {
+            background: rgba(130,196,255,0.1);
+            border: 1px solid rgba(130,196,255,0.3);
+            color: var(--primary);
+        }
+
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Header Controls & User Avatar */
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .user-avatar-container {
+            position: relative;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--gradient-primary);
+            border: 2px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-weight: 700;
+            font-size: 1rem;
+            color: #001024;
+            animation: fadeInScale 0.5s ease-out;
+        }
+
+        .user-avatar:hover {
+            transform: scale(1.1);
+            border-color: rgba(255,255,255,0.3);
+            box-shadow: var(--shadow-primary);
+        }
+
+        .user-dropdown {
+            position: absolute;
+            top: 50px;
+            right: 0;
+            min-width: 280px;
+            background: var(--card);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: var(--border-radius-xl);
+            box-shadow: var(--shadow-xl);
+            backdrop-filter: blur(20px);
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px) scale(0.95);
+            transition: all var(--transition-fast);
+            overflow: hidden;
+        }
+
+        .user-dropdown.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0) scale(1);
+        }
+
+        .user-dropdown-header {
+            padding: 20px;
+            background: rgba(130,196,255,0.05);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .user-avatar-large {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--gradient-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: #001024;
+            flex-shrink: 0;
+        }
+
+        .user-info-dropdown {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .user-email {
+            font-weight: 600;
+            color: var(--text);
+            font-size: 1rem;
+            margin-bottom: 4px;
+            word-break: break-word;
+        }
+
+        .user-status {
+            font-size: 0.85rem;
+            color: var(--muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .user-status::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4caf50;
+            animation: pulse 2s infinite;
+        }
+
+        .user-dropdown-divider {
+            height: 1px;
+            background: rgba(255,255,255,0.1);
+            margin: 0;
+        }
+
+        .user-dropdown-actions {
+            padding: 8px 0;
+        }
+
+        .user-dropdown-item {
+            width: 100%;
+            padding: 12px 20px;
+            background: none;
+            border: none;
+            color: var(--text);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all var(--transition-fast);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .user-dropdown-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: var(--primary);
+            transform: scaleY(0);
+            transition: transform var(--transition-fast);
+        }
+
+        .user-dropdown-item:hover {
+            background: rgba(255,255,255,0.05);
+            padding-left: 24px;
+        }
+
+        .user-dropdown-item:hover::before {
+            transform: scaleY(1);
+        }
+
+        .user-dropdown-item.logout {
+            color: #f87171;
+        }
+
+        .user-dropdown-item.logout:hover {
+            background: rgba(248,113,113,0.1);
+        }
+
+        .user-dropdown-item.logout:hover::before {
+            background: #f87171;
+        }
+
+        .dropdown-icon {
+            font-size: 1.1rem;
+            width: 20px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* Responsive pour auth */
+        @media (max-width: 768px) {
+            .auth-container {
+                padding: 24px;
+                max-width: 95%;
+            }
+
+            .header-controls {
+                gap: 12px;
+            }
+
+            .user-avatar {
+                width: 36px;
+                height: 36px;
+                font-size: 0.9rem;
+            }
+
+            .user-dropdown {
+                min-width: 260px;
+                right: -8px;
+            }
+
+            .user-dropdown-header {
+                padding: 16px;
+            }
+
+            .user-avatar-large {
+                width: 48px;
+                height: 48px;
+                font-size: 1.3rem;
+            }
+
+            .user-email {
+                font-size: 0.9rem;
             }
         }
     </style>
@@ -1163,10 +1569,49 @@
                     <a href="/" class="nav-link active">Portefeuille</a>
                     <a href="/orders" class="nav-link">Ordres</a>
                 </nav>
-                
-                <button class="theme-switch animate-scaleIn animate-delay-300" onclick="toggleTheme()" aria-label="Changer de thème">
-                    <span class="theme-icon">🌙</span>
-                </button>
+
+                <div class="header-controls">
+                    <button class="theme-switch animate-scaleIn animate-delay-300" onclick="toggleTheme()" aria-label="Changer de thème">
+                        <span class="theme-icon">🌙</span>
+                    </button>
+
+                    <!-- Avatar utilisateur -->
+                    <div class="user-avatar-container" id="userAvatarContainer" style="display: none;">
+                        <button class="user-avatar" id="userAvatar" onclick="toggleUserMenu()">
+                            <span id="userInitial">U</span>
+                        </button>
+
+                        <div class="user-dropdown" id="userDropdown">
+                            <div class="user-dropdown-header">
+                                <div class="user-avatar-large">
+                                    <span id="userInitialLarge">U</span>
+                                </div>
+                                <div class="user-info-dropdown">
+                                    <div class="user-email" id="userEmailDropdown">user@example.com</div>
+                                    <div class="user-status">Connecté</div>
+                                </div>
+                            </div>
+
+                            <div class="user-dropdown-divider"></div>
+
+                            <div class="user-dropdown-actions">
+                                <button class="user-dropdown-item" onclick="showComingSoon('Profil')">
+                                    <span class="dropdown-icon">👤</span>
+                                    <span>Mon profil</span>
+                                </button>
+                                <button class="user-dropdown-item" onclick="openSettings()">
+                                    <span class="dropdown-icon">⚙️</span>
+                                    <span>Paramètres</span>
+                                </button>
+                                <div class="user-dropdown-divider"></div>
+                                <button class="user-dropdown-item logout" onclick="logout()">
+                                    <span class="dropdown-icon">🚪</span>
+                                    <span>Déconnexion</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </header>
 
@@ -1262,6 +1707,40 @@
             </div>
         </main>
     </div>
+
+    <!-- Interface d'authentification -->
+    <div class="auth-overlay" id="authOverlay" style="display: none;">
+        <div class="auth-container">
+            <div class="auth-header">
+                <h2 id="authTitle">Connexion</h2>
+                <p id="authSubtitle">Connectez-vous pour accéder à votre portefeuille</p>
+            </div>
+
+            <div class="auth-form">
+                <div class="input-group">
+                    <label for="authEmail">Email</label>
+                    <input type="email" id="authEmail" placeholder="votre@email.com" required>
+                </div>
+
+                <div class="input-group">
+                    <label for="authPassword">Mot de passe</label>
+                    <input type="password" id="authPassword" placeholder="••••••••" required>
+                </div>
+
+                <div class="auth-actions">
+                    <button class="auth-btn primary" id="authSubmitBtn">Se connecter</button>
+                    <button class="auth-btn secondary" id="authToggleBtn">Créer un compte</button>
+                </div>
+
+                <div class="auth-links">
+                    <button class="auth-link" id="forgotPasswordBtn">Mot de passe oublié ?</button>
+                </div>
+            </div>
+
+            <div class="auth-status" id="authStatus" style="display: none;"></div>
+        </div>
+    </div>
+
 
     <!-- Bouton flottant avec menu -->
     <button class="floating-action-button" id="fabButton" onclick="toggleFloatingMenu()">
@@ -1366,12 +1845,49 @@
         </div>
     </div>
 
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js';
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js';
+        import { getFirestore, doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
+
+        // Configuration Firebase
+        const firebaseConfig = {
+            "apiKey": "AIzaSyBFrk8tZVEuM0LeQ0D8kJ7N2Bt-KyuQv0I",
+            "authDomain": "suivi-financ.firebaseapp.com",
+            "projectId": "suivi-financ",
+            "storageBucket": "suivi-financ.firebasestorage.app",
+            "messagingSenderId": "959011615445",
+            "appId": "1:959011615445:web:993be6cee77fc6cedae85c",
+            "measurementId": "G-8QXCJ8J23S"
+        };
+
+        // Initialiser Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Exposer les fonctions Firebase globalement
+        window.firebaseAuth = auth;
+        window.firebaseDb = db;
+        window.signInWithEmailAndPassword = signInWithEmailAndPassword;
+        window.createUserWithEmailAndPassword = createUserWithEmailAndPassword;
+        window.signOut = signOut;
+        window.onAuthStateChanged = onAuthStateChanged;
+        window.sendPasswordResetEmail = sendPasswordResetEmail;
+        window.setDoc = setDoc;
+        window.getDoc = getDoc;
+        window.doc = doc;
+    </script>
+
     <script>
         // État de l'application
         let portfolioData = null;
         let isFloatingMenuOpen = false;
         let userAccountType = null;
         let isFirstTime = false;
+        let currentUser = null;
+        let authToken = null;
 
         // Gestion du thème
         function initTheme() {
@@ -1811,14 +2327,282 @@
         }
 
 
+        // Gestion de l'authentification Firebase
+        let isLoginMode = true;
+
+        function initAuth() {
+            // Écouter les changements d'état d'authentification
+            window.onAuthStateChanged(window.firebaseAuth, async (user) => {
+                if (user) {
+                    // Utilisateur connecté
+                    currentUser = user;
+                    updateUserInterface(user);
+                    document.getElementById('authOverlay').style.display = 'none';
+
+                    // Obtenir le token
+                    authToken = await user.getIdToken();
+
+                    // Vérifier si c'est la première fois et charger les données
+                    if (checkFirstTimeUser()) {
+                        loadPortfolioData();
+                    }
+                } else {
+                    // Utilisateur déconnecté
+                    currentUser = null;
+                    authToken = null;
+                    document.getElementById('userAvatarContainer').style.display = 'none';
+                    showAuthInterface();
+                }
+            });
+
+            // Gérer les événements de l'interface d'authentification
+            setupAuthEventListeners();
+        }
+
+        function updateUserInterface(user) {
+            const email = user.email;
+            const initial = email.charAt(0).toUpperCase();
+
+            // Mettre à jour l'avatar
+            document.getElementById('userInitial').textContent = initial;
+            document.getElementById('userInitialLarge').textContent = initial;
+
+            // Mettre à jour les informations utilisateur
+            document.getElementById('userEmailDropdown').textContent = email;
+
+            // Afficher l'avatar
+            document.getElementById('userAvatarContainer').style.display = 'block';
+        }
+
+        function setupAuthEventListeners() {
+            const emailInput = document.getElementById('authEmail');
+            const passwordInput = document.getElementById('authPassword');
+            const submitBtn = document.getElementById('authSubmitBtn');
+            const toggleBtn = document.getElementById('authToggleBtn');
+            const forgotBtn = document.getElementById('forgotPasswordBtn');
+
+            // Soumettre le formulaire
+            submitBtn.addEventListener('click', handleAuthSubmit);
+
+            // Basculer entre connexion et inscription
+            toggleBtn.addEventListener('click', toggleAuthMode);
+
+            // Mot de passe oublié
+            forgotBtn.addEventListener('click', handleForgotPassword);
+
+            // Soumettre avec Enter
+            emailInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') passwordInput.focus();
+            });
+
+            passwordInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleAuthSubmit();
+            });
+        }
+
+        function showAuthInterface() {
+            document.getElementById('authOverlay').style.display = 'flex';
+            document.getElementById('authEmail').focus();
+        }
+
+        function toggleAuthMode() {
+            isLoginMode = !isLoginMode;
+
+            const title = document.getElementById('authTitle');
+            const subtitle = document.getElementById('authSubtitle');
+            const submitBtn = document.getElementById('authSubmitBtn');
+            const toggleBtn = document.getElementById('authToggleBtn');
+
+            if (isLoginMode) {
+                title.textContent = 'Connexion';
+                subtitle.textContent = 'Connectez-vous pour accéder à votre portefeuille';
+                submitBtn.textContent = 'Se connecter';
+                toggleBtn.textContent = 'Créer un compte';
+            } else {
+                title.textContent = 'Créer un compte';
+                subtitle.textContent = 'Créez votre compte pour commencer';
+                submitBtn.textContent = 'Créer le compte';
+                toggleBtn.textContent = 'J\'ai déjà un compte';
+            }
+
+            hideAuthStatus();
+        }
+
+        async function handleAuthSubmit() {
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value;
+
+            if (!email || !password) {
+                showAuthStatus('Veuillez remplir tous les champs', 'error');
+                return;
+            }
+
+            if (password.length < 6) {
+                showAuthStatus('Le mot de passe doit contenir au moins 6 caractères', 'error');
+                return;
+            }
+
+            const submitBtn = document.getElementById('authSubmitBtn');
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Chargement...';
+
+            try {
+                if (isLoginMode) {
+                    // Connexion
+                    await window.signInWithEmailAndPassword(window.firebaseAuth, email, password);
+                    showAuthStatus('Connexion réussie !', 'success');
+                } else {
+                    // Inscription
+                    const userCredential = await window.createUserWithEmailAndPassword(window.firebaseAuth, email, password);
+
+                    // Créer le profil utilisateur dans Firestore
+                    const user = userCredential.user;
+                    await window.setDoc(window.doc(window.firebaseDb, 'users', user.uid), {
+                        email: user.email,
+                        createdAt: new Date(),
+                        accountType: 'pea', // Type par défaut
+                        settings: {
+                            theme: 'dark',
+                            showDetailedKpis: false
+                        }
+                    });
+
+                    showAuthStatus('Compte créé avec succès !', 'success');
+                }
+            } catch (error) {
+                console.error('Erreur d\'authentification:', error);
+                let message = 'Une erreur est survenue';
+
+                switch (error.code) {
+                    case 'auth/user-not-found':
+                        message = 'Aucun compte trouvé avec cet email';
+                        break;
+                    case 'auth/wrong-password':
+                        message = 'Mot de passe incorrect';
+                        break;
+                    case 'auth/email-already-in-use':
+                        message = 'Un compte existe déjà avec cet email';
+                        break;
+                    case 'auth/invalid-email':
+                        message = 'Email invalide';
+                        break;
+                    case 'auth/weak-password':
+                        message = 'Le mot de passe est trop faible';
+                        break;
+                    default:
+                        message = error.message;
+                }
+
+                showAuthStatus(message, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            }
+        }
+
+        async function handleForgotPassword() {
+            const email = document.getElementById('authEmail').value.trim();
+
+            if (!email) {
+                showAuthStatus('Veuillez entrer votre email d\'abord', 'error');
+                return;
+            }
+
+            try {
+                await window.sendPasswordResetEmail(window.firebaseAuth, email);
+                showAuthStatus('Email de réinitialisation envoyé !', 'info');
+            } catch (error) {
+                console.error('Erreur reset password:', error);
+                showAuthStatus('Erreur lors de l\'envoi de l\'email', 'error');
+            }
+        }
+
+        function showAuthStatus(message, type) {
+            const status = document.getElementById('authStatus');
+            status.textContent = message;
+            status.className = `auth-status ${type}`;
+            status.style.display = 'block';
+
+            if (type === 'success') {
+                setTimeout(() => hideAuthStatus(), 3000);
+            }
+        }
+
+        function hideAuthStatus() {
+            document.getElementById('authStatus').style.display = 'none';
+        }
+
+        async function logout() {
+            try {
+                await window.signOut(window.firebaseAuth);
+                // L'interface sera mise à jour automatiquement via onAuthStateChanged
+            } catch (error) {
+                console.error('Erreur de déconnexion:', error);
+            }
+        }
+
+        // Mettre à jour la fonction loadPortfolioData pour inclure l'authentification
+        async function loadPortfolioData() {
+            try {
+                if (!authToken) {
+                    throw new Error('Utilisateur non authentifié');
+                }
+
+                const accountType = userAccountType || localStorage.getItem('accountType') || 'pea';
+                const response = await fetch(`/api/portfolio?account_type=${accountType}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Erreur lors du chargement du portefeuille');
+                }
+
+                const result = await response.json();
+                if (result.success) {
+                    portfolioData = result.data;
+                    // Masquer le loading et afficher le contenu
+                    document.getElementById('loadingState').style.display = 'none';
+                    document.getElementById('portfolioContent').style.display = 'block';
+
+                    // Déclencher les animations de manière séquentielle
+                    setTimeout(() => {
+                        document.querySelector('.main-kpis').classList.add('animate-in');
+                        document.querySelectorAll('.main-kpi-card').forEach((card, index) => {
+                            setTimeout(() => card.classList.add('animate-in'), index * 150);
+                        });
+                    }, 100);
+
+
+                    setTimeout(() => {
+                        document.querySelector('.positions-table').classList.add('animate-in');
+                    }, 1000);
+
+                    updatePortfolioDisplay();
+                } else {
+                    throw new Error(result.error || 'Erreur inconnue');
+                }
+            } catch (error) {
+                console.error('Erreur lors du chargement du portefeuille:', error);
+                // Masquer le loading et afficher l'état vide
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('portfolioContent').style.display = 'block';
+                showEmptyState();
+            }
+        }
+
         // Initialisation
         function init() {
             initTheme();
-            
-            // Vérifier si c'est la première fois et charger les données
-            if (checkFirstTimeUser()) {
-                loadPortfolioData();
-            }
+
+            // Attendre que Firebase soit chargé
+            setTimeout(() => {
+                initAuth();
+            }, 100);
         }
 
         // Démarrer l'application
@@ -2034,17 +2818,6 @@
             }, 2000);
         }
 
-        // Fermer le menu en cliquant à l'extérieur
-        document.addEventListener('click', (e) => {
-            const fabButton = document.getElementById('fabButton');
-            const floatingMenu = document.getElementById('floatingMenu');
-            
-            if (isFloatingMenuOpen && 
-                !fabButton.contains(e.target) && 
-                !floatingMenu.contains(e.target)) {
-                toggleFloatingMenu();
-            }
-        });
 
         // Variable globale pour le tooltip
         let currentTooltip = null;
@@ -2177,10 +2950,43 @@
             }
         });
 
+        // Gestion du menu utilisateur
+        let isUserMenuOpen = false;
+
+        function toggleUserMenu() {
+            const dropdown = document.getElementById('userDropdown');
+            isUserMenuOpen = !isUserMenuOpen;
+
+            if (isUserMenuOpen) {
+                dropdown.classList.add('show');
+            } else {
+                dropdown.classList.remove('show');
+            }
+        }
+
         // Fermer les popups en cliquant à l'extérieur
         document.getElementById('settingsPopup').addEventListener('click', (e) => {
             if (e.target === e.currentTarget) {
                 closeSettings();
+            }
+        });
+
+        // Fermer le menu utilisateur en cliquant à l'extérieur
+        document.addEventListener('click', (e) => {
+            const userAvatarContainer = document.getElementById('userAvatarContainer');
+            const fabButton = document.getElementById('fabButton');
+            const floatingMenu = document.getElementById('floatingMenu');
+
+            // Fermer le menu utilisateur
+            if (isUserMenuOpen && userAvatarContainer && !userAvatarContainer.contains(e.target)) {
+                toggleUserMenu();
+            }
+
+            // Fermer le menu flottant
+            if (isFloatingMenuOpen &&
+                !fabButton.contains(e.target) &&
+                !floatingMenu.contains(e.target)) {
+                toggleFloatingMenu();
             }
         });
     </script>
