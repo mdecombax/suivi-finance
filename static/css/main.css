@@ -894,6 +894,17 @@ main {
 
 .number {
     font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+/* Override pour les KPIs qui doivent rester centrés */
+.main-kpi-value.number,
+.kpi-value.number {
+    text-align: center;
+}
+
+.main-kpi-subtitle.number {
+    text-align: center;
 }
 
 /* Couleurs de statut */

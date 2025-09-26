@@ -20,8 +20,9 @@ from flask_cors import CORS
 from services.price_service import PriceService
 from services.portfolio_service import PortfolioService
 from services.firebase_service import firebase_service
+from services.projection_service import ProjectionService, ProjectionParams
 from utils.logger import debug_log
-from utils.auth_middleware import require_auth, get_current_user_id
+from utils.auth_middleware import require_auth, get_current_user_id, is_user_authenticated
 
 
 class FinancialPortfolioApp:
@@ -33,13 +34,15 @@ class FinancialPortfolioApp:
         
         # Initialize services
         self.price_service = PriceService(debug_logger=debug_log)
-        
+
         orders_file_path = Path(__file__).parent / "orders.json"
         self.portfolio_service = PortfolioService(
             orders_file_path=str(orders_file_path),
             price_service=self.price_service,
             debug_logger=debug_log
         )
+
+        self.projection_service = ProjectionService(debug_logger=debug_log)
         
         # Register routes
         self._register_routes()
@@ -66,6 +69,11 @@ class FinancialPortfolioApp:
         def register_page():
             """Register page."""
             return render_template("register.html")
+
+        @self.app.route("/projections")
+        def projections_page():
+            """Financial projections page."""
+            return render_template("projections.html")
         
         @self.app.route("/health")
         def health_check():
@@ -216,6 +224,63 @@ class FinancialPortfolioApp:
                 
             except Exception as e:
                 debug_log("History API error", {"error": str(e)})
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route("/api/projections", methods=["GET", "POST"])
+        @require_auth
+        def projections_api():
+            """API endpoint for financial projections with scenario analysis (authentification requise)."""
+            try:
+                # Get current user and portfolio value
+                user_id = get_current_user_id()
+                current_value = 0
+
+                # Get current portfolio value from user's data
+                try:
+                    user_orders = firebase_service.get_user_orders(user_id)
+                    if user_orders:
+                        portfolio_summary = self.portfolio_service.get_portfolio_summary(user_orders)
+                        current_value = portfolio_summary.get("current_value", 0)
+                    else:
+                        current_value = 10000  # Default if no orders
+                except Exception as e:
+                    debug_log("Error getting portfolio value for projections", {"user_id": user_id, "error": str(e)})
+                    current_value = 10000  # Default 10k EUR
+
+                if request.method == "GET":
+                    # Return default projections
+                    params = ProjectionParams(
+                        current_value=current_value,
+                        monthly_contribution=500,  # Default 500 EUR/month
+                        time_horizon_years=10,     # Default 10 years
+                        annual_fees_rate=0.0075    # Default 0.75% fees
+                    )
+
+                    projections_summary = self.projection_service.get_projection_summary(params)
+                    return jsonify({"success": True, "data": projections_summary})
+
+                elif request.method == "POST":
+                    # Custom projections with user parameters
+                    data = request.get_json() or {}
+
+                    # Validate parameters
+                    validation_error = self.projection_service.validate_projection_params(data)
+                    if validation_error:
+                        return jsonify({"error": validation_error}), 400
+
+                    # Extract parameters with fallbacks
+                    params = ProjectionParams(
+                        current_value=float(data.get("current_value", current_value)),
+                        monthly_contribution=float(data.get("monthly_contribution", 500)),
+                        time_horizon_years=int(data.get("time_horizon_years", 10)),
+                        annual_fees_rate=float(data.get("annual_fees_rate", 0.0075))
+                    )
+
+                    projections_summary = self.projection_service.get_projection_summary(params)
+                    return jsonify({"success": True, "data": projections_summary})
+
+            except Exception as e:
+                debug_log("Projections API error", {"error": str(e)})
                 return jsonify({"error": str(e)}), 500
     
     def _get_account_type_from_request(self) -> str:

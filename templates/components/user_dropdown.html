@@ -1,0 +1,33 @@
+<!-- User Avatar Container -->
+<div class="user-avatar-container" id="userAvatarContainer" style="display: none;">
+    <button class="user-avatar" id="userAvatar" onclick="toggleUserMenu()">
+        <span id="userInitial">U</span>
+    </button>
+    <div class="user-dropdown" id="userDropdown">
+        <div class="user-dropdown-header">
+            <div class="user-avatar-large">
+                <span id="userInitialLarge">U</span>
+            </div>
+            <div class="user-info-dropdown">
+                <div class="user-email" id="userEmailDropdown">user@example.com</div>
+                <div class="user-status">Connecté</div>
+            </div>
+        </div>
+        <div class="user-dropdown-divider"></div>
+        <div class="user-dropdown-actions">
+            <button class="user-dropdown-item" onclick="showComingSoon('Profil')">
+                <span class="dropdown-icon">👤</span>
+                <span>Mon profil</span>
+            </button>
+            <button class="user-dropdown-item" onclick="openSettings ? openSettings() : showComingSoon('Paramètres')">
+                <span class="dropdown-icon">⚙️</span>
+                <span>Paramètres</span>
+            </button>
+            <div class="user-dropdown-divider"></div>
+            <button class="user-dropdown-item logout" onclick="logout()">
+                <span class="dropdown-icon">🚪</span>
+                <span>Déconnexion</span>
+            </button>
+        </div>
+    </div>
+</div>

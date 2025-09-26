@@ -203,11 +203,16 @@
                 <nav class="nav animate-slideInRight">
                     <a href="/" class="nav-link">Portefeuille</a>
                     <a href="/orders" class="nav-link active">Ordres</a>
+                    <a href="/projections" class="nav-link" id="projectionsLink" style="display: none;">Projections</a>
                 </nav>
-                
-                <button class="theme-switch animate-scaleIn animate-delay-300" onclick="toggleTheme()" aria-label="Changer de thème">
-                    <span class="theme-icon">🌙</span>
-                </button>
+
+                <div class="header-controls">
+                    <button class="theme-switch animate-scaleIn animate-delay-300" onclick="toggleTheme()" aria-label="Changer de thème">
+                        <span class="theme-icon">🌙</span>
+                    </button>
+                    <!-- Avatar utilisateur -->
+                    {% include 'components/user_dropdown.html' %}
+                </div>
             </div>
         </header>
 
@@ -557,6 +562,11 @@
                     currentUser = user;
                     authToken = await user.getIdToken();
 
+                    // Utiliser la fonction centralisée du module user_dropdown
+                    if (typeof window.updateUserInterface === 'function') {
+                        window.updateUserInterface(user);
+                    }
+
                     // Masquer le loading et afficher le contenu
                     document.getElementById('loadingState').style.display = 'none';
                     document.getElementById('ordersContent').style.display = 'block';
@@ -587,9 +597,34 @@
         // Démarrer l'application
         init();
 
+        // Gestion du menu utilisateur - utilisé par le script centralisé
+
+        // Fonction de déconnexion
+        async function logout() {
+            try {
+                await window.signOut(window.firebaseAuth);
+                window.location.href = '/';
+            } catch (error) {
+                console.error('Erreur de déconnexion:', error);
+            }
+        }
+
+        // Fermeture du menu gérée par le script centralisé
+
+        // Fonction pour afficher les fonctionnalités à venir (conservée pour compatibilité avec les messages locaux)
+        function showComingSoon(feature) {
+            showMessage(`${feature} - Fonctionnalité à venir`, 'info');
+        }
+
         // Exposer les fonctions globalement pour les boutons
         window.deleteOrder = deleteOrder;
         window.toggleTheme = toggleTheme;
+        window.toggleUserMenu = toggleUserMenu;
+        window.logout = logout;
+        window.showComingSoon = showComingSoon;
     </script>
+
+    <!-- Script centralisé pour le dropdown utilisateur -->
+    <script src="/static/js/user_dropdown.js"></script>
 </body>
 </html>

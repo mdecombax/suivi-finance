@@ -89,3 +89,18 @@ def get_current_user() -> Optional[Dict[str, Any]]:
         Dict avec les infos utilisateur ou None si non connecté
     """
     return getattr(g, 'current_user', None)
+
+
+def is_user_authenticated() -> bool:
+    """
+    Vérifie si l'utilisateur est actuellement connecté via le token dans les headers
+
+    Returns:
+        True si l'utilisateur est connecté, False sinon
+    """
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return False
+
+    user_info = verify_firebase_token(auth_header)
+    return user_info is not None

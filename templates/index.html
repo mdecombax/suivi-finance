@@ -7,10 +7,10 @@
     <link rel="stylesheet" href="/static/css/main.css">
     <style>
         /* Styles spécifiques à la page d'accueil */
-        /* Main KPIs - 3 chiffres clés */
+        /* Main KPIs - 2 indicateurs principaux */
         .main-kpis {
             display: grid;
-            grid-template-columns: 2fr 1fr 1fr;
+            grid-template-columns: 1fr 1fr;
             gap: 24px;
             margin-bottom: 32px;
             opacity: 0;
@@ -145,12 +145,85 @@
             max-height: 0;
             overflow: hidden;
             transition: all 0.4s ease-out;
+            align-items: start;
         }
         
         .detailed-kpis.show {
             opacity: 1;
             max-height: 200px;
             margin-bottom: 16px;
+        }
+
+        /* Structure uniforme des cartes KPI pour l'alignement */
+        .detailed-kpis .kpi-card {
+            display: flex;
+            flex-direction: column;
+            height: auto;
+            min-height: 120px;
+        }
+
+        .detailed-kpis .kpi-label {
+            min-height: 3.2rem; /* Assez d'espace pour 2 lignes */
+            display: flex;
+            align-items: flex-start;
+            justify-content: center; /* Centre horizontalement */
+            text-align: center; /* Centre le texte */
+            line-height: 1.4;
+            margin-bottom: 12px;
+        }
+
+        .detailed-kpis .kpi-value {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: auto;
+        }
+
+        /* Camembert SVG pour les parts de portefeuille */
+        .portfolio-pie {
+            width: 44px;
+            height: 44px;
+            position: relative;
+            margin: 0 auto;
+        }
+
+        .portfolio-pie-svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg); /* Commencer en haut */
+        }
+
+        .portfolio-pie-circle {
+            fill: none;
+            stroke-width: 3;
+        }
+
+        .portfolio-pie-background {
+            stroke: rgba(255,255,255,0.1);
+        }
+
+        .portfolio-pie-progress {
+            stroke: var(--primary);
+            stroke-linecap: round;
+            transition: stroke-dasharray 0.6s ease-out;
+        }
+
+        .portfolio-pie-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: var(--text);
+            text-align: center;
+            line-height: 1;
+        }
+
+        .portfolio-pie-cell {
+            text-align: center;
+            padding: 8px;
         }
         
         .kpi-card {
@@ -1568,6 +1641,7 @@
                 <nav class="nav animate-slideInRight">
                     <a href="/" class="nav-link active">Portefeuille</a>
                     <a href="/orders" class="nav-link">Ordres</a>
+                    <a href="/projections" class="nav-link" id="projectionsLink" style="display: none;">Projections</a>
                 </nav>
 
                 <div class="header-controls">
@@ -1576,41 +1650,7 @@
                     </button>
 
                     <!-- Avatar utilisateur -->
-                    <div class="user-avatar-container" id="userAvatarContainer" style="display: none;">
-                        <button class="user-avatar" id="userAvatar" onclick="toggleUserMenu()">
-                            <span id="userInitial">U</span>
-                        </button>
-
-                        <div class="user-dropdown" id="userDropdown">
-                            <div class="user-dropdown-header">
-                                <div class="user-avatar-large">
-                                    <span id="userInitialLarge">U</span>
-                                </div>
-                                <div class="user-info-dropdown">
-                                    <div class="user-email" id="userEmailDropdown">user@example.com</div>
-                                    <div class="user-status">Connecté</div>
-                                </div>
-                            </div>
-
-                            <div class="user-dropdown-divider"></div>
-
-                            <div class="user-dropdown-actions">
-                                <button class="user-dropdown-item" onclick="showComingSoon('Profil')">
-                                    <span class="dropdown-icon">👤</span>
-                                    <span>Mon profil</span>
-                                </button>
-                                <button class="user-dropdown-item" onclick="openSettings()">
-                                    <span class="dropdown-icon">⚙️</span>
-                                    <span>Paramètres</span>
-                                </button>
-                                <div class="user-dropdown-divider"></div>
-                                <button class="user-dropdown-item logout" onclick="logout()">
-                                    <span class="dropdown-icon">🚪</span>
-                                    <span>Déconnexion</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                    {% include 'components/user_dropdown.html' %}
                 </div>
             </div>
         </header>
@@ -1622,31 +1662,23 @@
             </div>
             
             <div id="portfolioContent" style="display: none;">
-                <!-- Main KPIs Section - 3 chiffres clés -->
+                <!-- Main KPIs Section - 2 indicateurs principaux -->
                 <div class="main-kpis">
                     <div class="main-kpi-card primary">
                         <div class="main-kpi-label">Valeur Nette Après Fiscalité</div>
-                        <div class="main-kpi-value">
+                        <div class="main-kpi-value number">
                             <span id="netValueAfterTax">€0</span>
                             <button class="calc-info-btn" onclick="showCalculationTooltip('netValue', event)" title="Voir le détail du calcul">i</button>
                         </div>
                         <div class="main-kpi-subtitle" id="accountTypeLabel">PEA</div>
                     </div>
                     <div class="main-kpi-card">
-                        <div class="main-kpi-label">Gain Total</div>
-                        <div class="main-kpi-value">
-                            <span id="totalGainPct">0%</span>
-                            <button class="calc-info-btn" onclick="showCalculationTooltip('totalGain', event)" title="Voir le détail du calcul">i</button>
+                        <div class="main-kpi-label">Plus-values Latentes</div>
+                        <div class="main-kpi-value number">
+                            <span id="unrealizedGainsAbs">€0</span>
+                            <button class="calc-info-btn" onclick="showCalculationTooltip('unrealizedGains', event)" title="Voir le détail du calcul">i</button>
                         </div>
-                        <div class="main-kpi-subtitle" id="totalGainAbs">€0</div>
-                    </div>
-                    <div class="main-kpi-card">
-                        <div class="main-kpi-label">Performance Annualisée</div>
-                        <div class="main-kpi-value">
-                            <span id="annualizedReturn">0%</span>
-                            <button class="calc-info-btn" onclick="showCalculationTooltip('performance', event)" title="Voir le détail du calcul">i</button>
-                        </div>
-                        <div class="main-kpi-subtitle">Rendement annuel</div>
+                        <div class="main-kpi-subtitle number" id="unrealizedGainsPct">0%</div>
                     </div>
                 </div>
                 
@@ -1672,6 +1704,20 @@
                             </div>
                         </div>
                         <div class="kpi-card">
+                            <div class="kpi-label">Performance Annualisée</div>
+                            <div class="kpi-value number">
+                                <span id="annualizedReturn">0%</span>
+                                <button class="calc-info-btn" onclick="showCalculationTooltip('performance', event)" title="Voir le détail du calcul">i</button>
+                            </div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">Gain Total</div>
+                            <div class="kpi-value number">
+                                <span id="totalGainPct">0%</span>
+                                <button class="calc-info-btn" onclick="showCalculationTooltip('totalGain', event)" title="Voir le détail du calcul">i</button>
+                            </div>
+                        </div>
+                        <div class="kpi-card">
                             <div class="kpi-label">Impôts Estimés</div>
                             <div class="kpi-value number">
                                 <span id="estimatedTax">€0</span>
@@ -1690,13 +1736,14 @@
                     <table class="table">
                         <thead>
                             <tr>
+                                <th style="width: 60px;">Part</th>
                                 <th>ISIN</th>
-                                <th>Quantité</th>
-                                <th>Prix Moyen</th>
-                                <th>Prix Actuel</th>
-                                <th>Valeur</th>
-                                <th>P/L</th>
-                                <th>%</th>
+                                <th class="number">Quantité</th>
+                                <th class="number">Prix Moyen</th>
+                                <th class="number">Prix Actuel</th>
+                                <th class="number">Valeur</th>
+                                <th class="number">P/L</th>
+                                <th class="number">%</th>
                             </tr>
                         </thead>
                         <tbody id="positionsTableBody">
@@ -2161,39 +2208,55 @@
         function updatePortfolioDisplay() {
             if (!portfolioData) return;
 
-            // Animation des Main KPIs (3 chiffres clés)
+            // Animation des Main KPIs (2 indicateurs principaux)
             const selectedScenario = portfolioData.selected_scenario || {};
             const netValue = selectedScenario.net_value || portfolioData.current_value || 0;
             const taxAmount = selectedScenario.tax_amount || 0;
-            
+
+            // 1er indicateur : Valeur nette après fiscalité
             animateCounter('netValueAfterTax', netValue, '€');
-            
+
+            // 2ème indicateur : Plus-values latentes (absolues et pourcentage)
             const plAbs = portfolioData.pl_abs || 0;
             const plPct = portfolioData.pl_pct || 0;
-            animateCounter('totalGainPct', plPct, '%', plPct >= 0 ? '+' : '');
-            animateCounter('totalGainAbs', plAbs, '€', plAbs >= 0 ? '+' : '');
-            
-            const annualPerf = portfolioData.performance_data?.annual_return || 0;
-            animateCounter('annualizedReturn', annualPerf, '%', annualPerf >= 0 ? '+' : '');
-            
+            animateCounter('unrealizedGainsAbs', plAbs, '€', plAbs >= 0 ? '+' : '');
+            document.getElementById('unrealizedGainsPct').textContent = `${plPct >= 0 ? '+' : ''}${plPct.toFixed(2)}%`;
+
             // Mettre à jour le label du type de compte
             document.getElementById('accountTypeLabel').textContent = (portfolioData.account_type || 'PEA').toUpperCase();
-            
+
             // Animation des KPIs détaillés
             animateCounter('totalInvested', portfolioData.total_invested, '€');
             animateCounter('currentValue', portfolioData.current_value, '€');
             animateCounter('estimatedTax', taxAmount, '€');
-            
+
+            // Performance annualisée et gain total (maintenant dans les détails)
+            const annualPerf = portfolioData.performance_data?.annual_return || 0;
+            animateCounter('annualizedReturn', annualPerf, '%', annualPerf >= 0 ? '+' : '');
+            animateCounter('totalGainPct', plPct, '%', plPct >= 0 ? '+' : '');
+
             // Appliquer les couleurs en fonction des gains/pertes
+            const unrealizedGainsElement = document.getElementById('unrealizedGainsAbs');
+            const unrealizedGainsPctElement = document.getElementById('unrealizedGainsPct');
             const totalGainElement = document.getElementById('totalGainPct');
             const annualReturnElement = document.getElementById('annualizedReturn');
-            
+
+            // Couleurs pour plus-values latentes
+            if (plAbs >= 0) {
+                unrealizedGainsElement.style.color = '#4ade80';
+                unrealizedGainsPctElement.style.color = '#4ade80';
+            } else {
+                unrealizedGainsElement.style.color = '#f87171';
+                unrealizedGainsPctElement.style.color = '#f87171';
+            }
+
+            // Couleurs pour les métriques détaillées
             if (plPct >= 0) {
                 totalGainElement.style.color = '#4ade80';
             } else {
                 totalGainElement.style.color = '#f87171';
             }
-            
+
             if (annualPerf >= 0) {
                 annualReturnElement.style.color = '#4ade80';
             } else {
@@ -2253,7 +2316,7 @@
             if (!portfolioData.aggregated_positions || portfolioData.aggregated_positions.length === 0) {
                 tbody.innerHTML = `
                     <tr class="empty-state">
-                        <td colspan="7" style="text-align: center; color: var(--muted); padding: 40px;">
+                        <td colspan="8" style="text-align: center; color: var(--muted); padding: 40px;">
                             <div class="empty-icon">📊</div>
                             <div class="empty-title">Aucune position</div>
                             <div class="empty-description">Votre portefeuille ne contient aucune position pour le moment</div>
@@ -2263,13 +2326,44 @@
                 return;
             }
 
-            tbody.innerHTML = portfolioData.aggregated_positions.map((position, index) => {
+            // Calculer la valeur totale du portefeuille
+            const totalPortfolioValue = portfolioData.current_value || 0;
+
+            // Trier les positions par valeur décroissante
+            const sortedPositions = [...portfolioData.aggregated_positions].sort((a, b) => {
+                return (b.currentValue || 0) - (a.currentValue || 0);
+            });
+
+            tbody.innerHTML = sortedPositions.map((position, index) => {
                 const plAbs = position.plAbs || 0;
                 const plPct = position.plPct || 0;
                 const plClass = plAbs >= 0 ? 'positive' : 'negative';
-                
+
+                // Calculer le pourcentage de cette position par rapport au portefeuille total
+                const positionValue = position.currentValue || 0;
+                const portfolioPercentage = totalPortfolioValue > 0 ? (positionValue / totalPortfolioValue) * 100 : 0;
+
+                // Paramètres du cercle SVG
+                const radius = 18;
+                const circumference = 2 * Math.PI * radius;
+                const strokeDasharray = circumference;
+                const strokeDashoffset = circumference - (portfolioPercentage / 100) * circumference;
+
                 return `
                     <tr style="opacity: 0; transform: translateY(20px);">
+                        <td class="portfolio-pie-cell">
+                            <div class="portfolio-pie">
+                                <svg class="portfolio-pie-svg" viewBox="0 0 44 44">
+                                    <circle class="portfolio-pie-circle portfolio-pie-background"
+                                            cx="22" cy="22" r="${radius}"></circle>
+                                    <circle class="portfolio-pie-circle portfolio-pie-progress"
+                                            cx="22" cy="22" r="${radius}"
+                                            stroke-dasharray="${strokeDasharray}"
+                                            stroke-dashoffset="${strokeDashoffset}"></circle>
+                                </svg>
+                                <div class="portfolio-pie-text">${portfolioPercentage.toFixed(0)}%</div>
+                            </div>
+                        </td>
                         <td>${position.isin}</td>
                         <td class="number">${position.quantity.toLocaleString('fr-FR')}</td>
                         <td class="number">€${(position.avgUnitPrice || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
@@ -2311,7 +2405,7 @@
             
             document.getElementById('positionsTableBody').innerHTML = `
                 <tr class="empty-state">
-                    <td colspan="7" style="text-align: center; color: var(--muted); padding: 40px;">
+                    <td colspan="8" style="text-align: center; color: var(--muted); padding: 40px;">
                         <div class="empty-icon">📊</div>
                         <div class="empty-title">Aucune position</div>
                         <div class="empty-description">Votre portefeuille ne contient aucune position pour le moment</div>
@@ -2360,18 +2454,10 @@
         }
 
         function updateUserInterface(user) {
-            const email = user.email;
-            const initial = email.charAt(0).toUpperCase();
-
-            // Mettre à jour l'avatar
-            document.getElementById('userInitial').textContent = initial;
-            document.getElementById('userInitialLarge').textContent = initial;
-
-            // Mettre à jour les informations utilisateur
-            document.getElementById('userEmailDropdown').textContent = email;
-
-            // Afficher l'avatar
-            document.getElementById('userAvatarContainer').style.display = 'block';
+            // Utiliser la fonction centralisée du module user_dropdown
+            if (typeof window.updateUserInterface === 'function') {
+                window.updateUserInterface(user);
+            }
         }
 
         function setupAuthEventListeners() {
@@ -2641,7 +2727,13 @@
                 button.style.transform = 'translateX(-8px) scale(1.1)';
                 button.style.background = 'rgba(76,175,80,0.2)';
                 
-                const response = await fetch('/api/orders');
+                const response = await fetch('/api/orders', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
                 const result = await response.json();
                 
                 if (result.success) {
@@ -2897,6 +2989,18 @@
                     `;
                     break;
                     
+                case 'unrealizedGains':
+                    content = `
+                        <h4>Plus-values Latentes</h4>
+                        <div class="calc-detail">Valeur actuelle : ${portfolioData.current_value.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</div>
+                        <div class="calc-detail">Total investi : ${portfolioData.total_invested.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</div>
+                        <div class="calc-formula">Plus-values = Valeur actuelle - Total investi</div>
+                        <div class="calc-detail">= ${portfolioData.current_value.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} - ${portfolioData.total_invested.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</div>
+                        <div class="calc-detail"><strong>= ${(portfolioData.pl_abs || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</strong></div>
+                        <div class="calc-detail"><strong>= ${(portfolioData.pl_pct || 0).toFixed(2)}%</strong></div>
+                    `;
+                    break;
+
                 case 'taxCalculation':
                     const accountType = portfolioData.account_type || 'pea';
                     const scenario = portfolioData.fiscal_scenarios[accountType] || {};
@@ -2951,18 +3055,6 @@
         });
 
         // Gestion du menu utilisateur
-        let isUserMenuOpen = false;
-
-        function toggleUserMenu() {
-            const dropdown = document.getElementById('userDropdown');
-            isUserMenuOpen = !isUserMenuOpen;
-
-            if (isUserMenuOpen) {
-                dropdown.classList.add('show');
-            } else {
-                dropdown.classList.remove('show');
-            }
-        }
 
         // Fermer les popups en cliquant à l'extérieur
         document.getElementById('settingsPopup').addEventListener('click', (e) => {
@@ -2990,5 +3082,8 @@
             }
         });
     </script>
+
+    <!-- Script centralisé pour le dropdown utilisateur -->
+    <script src="/static/js/user_dropdown.js"></script>
 </body>
 </html>
