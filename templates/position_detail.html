@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Détail Position - {{ isin }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'SF Pro Display', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #1a1d21 0%, #2d1810 50%, #1a1d21 100%);
+            min-height: 100vh;
+            color: white;
+            overflow-x: hidden;
+        }
+
+        .header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #82c4ff, #ffffff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(130,196,255,0.1);
+            border: 1px solid rgba(130,196,255,0.3);
+            border-radius: 8px;
+            color: #82c4ff;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            margin-bottom: 16px;
+        }
+
+        .back-button:hover {
+            background: rgba(130,196,255,0.2);
+            transform: translateX(-4px);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2rem;
+            color: #82c4ff;
+        }
+
+        .position-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 24px;
+            backdrop-filter: blur(10px);
+        }
+
+        .card h2 {
+            font-size: 1.3rem;
+            margin-bottom: 16px;
+            color: #82c4ff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-grid {
+            display: grid;
+            gap: 12px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .info-label {
+            color: rgba(255,255,255,0.7);
+            font-size: 0.9rem;
+        }
+
+        .info-value {
+            font-weight: 600;
+            text-align: right;
+        }
+
+        .positive {
+            color: #4ade80;
+        }
+
+        .negative {
+            color: #f87171;
+        }
+
+        .price-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: rgba(130,196,255,0.1);
+            border: 1px solid rgba(130,196,255,0.3);
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .no-position {
+            background: rgba(245,158,11,0.1);
+            border-color: rgba(245,158,11,0.3);
+            color: #fbbf24;
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .technical-indicators {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .indicator {
+            background: rgba(255,255,255,0.05);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .indicator-label {
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 4px;
+        }
+
+        .indicator-value {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .position-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                padding: 16px;
+            }
+
+            .header {
+                padding: 16px;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="/" class="back-button">
+            ← Retour au portefeuille
+        </a>
+        <h1 id="pageTitle">Détail Position - {{ isin }}</h1>
+    </div>
+
+    <div class="container">
+        <div class="loading" id="loading">
+            Chargement des données...
+        </div>
+
+        <div id="positionContent" style="display: none;">
+            <!-- Prix actuel -->
+            <div class="price-badge" id="currentPrice">
+                <span>€</span>
+                <span id="priceValue">--</span>
+                <span id="priceSource"></span>
+            </div>
+
+            <div class="position-grid">
+                <!-- Informations générales -->
+                <div class="card">
+                    <h2>📋 Informations générales</h2>
+                    <div class="info-grid" id="generalInfo">
+                        <!-- Généré dynamiquement -->
+                    </div>
+                </div>
+
+                <!-- Ma position -->
+                <div class="card">
+                    <h2>💼 Ma position</h2>
+                    <div id="portfolioInfo">
+                        <!-- Généré dynamiquement -->
+                    </div>
+                </div>
+
+                <!-- Graphique d'évolution de la part dans le portefeuille -->
+                <div class="card full-width">
+                    <h2>📊 Évolution de la part dans le portefeuille</h2>
+                    <div id="portfolioShareChart" style="width: 100%; position: relative;">
+                        <canvas id="shareChart" style="width: 100%; height: 400px; cursor: crosshair;"></canvas>
+                        <div id="tooltip" style="position: absolute; background: rgba(0,0,0,0.8); color: white; padding: 8px 12px; border-radius: 4px; font-size: 12px; pointer-events: none; opacity: 0; transition: opacity 0.2s;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
+    <script>
+        const isin = '{{ isin }}';
+        let authToken = null;
+
+        // Configuration Firebase (même que dans index.html)
+        const firebaseConfig = {
+            "apiKey": "AIzaSyBFrk8tZVEuM0LeQ0D8kJ7N2Bt-KyuQv0I",
+            "authDomain": "suivi-financ.firebaseapp.com",
+            "projectId": "suivi-financ",
+            "storageBucket": "suivi-financ.firebasestorage.app",
+            "messagingSenderId": "959011615445",
+            "appId": "1:959011615445:web:993be6cee77fc6cedae85c",
+            "measurementId": "G-8QXCJ8J23S"
+        };
+
+        // Initialiser Firebase
+        firebase.initializeApp(firebaseConfig);
+
+        // Fonction d'authentification avec délai pour éviter les redirections prématurées
+        let authCheckTimeout;
+        firebase.auth().onAuthStateChanged(async (user) => {
+            // Annuler le timeout de redirection si l'utilisateur est trouvé
+            if (authCheckTimeout) {
+                clearTimeout(authCheckTimeout);
+            }
+
+            if (user) {
+                authToken = await user.getIdToken();
+                loadPositionData();
+            } else {
+                // Attendre un peu avant de rediriger (au cas où l'auth est en cours)
+                authCheckTimeout = setTimeout(() => {
+                    console.log('Redirection vers / - utilisateur non authentifié');
+                    window.location.href = '/';
+                }, 2000); // 2 secondes de délai
+            }
+        });
+
+        async function loadPositionData() {
+            try {
+                const response = await fetch(`/api/position/${isin}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                displayPositionData(data);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('positionContent').style.display = 'block';
+
+            } catch (error) {
+                console.error('Erreur:', error);
+                document.getElementById('loading').innerHTML = `
+                    <div style="color: #f87171;">
+                        ❌ Erreur lors du chargement: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function displayPositionData(data) {
+            // Mise à jour du titre
+            if (data.yahoo_finance?.full_name) {
+                document.getElementById('pageTitle').textContent = data.yahoo_finance.full_name;
+                document.title = `${data.yahoo_finance.full_name} - ${isin}`;
+            }
+
+            // Prix actuel
+            const priceValue = data.basic_quote?.price || data.justetf?.latest_quote || 0;
+            document.getElementById('priceValue').textContent = priceValue.toFixed(2);
+            document.getElementById('priceSource').textContent = `(${data.basic_quote?.source || 'N/A'})`;
+
+            // Informations générales
+            const generalInfo = document.getElementById('generalInfo');
+            generalInfo.innerHTML = createInfoItems([
+                ['ISIN', data.isin],
+                ['Nom complet', data.yahoo_finance?.full_name || data.yahoo_finance?.short_name || 'N/A'],
+                ['Gestionnaire', data.yahoo_finance?.fund_family || 'N/A'],
+                ['Bourse', data.yahoo_finance?.exchange || data.justetf?.trading_venue || 'N/A'],
+                ['Devise', data.basic_quote?.currency || 'EUR'],
+                ['Frais de gestion', data.yahoo_finance?.expense_ratio ? `${(data.yahoo_finance.expense_ratio * 100).toFixed(2)}%` : 'N/A']
+            ]);
+
+            // Ma position
+            const portfolioInfo = document.getElementById('portfolioInfo');
+            if (data.portfolio?.has_position) {
+                const pnl = data.portfolio.unrealized_pnl || 0;
+                const pnlPct = data.portfolio.unrealized_pnl_pct || 0;
+                const pnlClass = pnl >= 0 ? 'positive' : 'negative';
+
+                portfolioInfo.innerHTML = createInfoItems([
+                    ['Quantité détenue', `${data.portfolio.total_quantity.toLocaleString('fr-FR')} parts`],
+                    ['Valeur investie', `€${data.portfolio.total_invested.toLocaleString('fr-FR', {minimumFractionDigits: 2})}`],
+                    ['Prix moyen d\'achat', `€${data.portfolio.average_purchase_price.toFixed(2)}`],
+                    ['Valeur actuelle', `€${(data.portfolio.current_value || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})}`],
+                    ['Plus/Moins-value', `<span class="${pnlClass}">${pnl >= 0 ? '+' : ''}€${pnl.toFixed(2)} (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%)</span>`],
+                    ['Nombre d\'ordres', `${data.portfolio.orders_count}`],
+                    ['Premier achat', new Date(data.portfolio.first_purchase_date).toLocaleDateString('fr-FR')],
+                    ['Dernier achat', new Date(data.portfolio.last_purchase_date).toLocaleDateString('fr-FR')]
+                ]);
+            } else {
+                portfolioInfo.innerHTML = '<div class="no-position">🚫 Vous ne possédez pas cette position dans votre portefeuille</div>';
+            }
+
+            // Créer le graphique d'évolution de la part
+            if (data.portfolio?.has_position) {
+                createPortfolioShareChart(data);
+            } else {
+                document.getElementById('portfolioShareChart').innerHTML = '<div class="no-position">🚫 Aucune donnée de portefeuille disponible pour le graphique</div>';
+            }
+        }
+
+        function createInfoItems(items) {
+            return items.map(([label, value]) => `
+                <div class="info-item">
+                    <span class="info-label">${label}</span>
+                    <span class="info-value">${value}</span>
+                </div>
+            `).join('');
+        }
+
+        async function createPortfolioShareChart(data) {
+            // Récupérer les données de portefeuille pour calculer l'évolution
+            try {
+                if (!authToken) {
+                    throw new Error('Utilisateur non authentifié');
+                }
+
+                const ordersResponse = await fetch('/api/orders', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                const ordersData = await ordersResponse.json();
+
+                // Debug: afficher les données récupérées
+                console.log('Données ordres récupérées:', ordersData);
+                console.log('Nombre d\'ordres:', ordersData.orders?.length || 0);
+                console.log('ISIN recherché:', data.isin);
+
+                if (ordersData.orders && ordersData.orders.length > 0) {
+                    console.log('Premier ordre:', ordersData.orders[0]);
+                    console.log('ISINs dans les ordres:', [...new Set(ordersData.orders.map(o => o.isin))]);
+                }
+
+                if (!ordersData.success || !ordersData.orders || ordersData.orders.length === 0) {
+                    document.getElementById('portfolioShareChart').innerHTML = '<div class="no-position">📊 Aucun ordre trouvé pour créer le graphique</div>';
+                    return;
+                }
+
+                // Calculer les données mensuelles
+                const monthlyData = calculateMonthlyPortfolioShare(ordersData.orders, data.isin);
+
+                if (monthlyData.length === 0) {
+                    document.getElementById('portfolioShareChart').innerHTML = '<div class="no-position">📊 Pas assez de données pour créer le graphique</div>';
+                    return;
+                }
+
+                drawShareChart(monthlyData);
+
+            } catch (error) {
+                console.error('Erreur lors de la création du graphique:', error);
+                document.getElementById('portfolioShareChart').innerHTML = '<div class="no-position">❌ Erreur lors du chargement du graphique</div>';
+            }
+        }
+
+        function calculateMonthlyPortfolioShare(orders, targetIsin) {
+            // Trier les ordres par date
+            const sortedOrders = orders.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            // Trouver le premier ordre du portefeuille
+            const firstOrder = sortedOrders[0];
+            if (!firstOrder) return [];
+
+            const startDate = new Date(firstOrder.date);
+            const currentDate = new Date();
+
+            const monthlyData = [];
+
+            // Parcourir mois par mois depuis le premier ordre
+            for (let date = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+                 date <= currentDate;
+                 date.setMonth(date.getMonth() + 1)) {
+
+                // Calculer l'état du portefeuille au premier de ce mois
+                const portfolioState = calculatePortfolioStateAtDate(sortedOrders, date);
+                const targetPositionValue = portfolioState.positions[targetIsin] || 0;
+                const totalValue = portfolioState.totalValue;
+
+                const sharePercentage = totalValue > 0 ? (targetPositionValue / totalValue) * 100 : 0;
+
+                // Debug pour voir les valeurs calculées
+                console.log(`${date.toISOString().slice(0,7)}: ${targetIsin} = ${targetPositionValue}€ / ${totalValue}€ = ${sharePercentage.toFixed(1)}%`);
+
+                monthlyData.push({
+                    month: date.toLocaleDateString('fr-FR', { year: 'numeric', month: 'short' }),
+                    percentage: sharePercentage,
+                    value: targetPositionValue,
+                    totalValue: totalValue
+                });
+            }
+
+            return monthlyData;
+        }
+
+        function calculatePortfolioStateAtDate(orders, targetDate) {
+            const positions = {};
+
+            // Debug des ordres traités
+            console.log(`=== Calcul portfolio à ${targetDate.toISOString().slice(0,10)} ===`);
+
+            // Calculer les quantités détenues par ISIN à la date cible
+            orders.forEach(order => {
+                const orderDate = new Date(order.date);
+                if (orderDate <= targetDate) {
+                    const isin = order.isin;
+                    if (!positions[isin]) {
+                        positions[isin] = { quantity: 0, totalCost: 0 };
+                    }
+
+                    // Utiliser unitPrice au lieu de price (structure des ordres)
+                    const price = order.unitPrice || order.price || 0;
+
+                    // Dans ce système, tous les ordres sans type spécifique sont des achats
+                    const orderType = order.type || order.orderType || 'buy';
+
+                    console.log(`Ordre ${order.date}: ${isin} ${orderType} ${order.quantity} à ${price}€`);
+
+                    if (orderType === 'buy') {
+                        positions[isin].quantity += order.quantity;
+                        positions[isin].totalCost += order.quantity * price;
+                    } else if (orderType === 'sell') {
+                        const avgPrice = positions[isin].quantity > 0 ? positions[isin].totalCost / positions[isin].quantity : 0;
+                        positions[isin].quantity -= order.quantity;
+                        positions[isin].totalCost -= order.quantity * avgPrice;
+                    }
+
+                    console.log(`  -> Position ${isin}: ${positions[isin].quantity} parts, coût total: ${positions[isin].totalCost}€`);
+                }
+            });
+
+            // Pour le calcul du graphique, utiliser les valeurs investies comme approximation
+            // (idéalement il faudrait les prix historiques, mais c'est complexe)
+            const positionValues = {};
+            let totalValue = 0;
+
+            Object.keys(positions).forEach(isin => {
+                if (positions[isin].quantity > 0) {
+                    // Utiliser le coût moyen comme approximation de la valeur
+                    const avgCost = positions[isin].totalCost / positions[isin].quantity;
+                    const estimatedValue = positions[isin].quantity * avgCost;
+                    positionValues[isin] = estimatedValue;
+                    totalValue += estimatedValue;
+                    console.log(`Position finale ${isin}: ${positions[isin].quantity} parts × ${avgCost.toFixed(2)}€ = ${estimatedValue.toFixed(2)}€`);
+                }
+            });
+
+            console.log(`Total portefeuille: ${totalValue.toFixed(2)}€`);
+            console.log('Positions:', positionValues);
+
+            return {
+                positions: positionValues,
+                totalValue: totalValue
+            };
+        }
+
+        function drawShareChart(monthlyData) {
+            const canvas = document.getElementById('shareChart');
+            const ctx = canvas.getContext('2d');
+            const tooltip = document.getElementById('tooltip');
+
+            // Ajuster la taille du canvas pour haute résolution
+            const rect = canvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = 400 * dpr;
+            ctx.scale(dpr, dpr);
+
+            // Définir les dimensions de travail
+            const width = rect.width;
+            const height = 400;
+
+            const padding = 50;
+            const chartWidth = width - 2 * padding;
+            const chartHeight = height - 2 * padding;
+
+            // Trouver les valeurs min/max
+            const maxPercentage = Math.max(...monthlyData.map(d => d.percentage), 10);
+            const minPercentage = 0;
+
+            // Effacer le canvas
+            ctx.clearRect(0, 0, width, height);
+
+            // Stocker les points pour le hover
+            const dataPoints = [];
+
+            // Style
+            ctx.strokeStyle = '#82c4ff';
+            ctx.fillStyle = 'rgba(130, 196, 255, 0.1)';
+            ctx.lineWidth = 2;
+            ctx.font = '12px SF Pro Display, system-ui, sans-serif';
+
+            // Dessiner la grille
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+
+            // Lignes horizontales
+            for (let i = 0; i <= 5; i++) {
+                const y = padding + (chartHeight * i) / 5;
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(padding + chartWidth, y);
+                ctx.stroke();
+
+                // Labels Y
+                const value = maxPercentage - (maxPercentage * i) / 5;
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                ctx.fillText(value.toFixed(1) + '%', 10, y + 4);
+            }
+
+            // Dessiner la courbe
+            if (monthlyData.length > 1) {
+                ctx.strokeStyle = '#82c4ff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+
+                monthlyData.forEach((point, index) => {
+                    const x = padding + (chartWidth * index) / (monthlyData.length - 1);
+                    const y = padding + chartHeight - (chartHeight * point.percentage) / maxPercentage;
+
+                    // Stocker les points pour le hover
+                    dataPoints.push({
+                        x: x,
+                        y: y,
+                        data: point
+                    });
+
+                    if (index === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                });
+
+                ctx.stroke();
+
+                // Remplir sous la courbe
+                ctx.lineTo(padding + chartWidth, padding + chartHeight);
+                ctx.lineTo(padding, padding + chartHeight);
+                ctx.closePath();
+                ctx.fillStyle = 'rgba(130, 196, 255, 0.1)';
+                ctx.fill();
+
+                // Points sur la courbe
+                ctx.fillStyle = '#82c4ff';
+                monthlyData.forEach((point, index) => {
+                    const x = padding + (chartWidth * index) / (monthlyData.length - 1);
+                    const y = padding + chartHeight - (chartHeight * point.percentage) / maxPercentage;
+
+                    ctx.beginPath();
+                    ctx.arc(x, y, 4, 0, 2 * Math.PI);
+                    ctx.fill();
+                });
+            }
+
+            // Labels X (mois)
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            monthlyData.forEach((point, index) => {
+                if (index % Math.ceil(monthlyData.length / 6) === 0) { // Afficher seulement quelques labels
+                    const x = padding + (chartWidth * index) / (monthlyData.length - 1);
+                    ctx.save();
+                    ctx.translate(x, height - 20);
+                    ctx.rotate(-Math.PI / 4);
+                    ctx.fillText(point.month, 0, 0);
+                    ctx.restore();
+                }
+            });
+
+            // Ajouter les événements de hover
+            canvas.removeEventListener('mousemove', canvas.hoverHandler);
+            canvas.removeEventListener('mouseleave', canvas.leaveHandler);
+
+            canvas.hoverHandler = function(event) {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = event.clientX - rect.left;
+                const mouseY = event.clientY - rect.top;
+
+                // Trouver le point le plus proche
+                let closestPoint = null;
+                let minDistance = Infinity;
+
+                dataPoints.forEach(point => {
+                    const distance = Math.sqrt(Math.pow(mouseX - point.x, 2) + Math.pow(mouseY - point.y, 2));
+                    if (distance < 20 && distance < minDistance) { // 20px de rayon de détection
+                        minDistance = distance;
+                        closestPoint = point;
+                    }
+                });
+
+                if (closestPoint) {
+                    const data = closestPoint.data;
+                    tooltip.innerHTML = `
+                        <strong>${data.month}</strong><br>
+                        Part: <strong>${data.percentage.toFixed(1)}%</strong><br>
+                        Valeur: <strong>${data.value.toFixed(0)}€</strong>
+                    `;
+
+                    // Positionner le tooltip par rapport au conteneur du graphique
+                    const chartRect = document.getElementById('portfolioShareChart').getBoundingClientRect();
+                    tooltip.style.left = (mouseX + 10) + 'px';
+                    tooltip.style.top = (mouseY - 10) + 'px';
+                    tooltip.style.opacity = '1';
+                } else {
+                    tooltip.style.opacity = '0';
+                }
+            };
+
+            canvas.leaveHandler = function() {
+                tooltip.style.opacity = '0';
+            };
+
+            canvas.addEventListener('mousemove', canvas.hoverHandler);
+            canvas.addEventListener('mouseleave', canvas.leaveHandler);
+        }
+
+        // Ne plus charger automatiquement - l'authentification se charge de lancer loadPositionData()
+        // document.addEventListener('DOMContentLoaded', loadPositionData);
+    </script>
+</body>
+</html>

@@ -74,6 +74,11 @@ class FinancialPortfolioApp:
         def projections_page():
             """Financial projections page."""
             return render_template("projections.html")
+
+        @self.app.route("/position/<isin>")
+        def position_detail(isin):
+            """Position detail page."""
+            return render_template("position_detail.html", isin=isin)
         
         @self.app.route("/health")
         def health_check():
@@ -224,6 +229,17 @@ class FinancialPortfolioApp:
                 
             except Exception as e:
                 debug_log("History API error", {"error": str(e)})
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route("/api/position/<isin>", methods=["GET"])
+        def position_detail_api(isin):
+            """API endpoint for position details with enriched data."""
+            try:
+                # Récupérer les données enrichies pour cette position
+                enriched_data = self._get_enriched_position_data(isin)
+                return jsonify(enriched_data)
+            except Exception as e:
+                debug_log("Position detail API error", {"isin": isin, "error": str(e)})
                 return jsonify({"error": str(e)}), 500
 
         @self.app.route("/api/projections", methods=["GET", "POST"])
@@ -429,6 +445,146 @@ class FinancialPortfolioApp:
             "date_to": date_to
         }
     
+    def _get_enriched_position_data(self, isin: str) -> Dict[str, Any]:
+        """Get enriched data for a specific position including name, portfolio info, and technical data."""
+        import yfinance as yf
+        import requests
+        from datetime import datetime, timedelta
+
+        try:
+            # Récupérer les données de base
+            current_price_quote = self.price_service.get_current_price(isin)
+
+            # Récupérer les informations détaillées via Yahoo Finance
+            yahoo_info = {}
+            try:
+                ticker = yf.Ticker(isin)
+                info = ticker.info or {}
+                yahoo_info = {
+                    'full_name': info.get('longName') or info.get('shortName', isin),
+                    'short_name': info.get('shortName', isin),
+                    'fund_family': info.get('fundFamily', 'N/A'),
+                    'currency': info.get('currency', 'EUR'),
+                    'expense_ratio': info.get('netExpenseRatio'),
+                    'pe_ratio': info.get('trailingPE'),
+                    'beta': info.get('beta3Year'),
+                    'ytd_return': info.get('ytdReturn'),
+                    'inception_date': info.get('fundInceptionDate'),
+                    'exchange': info.get('exchange', 'N/A'),
+                    'week_52_low': info.get('fiftyTwoWeekLow'),
+                    'week_52_high': info.get('fiftyTwoWeekHigh'),
+                    'avg_volume': info.get('averageVolume'),
+                    'market_cap': info.get('marketCap')
+                }
+
+                # Calculs historiques
+                hist_1y = ticker.history(period='1y')
+                if not hist_1y.empty:
+                    current_price = hist_1y['Close'].iloc[-1]
+                    sma_50 = hist_1y['Close'].rolling(50).mean().iloc[-1] if len(hist_1y) > 50 else None
+                    sma_200 = hist_1y['Close'].rolling(200).mean().iloc[-1] if len(hist_1y) > 200 else None
+
+                    yahoo_info.update({
+                        'sma_50': float(sma_50) if sma_50 is not None else None,
+                        'sma_200': float(sma_200) if sma_200 is not None else None,
+                        'current_price_yahoo': float(current_price)
+                    })
+
+            except Exception as e:
+                debug_log("Error fetching Yahoo data", {"isin": isin, "error": str(e)})
+
+            # Récupérer les données de portefeuille utilisateur
+            portfolio_info = {}
+            try:
+                orders = self.portfolio_service.load_orders()
+                user_positions = [order for order in orders if order.isin == isin]
+
+                if user_positions:
+                    total_quantity = sum(order.quantity for order in user_positions)
+                    total_invested = sum(order.total_price_eur for order in user_positions)
+                    avg_price = total_invested / total_quantity if total_quantity > 0 else 0
+
+                    portfolio_info = {
+                        'has_position': True,
+                        'total_quantity': total_quantity,
+                        'total_invested': total_invested,
+                        'average_purchase_price': avg_price,
+                        'orders_count': len(user_positions),
+                        'first_purchase_date': min(order.order_date for order in user_positions).isoformat(),
+                        'last_purchase_date': max(order.order_date for order in user_positions).isoformat(),
+                        'current_value': current_price_quote.price * total_quantity if current_price_quote.is_valid else None
+                    }
+
+                    if portfolio_info['current_value']:
+                        portfolio_info['unrealized_pnl'] = portfolio_info['current_value'] - total_invested
+                        portfolio_info['unrealized_pnl_pct'] = (portfolio_info['unrealized_pnl'] / total_invested) * 100
+                else:
+                    portfolio_info = {'has_position': False}
+
+            except Exception as e:
+                debug_log("Error fetching portfolio data", {"isin": isin, "error": str(e)})
+                portfolio_info = {'has_position': False}
+
+            # Récupérer des données JustETF enrichies
+            justetf_data = {}
+            try:
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15',
+                    'Accept': 'application/json',
+                    'Referer': f'https://www.justetf.com/fr/etf-profile.html?isin={isin}'
+                }
+
+                # Quote avec plus de détails
+                url = f"https://www.justetf.com/api/etfs/{isin}/quote"
+                params = {'currency': 'EUR', 'locale': 'fr'}
+                response = requests.get(url, params=params, headers=headers, timeout=8)
+
+                if response.status_code == 200:
+                    data = response.json()
+                    justetf_data = {
+                        'latest_quote': data.get('latestQuote', {}).get('raw'),
+                        'previous_quote': data.get('previousQuote', {}).get('raw'),
+                        'daily_change_pct': data.get('dtdPrc', {}).get('raw'),
+                        'daily_change_abs': data.get('dtdAmt', {}).get('raw'),
+                        'trading_venue': data.get('quoteTradingVenue'),
+                        'week_52_low': data.get('quoteLowHigh', {}).get('low', {}).get('raw'),
+                        'week_52_high': data.get('quoteLowHigh', {}).get('high', {}).get('raw')
+                    }
+
+            except Exception as e:
+                debug_log("Error fetching JustETF data", {"isin": isin, "error": str(e)})
+
+            # Combiner toutes les données
+            enriched_data = {
+                'isin': isin,
+                'basic_quote': {
+                    'price': current_price_quote.price,
+                    'source': current_price_quote.source,
+                    'is_valid': current_price_quote.is_valid,
+                    'currency': current_price_quote.currency or 'EUR'
+                },
+                'yahoo_finance': yahoo_info,
+                'justetf': justetf_data,
+                'portfolio': portfolio_info,
+                'last_updated': datetime.now().isoformat()
+            }
+
+            return enriched_data
+
+        except Exception as e:
+            debug_log("Error getting enriched position data", {"isin": isin, "error": str(e)})
+            return {
+                'isin': isin,
+                'error': str(e),
+                'basic_quote': {
+                    'price': 0.0,
+                    'source': 'Error',
+                    'is_valid': False,
+                    'currency': 'EUR'
+                },
+                'portfolio': {'has_position': False}
+            }
+
     def run(self, host: str = None, port: int = None, debug: bool = True):
         """Start the Flask application."""
         host = host or os.environ.get("HOST", "0.0.0.0")

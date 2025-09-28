@@ -1218,6 +1218,16 @@
             }
         }
 
+        /* Styles pour les lignes de portefeuille cliquables */
+        .portfolio-row:hover {
+            background-color: rgba(255,255,255,0.05) !important;
+            transform: translateY(-1px);
+        }
+
+        .portfolio-row {
+            transition: all 0.2s ease;
+        }
+
         /* Styles pour l'authentification Firebase */
         .auth-overlay {
             position: fixed;
@@ -1936,6 +1946,12 @@
         let currentUser = null;
         let authToken = null;
 
+        // Fonction de navigation vers les détails de position
+        function navigateToPosition(isin) {
+            console.log('Navigation vers position:', isin);
+            window.location.href = `/position/${isin}`;
+        }
+
         // Gestion du thème
         function initTheme() {
             const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -2350,7 +2366,7 @@
                 const strokeDashoffset = circumference - (portfolioPercentage / 100) * circumference;
 
                 return `
-                    <tr style="opacity: 0; transform: translateY(20px);">
+                    <tr class="portfolio-row" data-isin="${position.isin}" style="opacity: 0; transform: translateY(20px); cursor: pointer;" onclick="navigateToPosition('${position.isin}')">
                         <td class="portfolio-pie-cell">
                             <div class="portfolio-pie">
                                 <svg class="portfolio-pie-svg" viewBox="0 0 44 44">
