@@ -298,7 +298,38 @@ class FinancialPortfolioApp:
             except Exception as e:
                 debug_log("Projections API error", {"error": str(e)})
                 return jsonify({"error": str(e)}), 500
-    
+
+        @self.app.route("/api/portfolio/monthly-values", methods=["GET"])
+        @require_auth
+        def monthly_portfolio_values_api():
+            """API endpoint for monthly portfolio values (authentification requise)."""
+            print(f"📊 MONTHLY VALUES API: Début de la requête - NOUVELLE VERSION")
+            try:
+                user_id = get_current_user_id()
+                print(f"📊 MONTHLY VALUES API: User ID récupéré: {user_id}")
+
+                # Récupérer les ordres depuis Firebase pour cet utilisateur
+                user_orders = firebase_service.get_user_orders(user_id)
+                print(f"📊 MONTHLY VALUES API: Nombre d'ordres trouvés: {len(user_orders) if user_orders else 0}")
+
+                # Calculer les valeurs mensuelles du portefeuille
+                monthly_values = self.portfolio_service.get_monthly_portfolio_values(user_orders)
+                print(f"📊 MONTHLY VALUES API: Calcul terminé - {len(monthly_values)} valeurs mensuelles générées")
+
+                result = {
+                    "success": True,
+                    "data": monthly_values,
+                    "user_id": user_id,
+                    "total_months": len(monthly_values)
+                }
+                print(f"📊 MONTHLY VALUES API: Réponse prête - succès!")
+                return jsonify(result)
+
+            except Exception as e:
+                print(f"📊 MONTHLY VALUES API: ERREUR - {str(e)}")
+                debug_log("Monthly portfolio values API error", {"error": str(e)})
+                return jsonify({"error": str(e)}), 500
+
     def _get_account_type_from_request(self) -> str:
         """Extract account type from request, defaulting to 'pea'."""
         if request.method == "POST":

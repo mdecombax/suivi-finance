@@ -132,6 +132,60 @@ Orders in `orders.json` follow this structure:
 }
 ```
 
+## Frontend JavaScript Best Practices
+
+### Authenticated API Requests
+When implementing new authenticated API endpoints, follow this proven pattern:
+
+**✅ CORRECT Pattern (Simple & Works):**
+```javascript
+async function loadData() {
+    try {
+        if (!authToken) {
+            throw new Error('Utilisateur non authentifié');
+        }
+
+        const response = await fetch('/api/your-endpoint', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        if (result.success) {
+            // Handle success
+        } else {
+            throw new Error(result.error || 'Erreur inconnue');
+        }
+    } catch (error) {
+        console.error('Erreur:', error);
+        // Handle error UI
+    }
+}
+```
+
+**❌ AVOID (Complex logging breaks execution):**
+- Excessive console.log statements before fetch calls
+- Complex authentication variable checks
+- Over-detailed debugging that can interfere with execution flow
+
+**Examples that work:**
+- `loadPortfolioData()` - line 2834 in templates/index.html
+- `exportOrders()` - line 2925 in templates/index.html
+- `loadMonthlyPortfolioValues()` - line 2468 in templates/index.html
+
+**Key Points:**
+1. Simple `if (!authToken)` check, no complex logging
+2. Direct `Bearer ${authToken}` usage in headers
+3. Clean error handling without excessive debugging
+4. Follow the exact same pattern as existing working functions
+
 ## Notes for Development
 - The application is currently not connected to any Git repository
 - Firebase configuration exists but is not actively used

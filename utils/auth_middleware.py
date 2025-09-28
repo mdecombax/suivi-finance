@@ -50,21 +50,31 @@ def require_auth(f):
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        print(f"🔐 require_auth: Protection de la route {request.endpoint} - {request.method} {request.path}")
+
         # Récupérer le token de l'en-tête Authorization
         auth_header = request.headers.get('Authorization')
+        print(f"🔐 require_auth: Token présent: {'Oui' if auth_header else 'Non'}")
+
+        if auth_header:
+            print(f"🔐 require_auth: Token: {auth_header[:20]}... (tronqué pour sécurité)")
 
         if not auth_header:
+            print(f"🔐 require_auth: ERREUR - Aucun token d'authentification trouvé")
             return jsonify({'error': 'Token d\'authentification requis'}), 401
 
         # Vérifier le token
         user_info = verify_firebase_token(auth_header)
+        print(f"🔐 require_auth: Vérification token réussie: {'Oui' if user_info else 'Non'}")
 
         if not user_info:
+            print(f"🔐 require_auth: ERREUR - Token invalide ou expiré")
             return jsonify({'error': 'Token invalide ou expiré'}), 401
 
         # Stocker les infos utilisateur dans g pour les utiliser dans la route
         g.current_user = user_info
         g.user_id = user_info['uid']
+        print(f"🔐 require_auth: Authentification réussie pour l'utilisateur {user_info['uid']}")
 
         return f(*args, **kwargs)
 

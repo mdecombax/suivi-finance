@@ -368,3 +368,162 @@ class PortfolioService:
                     scenario.net_value = current_value
         
         return scenarios
+
+    def get_monthly_portfolio_values(self, orders_data: List[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """Calculate portfolio value at the beginning of each month since first order."""
+        if orders_data is not None:
+            # Convert Firebase orders data to InvestmentOrder objects
+            orders = []
+            for order_dict in orders_data:
+                try:
+                    converted_order = {
+                        'id': order_dict.get('id'),
+                        'isin': order_dict.get('isin'),
+                        'quantity': order_dict.get('quantity'),
+                        'date': order_dict.get('date'),
+                        'unitPrice': order_dict.get('unitPrice'),
+                        'totalPriceEUR': order_dict.get('totalPriceEUR'),
+                        'type': order_dict.get('type', 'buy')
+                    }
+                    order = InvestmentOrder.from_dict(converted_order)
+                    orders.append(order)
+                except Exception as e:
+                    self._log("Failed to convert Firebase order for monthly values", {"order": order_dict, "error": str(e)})
+                    continue
+        else:
+            orders = self.load_orders()
+
+        if not orders:
+            return []
+
+        # Sort orders by date (ascending - oldest first)
+        orders.sort(key=lambda o: o.order_date)
+
+        # Find the first order date to determine starting month
+        first_order_date = orders[0].order_date
+        first_month = date(first_order_date.year, first_order_date.month, 1)
+
+        # Generate monthly data from first month to current month
+        current_date = date.today()
+        current_month = date(current_date.year, current_date.month, 1)
+
+        monthly_values = []
+        month_iter = first_month
+
+        while month_iter <= current_month:
+            month_first_day = month_iter
+
+            # For the very first month (month of first order), value is 0
+            if month_iter == first_month:
+                monthly_values.append({
+                    "month": month_first_day.strftime("%Y-%m"),
+                    "month_display": month_first_day.strftime("%B %Y"),
+                    "date": month_first_day.isoformat(),
+                    "portfolio_value": 0.0,
+                    "positions": [],
+                    "is_first_month": True
+                })
+            else:
+                # Calculate portfolio value at the beginning of this month
+                portfolio_value, positions = self._calculate_portfolio_value_at_date(orders, month_first_day)
+
+                # Calculate month-over-month change
+                previous_value = monthly_values[-1]["portfolio_value"] if monthly_values else 0.0
+                month_change = portfolio_value - previous_value
+                month_change_pct = (month_change / previous_value * 100) if previous_value > 0 else None
+
+                monthly_values.append({
+                    "month": month_first_day.strftime("%Y-%m"),
+                    "month_display": month_first_day.strftime("%B %Y"),
+                    "date": month_first_day.isoformat(),
+                    "portfolio_value": portfolio_value,
+                    "positions": positions,
+                    "month_change": month_change,
+                    "month_change_pct": month_change_pct,
+                    "is_first_month": False
+                })
+
+            # Move to next month
+            if month_iter.month == 12:
+                month_iter = date(month_iter.year + 1, 1, 1)
+            else:
+                month_iter = date(month_iter.year, month_iter.month + 1, 1)
+
+        return monthly_values
+
+    def _calculate_portfolio_value_at_date(
+        self,
+        orders: List[InvestmentOrder],
+        target_date: date
+    ) -> tuple[float, List[Dict[str, Any]]]:
+        """Calculate portfolio value and positions at a specific date."""
+        # Filter orders that occurred before the target date
+        relevant_orders = [order for order in orders if order.order_date < target_date]
+
+        if not relevant_orders:
+            return 0.0, []
+
+        # Group orders by ISIN and calculate quantities held at target date
+        isin_positions = {}
+        for order in relevant_orders:
+            isin = order.isin
+            if isin not in isin_positions:
+                isin_positions[isin] = {
+                    'quantity': 0.0,
+                    'total_invested': 0.0
+                }
+
+            # For now, treat all orders as buy orders (consistent with rest of codebase)
+            # TODO: Add proper buy/sell support once order_type is added to InvestmentOrder model
+            isin_positions[isin]['quantity'] += order.quantity
+            isin_positions[isin]['total_invested'] += order.total_price_eur
+
+        # Remove positions with zero or negative quantities
+        isin_positions = {k: v for k, v in isin_positions.items() if v['quantity'] > 0}
+
+        total_portfolio_value = 0.0
+        positions_detail = []
+
+        # For each position, get historical price and calculate value
+        for isin, position_data in isin_positions.items():
+            quantity = position_data['quantity']
+
+            # Get historical price for this ISIN at target date
+            price_quote = self.price_service.get_historical_price(isin, target_date)
+
+            if price_quote.is_valid and price_quote.price > 0:
+                position_value = quantity * price_quote.price
+                total_portfolio_value += position_value
+
+                positions_detail.append({
+                    "isin": isin,
+                    "quantity": quantity,
+                    "price": price_quote.price,
+                    "value": position_value,
+                    "total_invested": position_data['total_invested'],
+                    "price_source": price_quote.source
+                })
+            else:
+                # If we can't get historical price, log warning but continue
+                self._log("Could not get historical price", {
+                    "isin": isin,
+                    "date": target_date.isoformat(),
+                    "error": price_quote.error_message if price_quote else "No quote"
+                })
+
+                # Try current price as fallback for very recent dates
+                current_price_quote = self.price_service.get_current_price(isin)
+                if current_price_quote.is_valid and current_price_quote.price > 0:
+                    position_value = quantity * current_price_quote.price
+                    total_portfolio_value += position_value
+
+                    positions_detail.append({
+                        "isin": isin,
+                        "quantity": quantity,
+                        "price": current_price_quote.price,
+                        "value": position_value,
+                        "total_invested": position_data['total_invested'],
+                        "price_source": f"{current_price_quote.source} (fallback)"
+                    })
+
+        return total_portfolio_value, positions_detail

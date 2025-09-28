@@ -1761,6 +1761,33 @@
                         </tbody>
                     </table>
                 </div>
+
+                <!-- Monthly Portfolio Values Table -->
+                <div class="monthly-values-table table-container" style="margin-top: 2rem;">
+                    <div class="table-header">
+                        <div class="table-title">Évolution Mensuelle du Portefeuille</div>
+                        <div class="table-subtitle">Valeur au 1er de chaque mois depuis le premier ordre</div>
+                    </div>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Mois</th>
+                                <th class="number">Valeur du Portefeuille</th>
+                                <th class="number">Variation Mensuelle</th>
+                                <th class="number">Variation %</th>
+                            </tr>
+                        </thead>
+                        <tbody id="monthlyValuesTableBody">
+                            <!-- Monthly values will be populated by JavaScript -->
+                            <tr class="loading-row">
+                                <td colspan="4" style="text-align: center; color: var(--muted); padding: 20px;">
+                                    <div class="loading-spinner animate-spin" style="width: 20px; height: 20px; margin: 0 auto 10px;"></div>
+                                    Chargement des données mensuelles...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </main>
     </div>
@@ -2286,6 +2313,13 @@
 
             // Mettre à jour le tableau des positions
             setTimeout(() => updatePositionsTable(), 600);
+
+            // Charger les données mensuelles du portefeuille
+            console.log('🕐 PLANIFICATION du chargement des données mensuelles dans 800ms');
+            setTimeout(() => {
+                console.log('⏰ DÉBUT de l\'exécution différée - appel de loadMonthlyPortfolioValues()');
+                loadMonthlyPortfolioValues();
+            }, 800);
         }
 
         function animateCounter(elementId, targetValue, suffix = '', prefix = '') {
@@ -2428,6 +2462,123 @@
                     </td>
                 </tr>
             `;
+        }
+
+        // Chargement et affichage des données mensuelles
+        async function loadMonthlyPortfolioValues() {
+            try {
+                if (!authToken) {
+                    throw new Error('Utilisateur non authentifié');
+                }
+
+                const response = await fetch('/api/portfolio/monthly-values', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+
+                if (result.success) {
+                    updateMonthlyValuesTable(result.data);
+                } else {
+                    throw new Error(result.error || 'Erreur inconnue');
+                }
+            } catch (error) {
+                console.error('Erreur lors du chargement des données mensuelles:', error);
+
+                const tbody = document.getElementById('monthlyValuesTableBody');
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr class="error-state">
+                            <td colspan="4" style="text-align: center; color: var(--muted); padding: 20px;">
+                                <div class="empty-icon">⚠️</div>
+                                <div class="empty-title">Erreur de chargement</div>
+                                <div class="empty-description">Erreur: ${error.message}</div>
+                            </td>
+                        </tr>
+                    `;
+                }
+            }
+        }
+
+        function updateMonthlyValuesTable(monthlyData) {
+            const tbody = document.getElementById('monthlyValuesTableBody');
+
+            if (!monthlyData || monthlyData.length === 0) {
+                tbody.innerHTML = `
+                    <tr class="empty-state">
+                        <td colspan="4" style="text-align: center; color: var(--muted); padding: 20px;">
+                            <div class="empty-icon">📊</div>
+                            <div class="empty-title">Aucune donnée</div>
+                            <div class="empty-description">Aucune donnée mensuelle disponible</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            // Trier les données par date croissante (plus ancien d'abord)
+            const sortedData = [...monthlyData].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            const rows = sortedData.map(monthData => {
+                const value = monthData.portfolio_value || 0;
+                const change = monthData.month_change || 0;
+                const changePct = monthData.month_change_pct;
+
+                // Formatage des couleurs pour les variations
+                let changeClass = '';
+                let changeIcon = '';
+                if (change > 0) {
+                    changeClass = 'positive';
+                    changeIcon = '+';
+                } else if (change < 0) {
+                    changeClass = 'negative';
+                    changeIcon = '';
+                } else {
+                    changeClass = 'neutral';
+                    changeIcon = '';
+                }
+
+                return `
+                    <tr class="monthly-row" style="opacity: 0; transform: translateY(20px);">
+                        <td style="font-weight: 500;">${monthData.month_display}</td>
+                        <td class="number">${value.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</td>
+                        <td class="number ${changeClass}">
+                            ${monthData.is_first_month ? '-' : `${changeIcon}${change.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €`}
+                        </td>
+                        <td class="number ${changeClass}">
+                            ${monthData.is_first_month ? '-' : (changePct !== null ? `${changeIcon}${changePct.toFixed(2)}%` : '-')}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            tbody.innerHTML = rows;
+
+            // Animation d'entrée des lignes
+            const monthlyRows = tbody.querySelectorAll('.monthly-row');
+            monthlyRows.forEach((row, index) => {
+                setTimeout(() => {
+                    row.style.transition = 'all 0.4s ease-out';
+                    row.style.opacity = '1';
+                    row.style.transform = 'translateY(0)';
+                }, index * 50); // Animation plus rapide pour ne pas être trop lente
+            });
+
+            // Animation d'entrée de la table entière
+            setTimeout(() => {
+                const monthlyTable = document.querySelector('.monthly-values-table');
+                if (monthlyTable) {
+                    monthlyTable.classList.add('animate-in');
+                }
+            }, 1200); // Après les positions du portefeuille
         }
 
         // Gestion des types de compte
