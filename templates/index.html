@@ -2871,46 +2871,101 @@
                                     size: 12
                                 },
                                 padding: 20,
+                                usePointStyle: true,
+                                pointStyle: 'line',
                                 filter: function(item, chart) {
                                     return true; // Afficher toutes les légendes maintenant qu'on a seulement 2 datasets
                                 }
                             }
                         },
                         tooltip: {
-                            mode: 'index',
-                            intersect: false,
-                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                            titleColor: '#fff',
-                            bodyColor: '#fff',
-                            borderColor: 'rgba(255, 255, 255, 0.1)',
-                            borderWidth: 1,
-                            callbacks: {
-                                label: function(context) {
-                                    const label = context.dataset.label || '';
-                                    const value = context.parsed.y;
-                                    const formattedValue = new Intl.NumberFormat('fr-FR', {
-                                        style: 'currency',
-                                        currency: 'EUR'
-                                    }).format(value);
+                            enabled: false,
+                            external: function(context) {
+                                // Tooltip HTML personnalisé
+                                let tooltipEl = document.getElementById('chartjs-tooltip');
 
-                                    if (label === 'Valeur du portefeuille') {
-                                        const investedValue = investedCapitals[context.dataIndex];
-                                        const difference = value - investedValue;
-                                        const percentage = investedValue > 0 ? ((difference / investedValue) * 100).toFixed(2) : '0.00';
-                                        const sign = difference >= 0 ? '+' : '';
-                                        const diffFormatted = new Intl.NumberFormat('fr-FR', {
+                                // Créer l'élément si il n'existe pas
+                                if (!tooltipEl) {
+                                    tooltipEl = document.createElement('div');
+                                    tooltipEl.id = 'chartjs-tooltip';
+                                    tooltipEl.innerHTML = '<table></table>';
+                                    tooltipEl.style.background = 'rgba(0, 0, 0, 0.8)';
+                                    tooltipEl.style.borderRadius = '3px';
+                                    tooltipEl.style.color = 'white';
+                                    tooltipEl.style.opacity = '1';
+                                    tooltipEl.style.pointerEvents = 'none';
+                                    tooltipEl.style.position = 'absolute';
+                                    tooltipEl.style.transform = 'translate(-50%, 0)';
+                                    tooltipEl.style.transition = 'all .1s ease';
+                                    tooltipEl.style.font = '12px Monaco, monospace';
+                                    tooltipEl.style.padding = '8px';
+                                    tooltipEl.style.border = '1px solid rgba(255, 255, 255, 0.1)';
+                                    document.body.appendChild(tooltipEl);
+                                }
+
+                                const tooltipModel = context.tooltip;
+
+                                // Cacher si pas de tooltip
+                                if (tooltipModel.opacity === 0) {
+                                    tooltipEl.style.opacity = '0';
+                                    return;
+                                }
+
+                                // Contenu du tooltip
+                                if (tooltipModel.body) {
+                                    const titleLines = tooltipModel.title || [];
+                                    const bodyLines = tooltipModel.dataPoints || [];
+
+                                    let innerHtml = '<thead>';
+                                    titleLines.forEach(function(title) {
+                                        innerHtml += '<tr><th>' + title + '</th></tr>';
+                                    });
+                                    innerHtml += '</thead><tbody>';
+
+                                    bodyLines.forEach(function(body, i) {
+                                        const label = body.dataset.label || '';
+                                        const value = body.parsed.y;
+                                        const formattedValue = new Intl.NumberFormat('fr-FR', {
                                             style: 'currency',
                                             currency: 'EUR'
-                                        }).format(difference);
+                                        }).format(value);
 
-                                        return [
-                                            `${label}: ${formattedValue}`,
-                                            `+/- Values: ${sign}${diffFormatted} (${sign}${percentage}%)`
-                                        ];
-                                    }
+                                        // Ligne principale du dataset
+                                        const colors = body.dataset.borderColor;
+                                        const span = '<span style="background:' + colors + ';border-color:' + colors + ';border-width:2px;margin-right:10px;height:10px;width:10px;display:inline-block;"></span>';
+                                        innerHtml += '<tr><td>' + span + label + ': ' + formattedValue + '</td></tr>';
 
-                                    return `${label}: ${formattedValue}`;
+                                        // Ajouter la ligne +/- Values pour le portefeuille
+                                        if (label === 'Valeur du portefeuille') {
+                                            const investedValue = investedCapitals[body.dataIndex];
+                                            const difference = value - investedValue;
+                                            const percentage = investedValue > 0 ? ((difference / investedValue) * 100).toFixed(2) : '0.00';
+                                            const sign = difference >= 0 ? '+' : '';
+                                            const diffFormatted = new Intl.NumberFormat('fr-FR', {
+                                                style: 'currency',
+                                                currency: 'EUR'
+                                            }).format(difference);
+
+                                            const valueColor = difference >= 0 ? '#2ECC71' : '#E74C3C';
+                                            const valueSpan = '<span style="background:' + valueColor + ';border-color:' + valueColor + ';border-width:2px;margin-right:10px;height:10px;width:10px;display:inline-block;"></span>';
+                                            innerHtml += '<tr><td>' + valueSpan + '<span style="color:' + valueColor + '">+/- Values: ' + sign + diffFormatted + ' (' + sign + percentage + '%)</span></td></tr>';
+                                        }
+                                    });
+                                    innerHtml += '</tbody>';
+
+                                    const tableRoot = tooltipEl.querySelector('table');
+                                    tableRoot.innerHTML = innerHtml;
                                 }
+
+                                const position = context.chart.canvas.getBoundingClientRect();
+                                const bodyFont = tooltipModel.options.bodyFont;
+
+                                // Afficher et positionner
+                                tooltipEl.style.opacity = '1';
+                                tooltipEl.style.position = 'absolute';
+                                tooltipEl.style.left = position.left + window.pageXOffset + tooltipModel.caretX + 'px';
+                                tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY + 'px';
+                                tooltipEl.style.padding = tooltipModel.padding + 'px ' + tooltipModel.padding + 'px';
                             }
                         }
                     },
