@@ -420,26 +420,29 @@ class PortfolioService:
                     "month_display": month_first_day.strftime("%B %Y"),
                     "date": month_first_day.isoformat(),
                     "portfolio_value": 0.0,
+                    "invested_capital": 0.0,
+                    "plus_minus_values": 0.0,
+                    "plus_minus_values_pct": 0.0,
                     "positions": [],
                     "is_first_month": True
                 })
             else:
                 # Calculate portfolio value at the beginning of this month
-                portfolio_value, positions = self._calculate_portfolio_value_at_date(orders, month_first_day)
+                portfolio_value, invested_capital, positions = self._calculate_portfolio_value_at_date(orders, month_first_day)
 
-                # Calculate month-over-month change
-                previous_value = monthly_values[-1]["portfolio_value"] if monthly_values else 0.0
-                month_change = portfolio_value - previous_value
-                month_change_pct = (month_change / previous_value * 100) if previous_value > 0 else None
+                # Calculate +/- values (profit/loss)
+                plus_minus_values = portfolio_value - invested_capital
+                plus_minus_values_pct = (plus_minus_values / invested_capital * 100) if invested_capital > 0 else 0
 
                 monthly_values.append({
                     "month": month_first_day.strftime("%Y-%m"),
                     "month_display": month_first_day.strftime("%B %Y"),
                     "date": month_first_day.isoformat(),
                     "portfolio_value": portfolio_value,
+                    "invested_capital": invested_capital,
+                    "plus_minus_values": plus_minus_values,
+                    "plus_minus_values_pct": plus_minus_values_pct,
                     "positions": positions,
-                    "month_change": month_change,
-                    "month_change_pct": month_change_pct,
                     "is_first_month": False
                 })
 
@@ -449,19 +452,37 @@ class PortfolioService:
             else:
                 month_iter = date(month_iter.year, month_iter.month + 1, 1)
 
+        # Add current value as a final row
+        current_portfolio_value, current_invested_capital, current_positions = self._calculate_portfolio_value_at_date(orders, current_date)
+        current_plus_minus_values = current_portfolio_value - current_invested_capital
+        current_plus_minus_values_pct = (current_plus_minus_values / current_invested_capital * 100) if current_invested_capital > 0 else 0
+
+        monthly_values.append({
+            "month": "current",
+            "month_display": "Actuellement",
+            "date": current_date.isoformat(),
+            "portfolio_value": current_portfolio_value,
+            "invested_capital": current_invested_capital,
+            "plus_minus_values": current_plus_minus_values,
+            "plus_minus_values_pct": current_plus_minus_values_pct,
+            "positions": current_positions,
+            "is_current": True,
+            "is_first_month": False
+        })
+
         return monthly_values
 
     def _calculate_portfolio_value_at_date(
         self,
         orders: List[InvestmentOrder],
         target_date: date
-    ) -> tuple[float, List[Dict[str, Any]]]:
-        """Calculate portfolio value and positions at a specific date."""
+    ) -> tuple[float, float, List[Dict[str, Any]]]:
+        """Calculate portfolio value, total invested capital and positions at a specific date."""
         # Filter orders that occurred before the target date
         relevant_orders = [order for order in orders if order.order_date < target_date]
 
         if not relevant_orders:
-            return 0.0, []
+            return 0.0, 0.0, []
 
         # Group orders by ISIN and calculate quantities held at target date
         isin_positions = {}
@@ -482,6 +503,7 @@ class PortfolioService:
         isin_positions = {k: v for k, v in isin_positions.items() if v['quantity'] > 0}
 
         total_portfolio_value = 0.0
+        total_invested_capital = 0.0
         positions_detail = []
 
         # For each position, get historical price and calculate value
@@ -490,6 +512,9 @@ class PortfolioService:
 
             # Get historical price for this ISIN at target date
             price_quote = self.price_service.get_historical_price(isin, target_date)
+
+            # Always add the invested capital for this position, regardless of price availability
+            total_invested_capital += position_data['total_invested']
 
             if price_quote.is_valid and price_quote.price > 0:
                 position_value = quantity * price_quote.price
@@ -526,4 +551,4 @@ class PortfolioService:
                         "price_source": f"{current_price_quote.source} (fallback)"
                     })
 
-        return total_portfolio_value, positions_detail
+        return total_portfolio_value, total_invested_capital, positions_detail

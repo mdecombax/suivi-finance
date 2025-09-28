@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Suivi Finance — Portefeuille</title>
     <link rel="stylesheet" href="/static/css/main.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         /* Styles spécifiques à la page d'accueil */
         /* Main KPIs - 2 indicateurs principaux */
@@ -1633,6 +1634,17 @@
                 font-size: 0.9rem;
             }
         }
+
+        /* Style pour la ligne "Actuellement" */
+        .current-row {
+            background: linear-gradient(135deg, rgba(130,196,255,0.08), rgba(255,255,255,0.03));
+            border-top: 2px solid rgba(130,196,255,0.3);
+            border-bottom: 2px solid rgba(130,196,255,0.3);
+        }
+
+        .current-row:hover {
+            background: linear-gradient(135deg, rgba(130,196,255,0.12), rgba(255,255,255,0.05));
+        }
     </style>
     <meta name="robots" content="noindex" />
     <meta name="color-scheme" content="light dark" />
@@ -1737,9 +1749,24 @@
                     </div>
                 </div>
 
+                <!-- Monthly Portfolio Evolution Chart -->
+                <div class="chart-container" style="margin-top: 2rem;">
+                    <div class="table-header">
+                        <div class="table-title">Évolution Mensuelle du Portefeuille</div>
+                        <div class="table-subtitle">Capital investi vs Valeur du portefeuille avec +/- values</div>
+                    </div>
+                    <div style="position: relative; height: 400px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--border-radius-xl); padding: 20px;">
+                        <canvas id="portfolioEvolutionChart"></canvas>
+                        <canvas id="loadingChart" style="position: absolute; top: 20px; left: 20px; right: 20px; bottom: 20px; width: calc(100% - 40px); height: calc(100% - 40px);"></canvas>
+                        <div id="chartLoadingState" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: var(--muted); display: none;">
+                            <div style="font-size: 2rem; margin-bottom: 10px;">⚠️</div>
+                            <div>Erreur de chargement</div>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Positions Table -->
-                <div class="positions-table table-container">
+                <div class="positions-table table-container" style="margin-top: 3rem;">
                     <div class="table-header">
                         <div class="table-title">Positions du Portefeuilles</div>
                     </div>
@@ -1762,31 +1789,6 @@
                     </table>
                 </div>
 
-                <!-- Monthly Portfolio Values Table -->
-                <div class="monthly-values-table table-container" style="margin-top: 2rem;">
-                    <div class="table-header">
-                        <div class="table-title">Évolution Mensuelle du Portefeuille</div>
-                        <div class="table-subtitle">Valeur au 1er de chaque mois depuis le premier ordre</div>
-                    </div>
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Mois</th>
-                                <th class="number">Valeur du Portefeuille</th>
-                                <th class="number">Variation Mensuelle</th>
-                                <th class="number">Variation %</th>
-                            </tr>
-                        </thead>
-                        <tbody id="monthlyValuesTableBody">
-                            <!-- Monthly values will be populated by JavaScript -->
-                            <tr class="loading-row">
-                                <td colspan="4" style="text-align: center; color: var(--muted); padding: 20px;">
-                                    <div class="loading-spinner animate-spin" style="width: 20px; height: 20px; margin: 0 auto 10px;"></div>
-                                    Chargement des données mensuelles...
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
                 </div>
             </div>
         </main>
@@ -2315,10 +2317,10 @@
             setTimeout(() => updatePositionsTable(), 600);
 
             // Charger les données mensuelles du portefeuille
-            console.log('🕐 PLANIFICATION du chargement des données mensuelles dans 800ms');
+            console.log('🕐 PLANIFICATION du chargement du graphique dans 800ms');
             setTimeout(() => {
-                console.log('⏰ DÉBUT de l\'exécution différée - appel de loadMonthlyPortfolioValues()');
-                loadMonthlyPortfolioValues();
+                console.log('⏰ DÉBUT de l\'exécution différée - appel de loadPortfolioChart()');
+                loadPortfolioChart();
             }, 800);
         }
 
@@ -2464,8 +2466,14 @@
             `;
         }
 
-        // Chargement et affichage des données mensuelles
-        async function loadMonthlyPortfolioValues() {
+        // Variable globale pour le graphique
+        let portfolioChart = null;
+
+        // Chargement et affichage du graphique mensuel
+        async function loadPortfolioChart() {
+            // Démarrer l'animation de chargement
+            startLoadingAnimation();
+
             try {
                 if (!authToken) {
                     throw new Error('Utilisateur non authentifié');
@@ -2486,25 +2494,26 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    updateMonthlyValuesTable(result.data);
+                    // Arrêter l'animation de chargement et afficher le vrai graphique
+                    stopLoadingAnimation();
+                    setTimeout(() => {
+                        createPortfolioChart(result.data);
+                    }, 300); // Petite transition pour un effet plus fluide
                 } else {
                     throw new Error(result.error || 'Erreur inconnue');
                 }
             } catch (error) {
-                console.error('Erreur lors du chargement des données mensuelles:', error);
-
-                const tbody = document.getElementById('monthlyValuesTableBody');
-                if (tbody) {
-                    tbody.innerHTML = `
-                        <tr class="error-state">
-                            <td colspan="4" style="text-align: center; color: var(--muted); padding: 20px;">
-                                <div class="empty-icon">⚠️</div>
-                                <div class="empty-title">Erreur de chargement</div>
-                                <div class="empty-description">Erreur: ${error.message}</div>
-                            </td>
-                        </tr>
-                    `;
-                }
+                console.error('Erreur lors du chargement du graphique:', error);
+                stopLoadingAnimation();
+                const loadingState = document.getElementById('chartLoadingState');
+                loadingState.style.display = 'block';
+                loadingState.innerHTML = `
+                    <div style="color: var(--muted); text-align: center;">
+                        <div style="font-size: 2rem; margin-bottom: 10px;">⚠️</div>
+                        <div>Erreur de chargement</div>
+                        <div style="font-size: 0.9rem; opacity: 0.7;">${error.message}</div>
+                    </div>
+                `;
             }
         }
 
@@ -2528,33 +2537,40 @@
             const sortedData = [...monthlyData].sort((a, b) => new Date(a.date) - new Date(b.date));
 
             const rows = sortedData.map(monthData => {
-                const value = monthData.portfolio_value || 0;
-                const change = monthData.month_change || 0;
-                const changePct = monthData.month_change_pct;
+                const portfolioValue = monthData.portfolio_value || 0;
+                const investedCapital = monthData.invested_capital || 0;
+                const plusMinusValues = monthData.plus_minus_values || 0;
+                const plusMinusValuesPct = monthData.plus_minus_values_pct || 0;
 
-                // Formatage des couleurs pour les variations
-                let changeClass = '';
-                let changeIcon = '';
-                if (change > 0) {
-                    changeClass = 'positive';
-                    changeIcon = '+';
-                } else if (change < 0) {
-                    changeClass = 'negative';
-                    changeIcon = '';
+                // Formatage des couleurs pour les +/- values
+                let valuesClass = '';
+                let valuesIcon = '';
+                if (plusMinusValues > 0) {
+                    valuesClass = 'positive';
+                    valuesIcon = '+';
+                } else if (plusMinusValues < 0) {
+                    valuesClass = 'negative';
+                    valuesIcon = '';
                 } else {
-                    changeClass = 'neutral';
-                    changeIcon = '';
+                    valuesClass = 'neutral';
+                    valuesIcon = '';
                 }
 
+                // Style spécial pour la ligne "Actuellement"
+                const rowClass = monthData.is_current ? 'monthly-row current-row' : 'monthly-row';
+                const fontWeight = monthData.is_current ? 'font-weight: 700;' : 'font-weight: 500;';
+
+                // Affichage des +/- values avec pourcentage
+                const valuesDisplay = monthData.is_first_month ? '-' :
+                    `${valuesIcon}${plusMinusValues.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} € (${valuesIcon}${Math.abs(plusMinusValuesPct).toFixed(2)}%)`;
+
                 return `
-                    <tr class="monthly-row" style="opacity: 0; transform: translateY(20px);">
-                        <td style="font-weight: 500;">${monthData.month_display}</td>
-                        <td class="number">${value.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</td>
-                        <td class="number ${changeClass}">
-                            ${monthData.is_first_month ? '-' : `${changeIcon}${change.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €`}
-                        </td>
-                        <td class="number ${changeClass}">
-                            ${monthData.is_first_month ? '-' : (changePct !== null ? `${changeIcon}${changePct.toFixed(2)}%` : '-')}
+                    <tr class="${rowClass}" style="opacity: 0; transform: translateY(20px);">
+                        <td style="${fontWeight}">${monthData.month_display}</td>
+                        <td class="number">${portfolioValue.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</td>
+                        <td class="number">${investedCapital.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €</td>
+                        <td class="number ${valuesClass}">
+                            ${valuesDisplay}
                         </td>
                     </tr>
                 `;
@@ -2579,6 +2595,377 @@
                     monthlyTable.classList.add('animate-in');
                 }
             }, 1200); // Après les positions du portefeuille
+        }
+
+        let loadingAnimationId = null;
+        let loadingChartInstance = null;
+
+        function startLoadingAnimation() {
+            const loadingCanvas = document.getElementById('loadingChart');
+            const realCanvas = document.getElementById('portfolioEvolutionChart');
+
+            if (!loadingCanvas) return;
+
+            // Afficher le canvas de chargement
+            loadingCanvas.style.display = 'block';
+            realCanvas.style.display = 'none';
+
+            const ctx = loadingCanvas.getContext('2d');
+            const width = loadingCanvas.offsetWidth;
+            const height = loadingCanvas.offsetHeight;
+
+            loadingCanvas.width = width;
+            loadingCanvas.height = height;
+
+            // Données de skeleton plus réalistes - tendance croissante
+            const skeletonData = [];
+            const points = 10;
+            for (let i = 0; i < points; i++) {
+                const x = (width * 0.1) + ((width * 0.8) / (points - 1)) * i;
+                const baseY = height * 0.8 - (i * height * 0.03); // Légère tendance haussière
+                const y = baseY + Math.sin(i * 0.8) * height * 0.05;
+                skeletonData.push({ x, y });
+            }
+
+            // Animation de tracé progressif en un seul sens
+            let progress = 0;
+            const animationDuration = 3000; // 3 secondes pour tracer complètement
+            let startTime = Date.now();
+
+            function animate() {
+                const elapsed = Date.now() - startTime;
+                progress = Math.min(elapsed / animationDuration, 1);
+
+                ctx.clearRect(0, 0, width, height);
+
+                // Grille subtile ton sur ton
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+                ctx.lineWidth = 1;
+
+                // Lignes horizontales subtiles
+                for (let i = 1; i < 6; i++) {
+                    const y = (height / 6) * i;
+                    ctx.beginPath();
+                    ctx.moveTo(width * 0.1, y);
+                    ctx.lineTo(width * 0.9, y);
+                    ctx.stroke();
+                }
+
+                // Lignes verticales subtiles
+                for (let i = 1; i < points; i++) {
+                    const x = (width * 0.1) + ((width * 0.8) / (points - 1)) * i;
+                    ctx.beginPath();
+                    ctx.moveTo(x, height * 0.1);
+                    ctx.lineTo(x, height * 0.9);
+                    ctx.stroke();
+                }
+
+                // Points et segments à tracer progressivement
+                const segmentsToShow = Math.floor(progress * (skeletonData.length - 1));
+                const currentSegmentProgress = (progress * (skeletonData.length - 1)) % 1;
+
+                if (segmentsToShow >= 0) {
+                    // Courbe skeleton ton sur ton
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(skeletonData[0].x, skeletonData[0].y);
+
+                    // Dessiner les segments complets
+                    for (let i = 1; i <= segmentsToShow; i++) {
+                        ctx.lineTo(skeletonData[i].x, skeletonData[i].y);
+                    }
+
+                    // Dessiner le segment en cours de tracé
+                    if (segmentsToShow < skeletonData.length - 1) {
+                        const currentPoint = skeletonData[segmentsToShow];
+                        const nextPoint = skeletonData[segmentsToShow + 1];
+                        const interpolatedX = currentPoint.x + (nextPoint.x - currentPoint.x) * currentSegmentProgress;
+                        const interpolatedY = currentPoint.y + (nextPoint.y - currentPoint.y) * currentSegmentProgress;
+                        ctx.lineTo(interpolatedX, interpolatedY);
+                    }
+
+                    ctx.stroke();
+
+                    // Points skeleton
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+                    for (let i = 0; i <= segmentsToShow; i++) {
+                        ctx.beginPath();
+                        ctx.arc(skeletonData[i].x, skeletonData[i].y, 3, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    // Point actuel avec pulsation subtile
+                    if (segmentsToShow < skeletonData.length - 1) {
+                        const currentPoint = skeletonData[segmentsToShow];
+                        const nextPoint = skeletonData[segmentsToShow + 1];
+                        const interpolatedX = currentPoint.x + (nextPoint.x - currentPoint.x) * currentSegmentProgress;
+                        const interpolatedY = currentPoint.y + (nextPoint.y - currentPoint.y) * currentSegmentProgress;
+
+                        const pulse = 0.5 + 0.5 * Math.sin(elapsed / 200);
+                        ctx.fillStyle = `rgba(255, 255, 255, ${0.15 * pulse})`;
+                        ctx.beginPath();
+                        ctx.arc(interpolatedX, interpolatedY, 4 + pulse, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+
+                // Redémarrer l'animation si terminée
+                if (progress >= 1) {
+                    startTime = Date.now();
+                }
+
+                loadingAnimationId = requestAnimationFrame(animate);
+            }
+
+            animate();
+        }
+
+        function stopLoadingAnimation() {
+            if (loadingAnimationId) {
+                cancelAnimationFrame(loadingAnimationId);
+                loadingAnimationId = null;
+            }
+
+            const loadingCanvas = document.getElementById('loadingChart');
+            const realCanvas = document.getElementById('portfolioEvolutionChart');
+
+            if (loadingCanvas && realCanvas) {
+                loadingCanvas.style.display = 'none';
+                realCanvas.style.display = 'block';
+            }
+        }
+
+        function createPortfolioChart(monthlyData) {
+            const canvas = document.getElementById('portfolioEvolutionChart');
+            const loadingState = document.getElementById('chartLoadingState');
+
+            if (!monthlyData || monthlyData.length === 0) {
+                loadingState.innerHTML = `
+                    <div style="color: var(--muted); text-align: center;">
+                        <div style="font-size: 2rem; margin-bottom: 10px;">📊</div>
+                        <div>Aucune donnée</div>
+                        <div style="font-size: 0.9rem; opacity: 0.7;">Aucune donnée mensuelle disponible</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Trier les données par date croissante
+            const sortedData = [...monthlyData].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            // Préparer les données pour Chart.js
+            const labels = sortedData.map(data => {
+                if (data.period === 'current') {
+                    return 'Actuellement';
+                }
+                const date = new Date(data.date);
+                return date.toLocaleDateString('fr-FR', { year: 'numeric', month: 'short' });
+            });
+
+            const portfolioValues = sortedData.map(data => data.portfolio_value || 0);
+            const investedCapitals = sortedData.map(data => data.invested_capital || 0);
+
+            // Créer les données d'aire pour les +/- values
+            const areaPositiveData = sortedData.map((data, index) => {
+                const portfolioValue = data.portfolio_value || 0;
+                const investedCapital = data.invested_capital || 0;
+                const diff = portfolioValue - investedCapital;
+                return diff >= 0 ? diff : null;
+            });
+
+            const areaNegativeData = sortedData.map((data, index) => {
+                const portfolioValue = data.portfolio_value || 0;
+                const investedCapital = data.invested_capital || 0;
+                const diff = portfolioValue - investedCapital;
+                return diff < 0 ? diff : null;
+            });
+
+            // Détruire le graphique existant s'il y en a un
+            if (window.portfolioChart) {
+                window.portfolioChart.destroy();
+            }
+
+            // Masquer les états de chargement
+            loadingState.style.display = 'none';
+            const loadingCanvas = document.getElementById('loadingChart');
+            if (loadingCanvas) {
+                loadingCanvas.style.display = 'none';
+            }
+
+            // Configuration du graphique
+            const ctx = canvas.getContext('2d');
+            window.portfolioChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Capital investi',
+                            data: investedCapitals,
+                            borderColor: '#64B5F6',
+                            backgroundColor: 'rgba(100, 181, 246, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: false,
+                            pointBackgroundColor: '#64B5F6',
+                            pointBorderColor: '#1976D2',
+                            pointBorderWidth: 2,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        },
+                        {
+                            label: 'Valeur du portefeuille',
+                            data: portfolioValues,
+                            borderColor: '#81C784',
+                            backgroundColor: function(context) {
+                                const chart = context.chart;
+                                const {ctx, chartArea} = chart;
+
+                                if (!chartArea) {
+                                    return null;
+                                }
+
+                                const capitalData = chart.data.datasets[0].data;
+                                const portfolioData = chart.data.datasets[1].data;
+
+                                const gradient = ctx.createLinearGradient(0, chartArea.left, chartArea.right, 0);
+
+                                // Créer un gradient horizontal basé sur la différence entre les valeurs
+                                for (let i = 0; i < portfolioData.length; i++) {
+                                    const diff = portfolioData[i] - capitalData[i];
+                                    const position = i / (portfolioData.length - 1);
+
+                                    if (diff >= 0) {
+                                        // Vert vif pour les gains
+                                        gradient.addColorStop(position, 'rgba(46, 204, 113, 0.4)');
+                                    } else {
+                                        // Rouge vif pour les pertes
+                                        gradient.addColorStop(position, 'rgba(231, 76, 60, 0.4)');
+                                    }
+                                }
+
+                                return gradient;
+                            },
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: '-1',
+                            pointBackgroundColor: '#81C784',
+                            pointBorderColor: '#388E3C',
+                            pointBorderWidth: 2,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: 'rgba(255, 255, 255, 0.9)',
+                                font: {
+                                    size: 12
+                                },
+                                padding: 20,
+                                filter: function(item, chart) {
+                                    return true; // Afficher toutes les légendes maintenant qu'on a seulement 2 datasets
+                                }
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.dataset.label || '';
+                                    const value = context.parsed.y;
+                                    const formattedValue = new Intl.NumberFormat('fr-FR', {
+                                        style: 'currency',
+                                        currency: 'EUR'
+                                    }).format(value);
+
+                                    if (label === 'Valeur du portefeuille') {
+                                        const investedValue = investedCapitals[context.dataIndex];
+                                        const difference = value - investedValue;
+                                        const percentage = investedValue > 0 ? ((difference / investedValue) * 100).toFixed(2) : '0.00';
+                                        const sign = difference >= 0 ? '+' : '';
+                                        const diffFormatted = new Intl.NumberFormat('fr-FR', {
+                                            style: 'currency',
+                                            currency: 'EUR'
+                                        }).format(difference);
+
+                                        return [
+                                            `${label}: ${formattedValue}`,
+                                            `+/- Values: ${sign}${diffFormatted} (${sign}${percentage}%)`
+                                        ];
+                                    }
+
+                                    return `${label}: ${formattedValue}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: 'rgba(255, 255, 255, 0.7)',
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: 'rgba(255, 255, 255, 0.7)',
+                                font: {
+                                    size: 11
+                                },
+                                callback: function(value) {
+                                    return new Intl.NumberFormat('fr-FR', {
+                                        style: 'currency',
+                                        currency: 'EUR',
+                                        notation: 'compact'
+                                    }).format(value);
+                                }
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    elements: {
+                        point: {
+                            hoverBorderWidth: 3
+                        }
+                    }
+                }
+            });
+
+            // Ajouter l'animation d'entrée
+            setTimeout(() => {
+                const chartContainer = document.querySelector('.chart-container');
+                if (chartContainer) {
+                    chartContainer.classList.add('animate-in');
+                }
+            }, 1200);
         }
 
         // Gestion des types de compte
