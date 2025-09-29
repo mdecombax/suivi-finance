@@ -552,3 +552,122 @@ class PortfolioService:
                     })
 
         return total_portfolio_value, total_invested_capital, positions_detail
+
+    def get_monthly_position_values(self, orders_data: List[Dict[str, Any]], isin: str) -> List[Dict[str, Any]]:
+        """Calculate position value at the beginning of each month since first order for a specific ISIN."""
+        # Convert Firebase orders data to InvestmentOrder objects
+        orders = []
+        for order_dict in orders_data:
+            try:
+                converted_order = {
+                    'id': order_dict.get('id'),
+                    'isin': order_dict.get('isin'),
+                    'quantity': order_dict.get('quantity'),
+                    'date': order_dict.get('date'),
+                    'unitPrice': order_dict.get('unitPrice'),
+                    'totalPriceEUR': order_dict.get('totalPriceEUR'),
+                    'type': order_dict.get('type', 'buy')
+                }
+                order = InvestmentOrder.from_dict(converted_order)
+                orders.append(order)
+            except Exception as e:
+                self._log("Failed to convert Firebase order for monthly position values", {"order": order_dict, "error": str(e)})
+                continue
+
+        if not orders:
+            return []
+
+        # Sort orders by date
+        orders.sort(key=lambda o: o.order_date)
+
+        # Find date range for monthly calculations
+        start_date = orders[0].order_date
+        current_date = date.today()
+
+        # Start from the beginning of the first month
+        month_iter = date(start_date.year, start_date.month, 1)
+        monthly_values = []
+
+        while month_iter <= current_date:
+            # Skip months before any orders exist
+            month_first_day = month_iter
+
+            if month_first_day >= start_date:
+                # Calculate position value at the beginning of this month
+                position_value, invested_capital = self._calculate_position_value_at_date(orders, isin, month_first_day)
+
+                # Calculate +/- values (profit/loss)
+                plus_minus_values = position_value - invested_capital
+                plus_minus_values_pct = (plus_minus_values / invested_capital * 100) if invested_capital > 0 else 0
+
+                monthly_values.append({
+                    "month": month_first_day.strftime("%Y-%m"),
+                    "month_display": month_first_day.strftime("%B %Y"),
+                    "date": month_first_day.isoformat(),
+                    "position_value": position_value,
+                    "invested_capital": invested_capital,
+                    "plus_minus_values": plus_minus_values,
+                    "plus_minus_values_pct": plus_minus_values_pct,
+                    "isin": isin
+                })
+
+            # Move to next month
+            if month_iter.month == 12:
+                month_iter = date(month_iter.year + 1, 1, 1)
+            else:
+                month_iter = date(month_iter.year, month_iter.month + 1, 1)
+
+        # Add current value as a final row
+        current_position_value, current_invested_capital = self._calculate_position_value_at_date(orders, isin, current_date)
+        current_plus_minus_values = current_position_value - current_invested_capital
+        current_plus_minus_values_pct = (current_plus_minus_values / current_invested_capital * 100) if current_invested_capital > 0 else 0
+
+        monthly_values.append({
+            "month": "current",
+            "month_display": "Actuellement",
+            "date": current_date.isoformat(),
+            "position_value": current_position_value,
+            "invested_capital": current_invested_capital,
+            "plus_minus_values": current_plus_minus_values,
+            "plus_minus_values_pct": current_plus_minus_values_pct,
+            "isin": isin,
+            "is_current": True
+        })
+
+        return monthly_values
+
+    def _calculate_position_value_at_date(
+        self,
+        orders: List[InvestmentOrder],
+        isin: str,
+        target_date: date
+    ) -> tuple[float, float]:
+        """Calculate position value and total invested capital for a specific ISIN at a specific date."""
+        # Filter orders for this ISIN that occurred before the target date
+        relevant_orders = [order for order in orders if order.isin == isin and order.order_date < target_date]
+
+        if not relevant_orders:
+            return 0.0, 0.0
+
+        # Calculate quantities held and total invested at target date
+        total_quantity = 0.0
+        total_invested = 0.0
+
+        for order in relevant_orders:
+            # For now, treat all orders as buy orders (consistent with rest of codebase)
+            total_quantity += order.quantity
+            total_invested += order.total_price_eur
+
+        # If no shares held (sold everything), return zeros
+        if total_quantity <= 0:
+            return 0.0, 0.0
+
+        # Get historical price for this ISIN at target date
+        price_quote = self.price_service.get_historical_price(isin, target_date)
+
+        if price_quote.is_valid and price_quote.price > 0:
+            position_value = total_quantity * price_quote.price
+            return position_value, total_invested
+        else:
+            # If no price available, return just the invested capital as value (no gain/loss)
+            return total_invested, total_invested

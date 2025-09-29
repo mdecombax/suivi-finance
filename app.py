@@ -330,6 +330,51 @@ class FinancialPortfolioApp:
                 debug_log("Monthly portfolio values API error", {"error": str(e)})
                 return jsonify({"error": str(e)}), 500
 
+        @self.app.route("/api/position/<isin>/monthly-values", methods=["GET"])
+        @require_auth
+        def position_monthly_values_api(isin):
+            """API endpoint for monthly position values (authentification requise)."""
+            print(f"📊 POSITION MONTHLY VALUES API: Début de la requête pour ISIN: {isin}")
+            try:
+                user_id = get_current_user_id()
+                print(f"📊 POSITION MONTHLY VALUES API: User ID récupéré: {user_id}")
+
+                # Récupérer les ordres depuis Firebase pour cet utilisateur
+                user_orders = firebase_service.get_user_orders(user_id)
+                print(f"📊 POSITION MONTHLY VALUES API: Nombre d'ordres trouvés: {len(user_orders) if user_orders else 0}")
+
+                # Filtrer les ordres pour cet ISIN spécifique
+                position_orders = [order for order in (user_orders or []) if order.get('isin') == isin]
+                print(f"📊 POSITION MONTHLY VALUES API: Ordres pour {isin}: {len(position_orders)}")
+
+                if not position_orders:
+                    print(f"📊 POSITION MONTHLY VALUES API: Aucun ordre trouvé pour {isin}")
+                    return jsonify({
+                        "success": True,
+                        "data": [],
+                        "isin": isin,
+                        "message": "Aucun ordre trouvé pour cette position"
+                    })
+
+                # Calculer les valeurs mensuelles pour cette position
+                monthly_values = self.portfolio_service.get_monthly_position_values(position_orders, isin)
+                print(f"📊 POSITION MONTHLY VALUES API: Calcul terminé - {len(monthly_values)} valeurs mensuelles générées")
+
+                result = {
+                    "success": True,
+                    "data": monthly_values,
+                    "isin": isin,
+                    "user_id": user_id,
+                    "total_months": len(monthly_values)
+                }
+                print(f"📊 POSITION MONTHLY VALUES API: Réponse prête - succès!")
+                return jsonify(result)
+
+            except Exception as e:
+                print(f"📊 POSITION MONTHLY VALUES API: ERREUR - {str(e)}")
+                debug_log("Position monthly values API error", {"error": str(e), "isin": isin})
+                return jsonify({"error": str(e)}), 500
+
     def _get_account_type_from_request(self) -> str:
         """Extract account type from request, defaulting to 'pea'."""
         if request.method == "POST":

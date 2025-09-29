@@ -222,6 +222,21 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Graphique d'évolution capital/valeur de la position -->
+                <div class="chart-container full-width" style="margin-top: 2rem;">
+                    <div class="table-header">
+                        <div class="table-title">📈 Évolution du capital et de la valeur</div>
+                        <div class="table-subtitle">Capital investi vs valeur actuelle de cette position au fil du temps</div>
+                    </div>
+                    <div id="positionEvolutionChart" style="position: relative; height: 400px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--border-radius-xl); padding: 20px;">
+                        <canvas id="evolutionChart"></canvas>
+                        <div id="evolutionChartLoadingState" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: var(--muted); display: none;">
+                            <div style="font-size: 2rem; margin-bottom: 10px;">⚠️</div>
+                            <div>Erreur de chargement</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
@@ -280,6 +295,9 @@
                 displayPositionData(data);
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('positionContent').style.display = 'block';
+
+                // Charger le graphique d'évolution
+                loadPositionEvolutionChart();
 
                 // Ajouter les animations avec un délai pour un effet plus fluide
                 setTimeout(() => {
@@ -506,6 +524,7 @@
 
         // Variable globale pour le graphique de part
         let shareChart = null;
+        let positionEvolutionChart = null;
 
         function drawShareChart(monthlyData) {
             const canvas = document.getElementById('shareChart');
@@ -690,6 +709,322 @@
                                 }
                             },
                             beginAtZero: true
+                        }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    elements: {
+                        point: {
+                            hoverBorderWidth: 3
+                        }
+                    }
+                }
+            });
+        }
+
+        // Chargement et affichage du graphique d'évolution de la position
+        async function loadPositionEvolutionChart() {
+            try {
+                if (!authToken) {
+                    throw new Error('Utilisateur non authentifié');
+                }
+
+                const response = await fetch(`/api/position/${isin}/monthly-values`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                if (result.success) {
+                    setTimeout(() => {
+                        createPositionEvolutionChart(result.data);
+                    }, 300);
+                } else {
+                    throw new Error(result.error || 'Erreur inconnue');
+                }
+            } catch (error) {
+                console.error('Erreur lors du chargement du graphique d\'évolution:', error);
+                const loadingState = document.getElementById('evolutionChartLoadingState');
+                loadingState.style.display = 'block';
+                loadingState.innerHTML = `
+                    <div style="color: var(--muted); text-align: center;">
+                        <div style="font-size: 2rem; margin-bottom: 10px;">⚠️</div>
+                        <div>Erreur de chargement</div>
+                        <div style="font-size: 0.9rem; opacity: 0.7;">${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        function createPositionEvolutionChart(monthlyData) {
+            const canvas = document.getElementById('evolutionChart');
+            const loadingState = document.getElementById('evolutionChartLoadingState');
+
+            if (!monthlyData || monthlyData.length === 0) {
+                loadingState.innerHTML = `
+                    <div style="color: var(--muted); text-align: center;">
+                        <div style="font-size: 2rem; margin-bottom: 10px;">📊</div>
+                        <div>Aucune donnée</div>
+                        <div style="font-size: 0.9rem; opacity: 0.7;">Aucune donnée mensuelle disponible</div>
+                    </div>
+                `;
+                loadingState.style.display = 'block';
+                return;
+            }
+
+            // Préparer les données pour Chart.js
+            const labels = [];
+            const investedCapitals = [];
+            const positionValues = [];
+
+            monthlyData.forEach(data => {
+                labels.push(data.month_display);
+                investedCapitals.push(data.invested_capital);
+                positionValues.push(data.position_value);
+            });
+
+            // Créer des données pour l'aire entre les courbes
+            const areaData = investedCapitals.map((capital, index) => {
+                const value = positionValues[index];
+                return Math.max(capital, value); // Le point le plus haut pour l'aire
+            });
+
+            const areaBaseData = investedCapitals.map((capital, index) => {
+                const value = positionValues[index];
+                return Math.min(capital, value); // Le point le plus bas pour l'aire
+            });
+
+            // Détruire le graphique existant s'il y en a un
+            if (positionEvolutionChart) {
+                positionEvolutionChart.destroy();
+            }
+
+            // Masquer les états de chargement
+            loadingState.style.display = 'none';
+
+            // Configuration du graphique
+            const ctx = canvas.getContext('2d');
+            positionEvolutionChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Aire de différence',
+                            data: areaData,
+                            backgroundColor: function(context) {
+                                const chart = context.chart;
+                                const {ctx, chartArea} = chart;
+
+                                if (!chartArea) {
+                                    return null;
+                                }
+
+                                const capitalData = investedCapitals;
+                                const positionData = positionValues;
+
+                                const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+
+                                // Calculer la couleur moyenne des différences
+                                let totalDiff = 0;
+                                let positiveCount = 0;
+                                for (let i = 0; i < positionData.length; i++) {
+                                    const diff = positionData[i] - capitalData[i];
+                                    totalDiff += diff;
+                                    if (diff >= 0) positiveCount++;
+                                }
+
+                                const avgDiff = totalDiff / positionData.length;
+                                if (avgDiff >= 0) {
+                                    gradient.addColorStop(0, 'rgba(129, 199, 132, 0.3)');
+                                    gradient.addColorStop(1, 'rgba(129, 199, 132, 0.1)');
+                                } else {
+                                    gradient.addColorStop(0, 'rgba(244, 67, 54, 0.3)');
+                                    gradient.addColorStop(1, 'rgba(244, 67, 54, 0.1)');
+                                }
+
+                                return gradient;
+                            },
+                            borderColor: 'transparent',
+                            borderWidth: 0,
+                            tension: 0.3,
+                            fill: '+1',
+                            pointRadius: 0,
+                            pointHoverRadius: 0,
+                            order: 3
+                        },
+                        {
+                            label: 'Base de l\'aire',
+                            data: areaBaseData,
+                            backgroundColor: 'transparent',
+                            borderColor: 'transparent',
+                            borderWidth: 0,
+                            tension: 0.3,
+                            fill: false,
+                            pointRadius: 0,
+                            pointHoverRadius: 0,
+                            order: 4
+                        },
+                        {
+                            label: 'Capital investi',
+                            data: investedCapitals,
+                            borderColor: '#64B5F6',
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: false,
+                            pointBackgroundColor: '#64B5F6',
+                            pointBorderColor: '#1976D2',
+                            pointBorderWidth: 2,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            order: 1
+                        },
+                        {
+                            label: 'Valeur de la position',
+                            data: positionValues,
+                            borderColor: '#81C784',
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: false,
+                            pointBackgroundColor: '#81C784',
+                            pointBorderColor: '#388E3C',
+                            pointBorderWidth: 2,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            order: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: 'rgba(255, 255, 255, 0.9)',
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                },
+                                padding: 20,
+                                usePointStyle: true,
+                                pointStyle: 'line',
+                                filter: function(item, chart) {
+                                    // Masquer les datasets utilisés pour l'aire
+                                    return !item.text.includes('Aire de') && !item.text.includes('Base de');
+                                }
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#ffffff',
+                            bodyColor: '#ffffff',
+                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                            borderWidth: 1,
+                            cornerRadius: 8,
+                            displayColors: true,
+                            callbacks: {
+                                title: function(context) {
+                                    return context[0].label;
+                                },
+                                label: function(context) {
+                                    const label = context.dataset.label;
+                                    // Ignorer les datasets utilisés pour l'aire
+                                    if (label.includes('Aire de') || label.includes('Base de')) {
+                                        return null;
+                                    }
+                                    const value = context.parsed.y;
+                                    return `${label}: ${value.toLocaleString('fr-FR', {
+                                        style: 'currency',
+                                        currency: 'EUR'
+                                    })}`;
+                                },
+                                afterBody: function(context) {
+                                    // Filtrer pour ne garder que les datasets visibles
+                                    const visibleContext = context.filter(ctx =>
+                                        !ctx.dataset.label.includes('Aire de') &&
+                                        !ctx.dataset.label.includes('Base de')
+                                    );
+
+                                    if (visibleContext.length >= 2) {
+                                        // Trouver le capital investi et la valeur de la position
+                                        let capital, value;
+                                        visibleContext.forEach(ctx => {
+                                            if (ctx.dataset.label === 'Capital investi') {
+                                                capital = ctx.parsed.y;
+                                            } else if (ctx.dataset.label === 'Valeur de la position') {
+                                                value = ctx.parsed.y;
+                                            }
+                                        });
+
+                                        if (capital !== undefined && value !== undefined) {
+                                            const difference = value - capital;
+                                            const percentage = capital > 0 ? (difference / capital * 100) : 0;
+
+                                            const sign = difference >= 0 ? '+' : '';
+                                            return [
+                                                '',
+                                                `Plus/Moins-value: ${sign}${difference.toLocaleString('fr-FR', {
+                                                    style: 'currency',
+                                                    currency: 'EUR'
+                                                })}`,
+                                                `Performance: ${sign}${percentage.toFixed(2)}%`
+                                            ];
+                                        }
+                                    }
+                                    return [];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: 'rgba(255, 255, 255, 0.7)',
+                                font: {
+                                    size: 11
+                                },
+                                maxRotation: 45
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.05)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: 'rgba(255, 255, 255, 0.7)',
+                                font: {
+                                    size: 11
+                                },
+                                callback: function(value) {
+                                    return value.toLocaleString('fr-FR', {
+                                        style: 'currency',
+                                        currency: 'EUR',
+                                        minimumFractionDigits: 0,
+                                        maximumFractionDigits: 0
+                                    });
+                                }
+                            }
                         }
                     },
                     interaction: {
