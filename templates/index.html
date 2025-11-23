@@ -1410,203 +1410,13 @@
             }
         }
 
-        /* Header Controls & User Avatar */
-        .header-controls {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .user-avatar-container {
-            position: relative;
-        }
-
-        .user-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: var(--gradient-primary);
-            border: 2px solid rgba(255,255,255,0.1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all var(--transition-fast);
-            font-weight: 700;
-            font-size: 1rem;
-            color: #001024;
-            animation: fadeInScale 0.5s ease-out;
-        }
-
-        .user-avatar:hover {
-            transform: scale(1.1);
-            border-color: rgba(255,255,255,0.3);
-            box-shadow: var(--shadow-primary);
-        }
-
-        .user-dropdown {
-            position: absolute;
-            top: 50px;
-            right: 0;
-            min-width: 280px;
-            background: var(--card);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: var(--border-radius-xl);
-            box-shadow: var(--shadow-xl);
-            backdrop-filter: blur(20px);
-            z-index: 1000;
-            opacity: 0;
-            visibility: hidden;
-            transform: translateY(-10px) scale(0.95);
-            transition: all var(--transition-fast);
-            overflow: hidden;
-        }
-
-        .user-dropdown.show {
-            opacity: 1;
-            visibility: visible;
-            transform: translateY(0) scale(1);
-        }
-
-        .user-dropdown-header {
-            padding: 20px;
-            background: rgba(130,196,255,0.05);
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .user-avatar-large {
-            width: 56px;
-            height: 56px;
-            border-radius: 50%;
-            background: var(--gradient-primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 1.5rem;
-            color: #001024;
-            flex-shrink: 0;
-        }
-
-        .user-info-dropdown {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .user-email {
-            font-weight: 600;
-            color: var(--text);
-            font-size: 1rem;
-            margin-bottom: 4px;
-            word-break: break-word;
-        }
-
-        .user-status {
-            font-size: 0.85rem;
-            color: var(--muted);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .user-status::before {
-            content: '';
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #4caf50;
-            animation: pulse 2s infinite;
-        }
-
-        .user-dropdown-divider {
-            height: 1px;
-            background: rgba(255,255,255,0.1);
-            margin: 0;
-        }
-
-        .user-dropdown-actions {
-            padding: 8px 0;
-        }
-
-        .user-dropdown-item {
-            width: 100%;
-            padding: 12px 20px;
-            background: none;
-            border: none;
-            color: var(--text);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-size: 0.95rem;
-            font-weight: 500;
-            transition: all var(--transition-fast);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .user-dropdown-item::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 3px;
-            background: var(--primary);
-            transform: scaleY(0);
-            transition: transform var(--transition-fast);
-        }
-
-        .user-dropdown-item:hover {
-            background: rgba(255,255,255,0.05);
-            padding-left: 24px;
-        }
-
-        .user-dropdown-item:hover::before {
-            transform: scaleY(1);
-        }
-
-        .user-dropdown-item.logout {
-            color: #f87171;
-        }
-
-        .user-dropdown-item.logout:hover {
-            background: rgba(248,113,113,0.1);
-        }
-
-        .user-dropdown-item.logout:hover::before {
-            background: #f87171;
-        }
-
-        .dropdown-icon {
-            font-size: 1.1rem;
-            width: 20px;
-            text-align: center;
-            flex-shrink: 0;
-        }
-
-        @keyframes fadeInScale {
-            from {
-                opacity: 0;
-                transform: scale(0.8);
-            }
-            to {
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
+        /* Header controls and user dropdown styles are now in main.css */
 
         /* Responsive pour auth */
         @media (max-width: 768px) {
             .auth-container {
                 padding: 24px;
                 max-width: 95%;
-            }
-
-            .header-controls {
-                gap: 12px;
             }
 
             .user-avatar {
@@ -1645,6 +1455,247 @@
         .current-row:hover {
             background: linear-gradient(135deg, rgba(130,196,255,0.12), rgba(255,255,255,0.05));
         }
+
+        /* Chart Period Selector */
+        .chart-period-selector {
+            display: flex;
+            gap: 4px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: var(--border-radius-lg);
+            padding: 4px;
+        }
+
+        .period-btn {
+            padding: 6px 12px;
+            background: transparent;
+            border: none;
+            border-radius: var(--border-radius-md);
+            color: var(--muted);
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            min-width: 40px;
+        }
+
+        .period-btn:hover {
+            background: rgba(255,255,255,0.05);
+            color: var(--text);
+        }
+
+        .period-btn.active {
+            background: rgba(130,196,255,0.15);
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .period-btn.locked {
+            position: relative;
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .period-btn.locked::after {
+            content: '🔒';
+            margin-left: 4px;
+            font-size: 0.75rem;
+        }
+
+        @media (max-width: 768px) {
+            .chart-period-selector {
+                order: 1;
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* Modal Abonnement Premium */
+        .premium-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .premium-modal.show {
+            display: flex;
+        }
+
+        .premium-modal-content {
+            background: var(--card-bg);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: var(--border-radius-xl);
+            padding: 40px;
+            max-width: 500px;
+            width: 90%;
+            position: relative;
+            animation: slideUp 0.3s ease;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+
+        .premium-modal-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            font-size: 24px;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all var(--transition-fast);
+        }
+
+        .premium-modal-close:hover {
+            background: rgba(255,255,255,0.1);
+            color: var(--text);
+        }
+
+        .premium-modal-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .premium-modal-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .premium-modal-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .premium-modal-subtitle {
+            font-size: 16px;
+            color: var(--muted);
+        }
+
+        .premium-modal-price {
+            text-align: center;
+            margin: 30px 0;
+            padding: 20px;
+            background: rgba(130,196,255,0.1);
+            border-radius: var(--border-radius-lg);
+            border: 1px solid rgba(130,196,255,0.2);
+        }
+
+        .premium-modal-price-amount {
+            font-size: 48px;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+
+        .premium-modal-price-period {
+            font-size: 16px;
+            color: var(--muted);
+            margin-bottom: 12px;
+        }
+
+        .premium-modal-trial {
+            display: inline-block;
+            padding: 6px 12px;
+            background: rgba(76,175,80,0.2);
+            color: #4caf50;
+            border-radius: var(--border-radius-md);
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .premium-modal-features {
+            list-style: none;
+            padding: 0;
+            margin: 30px 0;
+        }
+
+        .premium-modal-features li {
+            padding: 12px 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 15px;
+            color: var(--text);
+        }
+
+        .premium-modal-features li::before {
+            content: '✓';
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            background: rgba(76,175,80,0.2);
+            color: #4caf50;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 24px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .premium-modal-cta {
+            width: 100%;
+            padding: 16px 32px;
+            background: linear-gradient(135deg, var(--accent), #5eb3ff);
+            border: none;
+            border-radius: var(--border-radius-lg);
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            box-shadow: 0 4px 12px rgba(130,196,255,0.3);
+        }
+
+        .premium-modal-cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(130,196,255,0.4);
+        }
+
+        .premium-modal-cta:active {
+            transform: translateY(0);
+        }
+
+        .premium-modal-note {
+            text-align: center;
+            margin-top: 16px;
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Badge Premium */
+        /* Premium and trial badge styles are now in main.css */
     </style>
     <meta name="robots" content="noindex" />
     <meta name="color-scheme" content="light dark" />
@@ -1663,7 +1714,7 @@
                 <nav class="nav animate-slideInRight">
                     <a href="/" class="nav-link active">Portefeuille</a>
                     <a href="/orders" class="nav-link">Ordres</a>
-                    <a href="/projections" class="nav-link" id="projectionsLink" style="display: none;">Projections</a>
+                    <a href="/projections" class="nav-link">Projections</a>
                 </nav>
 
                 <div class="header-controls">
@@ -1752,8 +1803,18 @@
                 <!-- Monthly Portfolio Evolution Chart -->
                 <div class="chart-container" style="margin-top: 2rem;">
                     <div class="table-header">
-                        <div class="table-title">Évolution Mensuelle du Portefeuille</div>
-                        <div class="table-subtitle">Capital investi vs Valeur du portefeuille avec +/- values</div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                            <div>
+                                <div class="table-title">Évolution Mensuelle du Portefeuille</div>
+                                <div class="table-subtitle">Capital investi vs Valeur du portefeuille avec +/- values</div>
+                            </div>
+                            <div class="chart-period-selector">
+                                <button class="period-btn active" data-period="3m">3m</button>
+                                <button class="period-btn" data-period="6m">6m</button>
+                                <button class="period-btn" data-period="1y">1an</button>
+                                <button class="period-btn" data-period="max">MAX</button>
+                            </div>
+                        </div>
                     </div>
                     <div style="position: relative; height: 400px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--border-radius-xl); padding: 20px;">
                         <canvas id="portfolioEvolutionChart"></canvas>
@@ -1793,40 +1854,6 @@
             </div>
         </main>
     </div>
-
-    <!-- Interface d'authentification -->
-    <div class="auth-overlay" id="authOverlay" style="display: none;">
-        <div class="auth-container">
-            <div class="auth-header">
-                <h2 id="authTitle">Connexion</h2>
-                <p id="authSubtitle">Connectez-vous pour accéder à votre portefeuille</p>
-            </div>
-
-            <div class="auth-form">
-                <div class="input-group">
-                    <label for="authEmail">Email</label>
-                    <input type="email" id="authEmail" placeholder="votre@email.com" required>
-                </div>
-
-                <div class="input-group">
-                    <label for="authPassword">Mot de passe</label>
-                    <input type="password" id="authPassword" placeholder="••••••••" required>
-                </div>
-
-                <div class="auth-actions">
-                    <button class="auth-btn primary" id="authSubmitBtn">Se connecter</button>
-                    <button class="auth-btn secondary" id="authToggleBtn">Créer un compte</button>
-                </div>
-
-                <div class="auth-links">
-                    <button class="auth-link" id="forgotPasswordBtn">Mot de passe oublié ?</button>
-                </div>
-            </div>
-
-            <div class="auth-status" id="authStatus" style="display: none;"></div>
-        </div>
-    </div>
-
 
     <!-- Bouton flottant avec menu -->
     <button class="floating-action-button" id="fabButton" onclick="toggleFloatingMenu()">
@@ -2466,12 +2493,67 @@
             `;
         }
 
-        // Variable globale pour le graphique
+        // Variables globales pour le graphique
         let portfolioChart = null;
+        let fullMonthlyData = null;
+        let currentPeriod = '3m';
+
+        // Restaurer le cache depuis sessionStorage au démarrage
+        try {
+            const cached = sessionStorage.getItem('portfolioChartData');
+            if (cached) {
+                const { data, timestamp } = JSON.parse(cached);
+                // Utiliser le cache s'il a moins de 5 minutes
+                if (Date.now() - timestamp < 5 * 60 * 1000) {
+                    fullMonthlyData = data;
+                }
+            }
+        } catch (e) {
+            console.log('Impossible de restaurer le cache:', e);
+        }
+
+        // Fonction pour filtrer les données selon la période
+        function filterDataByPeriod(data, period) {
+            if (!data || data.length === 0) return data;
+
+            const today = new Date();
+            let startDate;
+
+            switch(period) {
+                case '3m':
+                    startDate = new Date(today.getFullYear(), today.getMonth() - 3, today.getDate());
+                    break;
+                case '6m':
+                    startDate = new Date(today.getFullYear(), today.getMonth() - 6, today.getDate());
+                    break;
+                case '1y':
+                    startDate = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+                    break;
+                case 'max':
+                default:
+                    return data;
+            }
+
+            return data.filter(item => {
+                const itemDate = new Date(item.date);
+                return itemDate >= startDate;
+            });
+        }
 
         // Chargement et affichage du graphique mensuel
-        async function loadPortfolioChart() {
-            // Démarrer l'animation de chargement
+        async function loadPortfolioChart(period = null) {
+            if (period) {
+                currentPeriod = period;
+            }
+
+            // Si les données sont déjà en cache, utiliser le cache (pas de rechargement)
+            if (fullMonthlyData) {
+                const filteredData = filterDataByPeriod(fullMonthlyData, currentPeriod);
+                createPortfolioChart(filteredData);
+                return;
+            }
+
+            // Démarrer l'animation de chargement uniquement pour le premier chargement
             startLoadingAnimation();
 
             try {
@@ -2494,10 +2576,26 @@
                 const result = await response.json();
 
                 if (result.success) {
+                    // Stocker les données complètes dans le cache
+                    fullMonthlyData = result.data;
+
+                    // Sauvegarder dans sessionStorage pour persistance entre onglets
+                    try {
+                        sessionStorage.setItem('portfolioChartData', JSON.stringify({
+                            data: fullMonthlyData,
+                            timestamp: Date.now()
+                        }));
+                    } catch (e) {
+                        console.log('Impossible de sauvegarder en sessionStorage:', e);
+                    }
+
+                    // Filtrer les données selon la période sélectionnée
+                    const filteredData = filterDataByPeriod(fullMonthlyData, currentPeriod);
+
                     // Arrêter l'animation de chargement et afficher le vrai graphique
                     stopLoadingAnimation();
                     setTimeout(() => {
-                        createPortfolioChart(result.data);
+                        createPortfolioChart(filteredData);
                     }, 300); // Petite transition pour un effet plus fluide
                 } else {
                     throw new Error(result.error || 'Erreur inconnue');
@@ -3031,8 +3129,6 @@
 
 
         // Gestion de l'authentification Firebase
-        let isLoginMode = true;
-
         function initAuth() {
             // Écouter les changements d'état d'authentification
             window.onAuthStateChanged(window.firebaseAuth, async (user) => {
@@ -3040,26 +3136,22 @@
                     // Utilisateur connecté
                     currentUser = user;
                     updateUserInterface(user);
-                    document.getElementById('authOverlay').style.display = 'none';
 
                     // Obtenir le token
                     authToken = await user.getIdToken();
+
+                    // Afficher les liens de navigation pour utilisateurs connectés
+                    showAuthenticatedNavigation();
 
                     // Vérifier si c'est la première fois et charger les données
                     if (checkFirstTimeUser()) {
                         loadPortfolioData();
                     }
                 } else {
-                    // Utilisateur déconnecté
-                    currentUser = null;
-                    authToken = null;
-                    document.getElementById('userAvatarContainer').style.display = 'none';
-                    showAuthInterface();
+                    // Utilisateur déconnecté - rediriger vers la page de login
+                    window.location.href = '/login';
                 }
             });
-
-            // Gérer les événements de l'interface d'authentification
-            setupAuthEventListeners();
         }
 
         function updateUserInterface(user) {
@@ -3069,171 +3161,123 @@
             }
         }
 
-        function setupAuthEventListeners() {
-            const emailInput = document.getElementById('authEmail');
-            const passwordInput = document.getElementById('authPassword');
-            const submitBtn = document.getElementById('authSubmitBtn');
-            const toggleBtn = document.getElementById('authToggleBtn');
-            const forgotBtn = document.getElementById('forgotPasswordBtn');
+        async function showAuthenticatedNavigation() {
+            // Afficher les liens de navigation pour utilisateurs connectés (si ils existent)
+            const projectionsLink = document.getElementById('projectionsLink');
+            const subscriptionLink = document.getElementById('subscriptionLink');
 
-            // Soumettre le formulaire
-            submitBtn.addEventListener('click', handleAuthSubmit);
-
-            // Basculer entre connexion et inscription
-            toggleBtn.addEventListener('click', toggleAuthMode);
-
-            // Mot de passe oublié
-            forgotBtn.addEventListener('click', handleForgotPassword);
-
-            // Soumettre avec Enter
-            emailInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') passwordInput.focus();
-            });
-
-            passwordInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') handleAuthSubmit();
-            });
-        }
-
-        function showAuthInterface() {
-            document.getElementById('authOverlay').style.display = 'flex';
-            document.getElementById('authEmail').focus();
-        }
-
-        function toggleAuthMode() {
-            isLoginMode = !isLoginMode;
-
-            const title = document.getElementById('authTitle');
-            const subtitle = document.getElementById('authSubtitle');
-            const submitBtn = document.getElementById('authSubmitBtn');
-            const toggleBtn = document.getElementById('authToggleBtn');
-
-            if (isLoginMode) {
-                title.textContent = 'Connexion';
-                subtitle.textContent = 'Connectez-vous pour accéder à votre portefeuille';
-                submitBtn.textContent = 'Se connecter';
-                toggleBtn.textContent = 'Créer un compte';
-            } else {
-                title.textContent = 'Créer un compte';
-                subtitle.textContent = 'Créez votre compte pour commencer';
-                submitBtn.textContent = 'Créer le compte';
-                toggleBtn.textContent = 'J\'ai déjà un compte';
+            if (projectionsLink) {
+                projectionsLink.style.display = 'inline-block';
+            }
+            if (subscriptionLink) {
+                subscriptionLink.style.display = 'inline-block';
             }
 
-            hideAuthStatus();
-        }
-
-        async function handleAuthSubmit() {
-            const email = document.getElementById('authEmail').value.trim();
-            const password = document.getElementById('authPassword').value;
-
-            if (!email || !password) {
-                showAuthStatus('Veuillez remplir tous les champs', 'error');
-                return;
-            }
-
-            if (password.length < 6) {
-                showAuthStatus('Le mot de passe doit contenir au moins 6 caractères', 'error');
-                return;
-            }
-
-            const submitBtn = document.getElementById('authSubmitBtn');
-            const originalText = submitBtn.textContent;
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Chargement...';
-
+            // Récupérer et afficher le statut d'abonnement
+            console.log('📡 Récupération du statut d\'abonnement...');
             try {
-                if (isLoginMode) {
-                    // Connexion
-                    await window.signInWithEmailAndPassword(window.firebaseAuth, email, password);
-                    showAuthStatus('Connexion réussie !', 'success');
+                const response = await fetch('/api/subscription', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                console.log('📡 Réponse reçue, status:', response.status, 'ok:', response.ok);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('📡 Données reçues:', data);
+                    const planInfo = data.data;
+                    console.log('📡 Plan info extrait:', planInfo);
+                    console.log('📡 Appel de updateSubscriptionUI...');
+                    updateSubscriptionUI(planInfo);
+                    console.log('✅ updateSubscriptionUI terminé');
                 } else {
-                    // Inscription
-                    const userCredential = await window.createUserWithEmailAndPassword(window.firebaseAuth, email, password);
-
-                    // Créer le profil utilisateur dans Firestore
-                    const user = userCredential.user;
-                    await window.setDoc(window.doc(window.firebaseDb, 'users', user.uid), {
-                        email: user.email,
-                        createdAt: new Date(),
-                        accountType: 'pea', // Type par défaut
-                        settings: {
-                            theme: 'dark',
-                            showDetailedKpis: false
-                        }
-                    });
-
-                    showAuthStatus('Compte créé avec succès !', 'success');
+                    console.error('❌ Réponse API non-ok:', response.status);
                 }
             } catch (error) {
-                console.error('Erreur d\'authentification:', error);
-                let message = 'Une erreur est survenue';
+                console.error('❌ Erreur lors de la récupération du statut d\'abonnement:', error);
+                // Continuer sans le statut premium
+            }
+        }
 
-                switch (error.code) {
-                    case 'auth/user-not-found':
-                        message = 'Aucun compte trouvé avec cet email';
-                        break;
-                    case 'auth/wrong-password':
-                        message = 'Mot de passe incorrect';
-                        break;
-                    case 'auth/email-already-in-use':
-                        message = 'Un compte existe déjà avec cet email';
-                        break;
-                    case 'auth/invalid-email':
-                        message = 'Email invalide';
-                        break;
-                    case 'auth/weak-password':
-                        message = 'Le mot de passe est trop faible';
-                        break;
-                    default:
-                        message = error.message;
+        function updateSubscriptionUI(planInfo) {
+            console.log('🎯 updateSubscriptionUI: Mise à jour UI avec planInfo:', planInfo);
+
+            // IMPORTANT: Stocker d'abord les données globalement (même si l'UI n'est pas prête)
+            window.userPlan = planInfo;
+            console.log('💾 window.userPlan mis à jour:', window.userPlan);
+
+            // Tenter de mettre à jour l'UI (peut échouer si les éléments n'existent pas encore)
+            const subscriptionText = document.getElementById('subscriptionText');
+            const premiumBadge = document.getElementById('premiumBadge');
+
+            if (subscriptionText && premiumBadge) {
+                if (planInfo.plan === 'premium') {
+                    subscriptionText.textContent = 'Premium';
+                    premiumBadge.style.display = 'inline';
+                    premiumBadge.textContent = '✓';
+                    premiumBadge.className = 'premium-badge';
+                    console.log('✅ UI mise à jour: Mode PREMIUM activé');
+                } else if (planInfo.plan === 'trial') {
+                    subscriptionText.textContent = 'Essai';
+                    premiumBadge.style.display = 'inline';
+                    premiumBadge.textContent = `${planInfo.trial_remaining_days}j`;
+                    premiumBadge.className = 'trial-badge';
+                    console.log(`✅ UI mise à jour: Mode TRIAL activé (${planInfo.trial_remaining_days}j restants)`);
+                } else {
+                    subscriptionText.textContent = 'Abonnement';
+                    premiumBadge.style.display = 'none';
+                    console.log('ℹ️ UI mise à jour: Mode FREEMIUM');
                 }
+            } else {
+                console.warn('⚠️ Éléments UI (subscriptionText/premiumBadge) non trouvés dans le DOM');
+            }
 
-                showAuthStatus(message, 'error');
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = originalText;
+            // Mettre à jour l'état des boutons de période
+            if (typeof updatePeriodButtonsAccess === 'function') {
+                console.log('🔄 Appel de updatePeriodButtonsAccess...');
+                updatePeriodButtonsAccess();
+            } else {
+                console.warn('⚠️ updatePeriodButtonsAccess non trouvée');
+            }
+
+            // Si freemium mais avec stripe_customer_id, synchroniser avec Stripe
+            if (planInfo.plan === 'freemium' && planInfo.stripe_customer_id) {
+                console.log('🔄 Détection client Stripe en freemium, synchronisation auto...');
+                syncSubscriptionFromStripe();
+            }
+
+            // Vérifier si on doit synchroniser suite à un retour de paiement
+            if (localStorage.getItem('pendingSubscriptionSync') === 'true') {
+                console.log('🔄 Synchronisation en attente détectée, déclenchement...');
+                localStorage.removeItem('pendingSubscriptionSync');
+                syncSubscriptionFromStripe();
             }
         }
 
-        async function handleForgotPassword() {
-            const email = document.getElementById('authEmail').value.trim();
-
-            if (!email) {
-                showAuthStatus('Veuillez entrer votre email d\'abord', 'error');
-                return;
-            }
-
+        // Fonction pour synchroniser depuis Stripe
+        async function syncSubscriptionFromStripe() {
             try {
-                await window.sendPasswordResetEmail(window.firebaseAuth, email);
-                showAuthStatus('Email de réinitialisation envoyé !', 'info');
+                const response = await fetch('/api/subscription/sync', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+                console.log('✅ Synchronisation auto terminée:', result);
+
+                if (result.success && result.data.plan !== 'freemium') {
+                    // Recharger la page pour afficher le bon statut
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                }
             } catch (error) {
-                console.error('Erreur reset password:', error);
-                showAuthStatus('Erreur lors de l\'envoi de l\'email', 'error');
-            }
-        }
-
-        function showAuthStatus(message, type) {
-            const status = document.getElementById('authStatus');
-            status.textContent = message;
-            status.className = `auth-status ${type}`;
-            status.style.display = 'block';
-
-            if (type === 'success') {
-                setTimeout(() => hideAuthStatus(), 3000);
-            }
-        }
-
-        function hideAuthStatus() {
-            document.getElementById('authStatus').style.display = 'none';
-        }
-
-        async function logout() {
-            try {
-                await window.signOut(window.firebaseAuth);
-                // L'interface sera mise à jour automatiquement via onAuthStateChanged
-            } catch (error) {
-                console.error('Erreur de déconnexion:', error);
+                console.error('❌ Erreur sync auto:', error);
             }
         }
 
@@ -3690,7 +3734,303 @@
                 toggleFloatingMenu();
             }
         });
+
+        // Fonction pour ouvrir la modal premium
+        function openPremiumModal() {
+            const modal = document.getElementById('premiumModal');
+            modal.classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+
+        // Fonction pour fermer la modal premium
+        function closePremiumModal() {
+            const modal = document.getElementById('premiumModal');
+            modal.classList.remove('show');
+            document.body.style.overflow = '';
+        }
+
+        // Fonction pour démarrer l'abonnement
+        async function startSubscription() {
+            try {
+                const response = await fetch('/api/subscription/checkout', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success && result.data && result.data.url) {
+                    // Rediriger vers Stripe Checkout
+                    window.location.href = result.data.url;
+                } else {
+                    alert('Erreur lors de la création de la session de paiement');
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('Une erreur est survenue. Veuillez réessayer.');
+            }
+        }
+
+        // Fonction pour vérifier si l'utilisateur a accès premium
+        function hasPremiumAccess() {
+            // Vérifier si l'utilisateur a un plan premium ou trial
+            if (!window.userPlan) {
+                console.log('🔒 hasPremiumAccess: Pas de plan utilisateur trouvé');
+                return false;
+            }
+
+            const plan = window.userPlan.plan;
+            const status = window.userPlan.status;
+            const isPremiumFlag = window.userPlan.is_premium;
+
+            console.log(`🔒 hasPremiumAccess: plan=${plan}, status=${status}, is_premium=${isPremiumFlag}`);
+
+            // L'utilisateur a accès premium si:
+            // 1. Le flag is_premium est true (donné par le backend)
+            // 2. OU le plan est 'premium' ou 'trial'
+            // 3. OU le statut est 'trialing' ou 'active' avec un plan non-freemium
+            let hasAccess = false;
+
+            // Priorité au flag is_premium du backend
+            if (isPremiumFlag === true) {
+                hasAccess = true;
+            }
+            // Sinon vérifier le plan
+            else if (plan === 'premium' || plan === 'trial') {
+                hasAccess = true;
+            }
+            // Backup: vérifier le statut pour les cas edge
+            else if ((status === 'trialing' || status === 'active') && plan !== 'freemium') {
+                hasAccess = true;
+            }
+
+            console.log(`🔒 hasPremiumAccess: Résultat = ${hasAccess}`);
+            return hasAccess;
+        }
+
+        // Fonction pour mettre à jour l'état des boutons de période
+        function updatePeriodButtonsAccess() {
+            const periodButtons = document.querySelectorAll('.period-btn');
+            const hasPremium = hasPremiumAccess();
+
+            console.log(`🔄 updatePeriodButtonsAccess: hasPremium=${hasPremium}`);
+
+            periodButtons.forEach(button => {
+                const period = button.dataset.period;
+                // Seule la période 3m est gratuite
+                if (period !== '3m' && !hasPremium) {
+                    console.log(`🔒 Verrouillage du bouton ${period}`);
+                    button.classList.add('locked');
+                } else {
+                    console.log(`🔓 Déverrouillage du bouton ${period}`);
+                    button.classList.remove('locked');
+                }
+            });
+        }
+
+        // Initialisation des boutons de période pour le graphique
+        document.addEventListener('DOMContentLoaded', function() {
+            const periodButtons = document.querySelectorAll('.period-btn');
+
+            periodButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const newPeriod = this.dataset.period;
+                    const hasPremium = hasPremiumAccess();
+
+                    // Vérifier si le bouton est verrouillé
+                    if (newPeriod !== '3m' && !hasPremium) {
+                        openPremiumModal();
+                        return;
+                    }
+
+                    // Mettre à jour l'état actif des boutons
+                    periodButtons.forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+
+                    // Recharger le graphique avec la nouvelle période
+                    if (fullMonthlyData) {
+                        // Si on a déjà les données, juste filtrer et recharger
+                        loadPortfolioChart(newPeriod);
+                    } else {
+                        // Sinon charger les données depuis l'API
+                        currentPeriod = newPeriod;
+                        loadPortfolioChart();
+                    }
+                });
+            });
+
+            // Mettre à jour l'état des boutons après le chargement du plan
+            setTimeout(updatePeriodButtonsAccess, 1000);
+        });
+
+        // Fermer la modal en cliquant en dehors
+        document.addEventListener('click', function(e) {
+            const modal = document.getElementById('premiumModal');
+            if (e.target === modal) {
+                closePremiumModal();
+            }
+        });
+
+        // ========== FONCTIONS DE DEBUGGING GLOBALES ==========
+        // Création des fonctions de debug de manière plus robuste
+        (function() {
+            window.debugPremium = {};
+
+            // Afficher toutes les informations utilisateur
+            window.debugPremium.showUserInfo = function() {
+                console.log('=== INFORMATIONS UTILISATEUR ===');
+                console.log('window.userPlan:', window.userPlan);
+                try {
+                    console.log('authToken présent:', typeof authToken !== 'undefined');
+                } catch(e) {
+                    console.log('authToken: non accessible');
+                }
+                return window.userPlan;
+            };
+
+            // Vérifier l'accès premium
+            window.debugPremium.checkAccess = function() {
+                console.log('=== VÉRIFICATION ACCÈS PREMIUM ===');
+                try {
+                    var hasAccess = hasPremiumAccess();
+                    console.log('hasPremiumAccess():', hasAccess);
+                } catch(e) {
+                    console.log('Erreur lors de la vérification:', e);
+                }
+                if (window.userPlan) {
+                    console.log('Plan:', window.userPlan.plan);
+                    console.log('Status:', window.userPlan.status);
+                    console.log('is_premium:', window.userPlan.is_premium);
+                    console.log('trial_remaining_days:', window.userPlan.trial_remaining_days);
+                } else {
+                    console.log('⚠️ window.userPlan non défini');
+                }
+                return hasAccess;
+            };
+
+            // Forcer la mise à jour des boutons
+            window.debugPremium.updateButtons = function() {
+                console.log('=== MISE À JOUR FORCÉE DES BOUTONS ===');
+                try {
+                    updatePeriodButtonsAccess();
+                    console.log('✅ Boutons mis à jour');
+                } catch(e) {
+                    console.error('Erreur:', e);
+                }
+            };
+
+            // Récupérer le statut depuis l'API
+            window.debugPremium.fetchStatus = function() {
+                console.log('=== RÉCUPÉRATION STATUT DEPUIS API ===');
+                return fetch('/api/subscription', {
+                    headers: {
+                        'Authorization': 'Bearer ' + authToken
+                    }
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(result) {
+                    console.log('Réponse API:', result);
+                    if (result.success) {
+                        console.log('Plan API:', result.data);
+                        return result.data;
+                    }
+                })
+                .catch(function(error) {
+                    console.error('❌ Erreur:', error);
+                });
+            };
+
+            // Forcer la mise à jour avec les données de l'API
+            window.debugPremium.forceUpdate = function() {
+                console.log('=== MISE À JOUR FORCÉE AVEC API ===');
+                return fetch('/api/subscription', {
+                    headers: {
+                        'Authorization': 'Bearer ' + authToken
+                    }
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(result) {
+                    console.log('Réponse API:', result);
+                    if (result.success) {
+                        console.log('Plan API:', result.data);
+                        console.log('Appel de updateSubscriptionUI...');
+                        updateSubscriptionUI(result.data);
+                        console.log('Appel de updatePeriodButtonsAccess...');
+                        updatePeriodButtonsAccess();
+                        console.log('✅ Mise à jour forcée terminée');
+                        return result.data;
+                    }
+                })
+                .catch(function(error) {
+                    console.error('❌ Erreur:', error);
+                });
+            };
+
+            // Afficher l'état des boutons de période
+            window.debugPremium.showButtonsState = function() {
+                console.log('=== ÉTAT DES BOUTONS DE PÉRIODE ===');
+                var buttons = document.querySelectorAll('.period-btn');
+                buttons.forEach(function(btn) {
+                    var period = btn.dataset.period;
+                    var isLocked = btn.classList.contains('locked');
+                    console.log(period + ': ' + (isLocked ? '🔒 VERROUILLÉ' : '🔓 DÉVERROUILLÉ'));
+                });
+            };
+
+            // Guide d'utilisation
+            window.debugPremium.help = function() {
+                console.log('=== GUIDE DE DEBUGGING PREMIUM ===');
+                console.log('debugPremium.showUserInfo()    - Afficher les infos utilisateur');
+                console.log('debugPremium.checkAccess()     - Vérifier l\'accès premium');
+                console.log('debugPremium.updateButtons()   - Forcer la mise à jour des boutons');
+                console.log('debugPremium.fetchStatus()     - Récupérer le statut depuis l\'API');
+                console.log('debugPremium.forceUpdate()     - 🔥 FORCER mise à jour complète depuis API');
+                console.log('debugPremium.showButtonsState()- Afficher l\'état des boutons');
+                console.log('debugPremium.help()            - Afficher ce guide');
+            };
+
+            // Afficher le guide au chargement
+            console.log('🔧 Outils de debugging premium disponibles ! Tapez: debugPremium.help()');
+        })();
+
     </script>
+
+    <!-- Modal Premium -->
+    <div id="premiumModal" class="premium-modal">
+        <div class="premium-modal-content">
+            <button class="premium-modal-close" onclick="closePremiumModal()">×</button>
+
+            <div class="premium-modal-header">
+                <div class="premium-modal-icon">⭐</div>
+                <h2 class="premium-modal-title">Passez à Premium</h2>
+                <p class="premium-modal-subtitle">Accédez à toutes les périodes temporelles et bien plus</p>
+            </div>
+
+            <div class="premium-modal-price">
+                <div class="premium-modal-price-amount">3,99€</div>
+                <div class="premium-modal-price-period">par mois</div>
+                <div class="premium-modal-trial">3 jours d'essai gratuit</div>
+            </div>
+
+            <ul class="premium-modal-features">
+                <li>Accès à toutes les périodes temporelles (6m, 1an, MAX)</li>
+                <li>Graphiques et analyses avancées</li>
+                <li>Exports illimités</li>
+                <li>Support prioritaire</li>
+            </ul>
+
+            <button class="premium-modal-cta" onclick="startSubscription()">
+                Démarrer l'essai gratuit
+            </button>
+
+            <p class="premium-modal-note">
+                Aucun paiement pendant 3 jours • Annulation à tout moment
+            </p>
+        </div>
+    </div>
 
     <!-- Script centralisé pour le dropdown utilisateur -->
     <script src="/static/js/user_dropdown.js"></script>

@@ -16,6 +16,8 @@
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
+            position: relative;
+            z-index: 1;
         }
 
         .parameters-section {
@@ -240,6 +242,9 @@
             }
         }
     </style>
+
+    <!-- Script centralisé pour le dropdown utilisateur -->
+    <script src="/static/js/user_dropdown.js"></script>
 </head>
 <body>
     <div class="shell">
@@ -814,26 +819,8 @@
             }
         }
 
-        // Gestion du menu utilisateur
-        // Menu utilisateur géré par le script centralisé
-
-        // Fonction de déconnexion
-        async function logout() {
-            try {
-                await window.signOut(window.firebaseAuth);
-                window.location.href = '/';
-            } catch (error) {
-                console.error('Erreur de déconnexion:', error);
-            }
-        }
-
-        // Fermeture du menu gérée par le script centralisé
-
         // Initialiser le thème au chargement
         initTheme();
     </script>
-
-    <!-- Script centralisé pour le dropdown utilisateur -->
-    <script src="/static/js/user_dropdown.js"></script>
 </body>
 </html>

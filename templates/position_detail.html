@@ -151,6 +151,132 @@
             font-weight: 500;
         }
 
+        /* Skeleton Loading Styles */
+        @keyframes shimmer {
+            0% {
+                background-position: -200px 0;
+            }
+            100% {
+                background-position: calc(200px + 100%) 0;
+            }
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg, rgba(255,255,255,0.1) 25%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.1) 75%);
+            background-size: 200px 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 4px;
+            display: block;
+            min-height: 16px;
+            width: 100%;
+        }
+
+        .skeleton-badge {
+            height: 58px;
+            border-radius: var(--border-radius-lg);
+            margin-bottom: 24px;
+            width: 280px;
+        }
+
+        .skeleton-card {
+            background: rgba(255,255,255,0.03) !important;
+            border: 1px solid rgba(255,255,255,0.08) !important;
+            opacity: 1 !important;
+            transform: translateY(0) scale(1) !important;
+            min-height: 200px;
+            padding: 24px;
+        }
+
+        .skeleton-card-title {
+            height: 24px;
+            width: 60%;
+            margin-bottom: 20px;
+            background: rgba(255,255,255,0.12);
+            border-radius: 4px;
+        }
+
+        /* Force position-grid visibility when showing skeleton */
+        #skeletonContent .position-grid {
+            opacity: 1 !important;
+            transform: translateY(0) !important;
+        }
+
+        #skeletonContent .position-grid .card {
+            opacity: 1 !important;
+            transform: translateY(0) scale(1) !important;
+        }
+
+
+        .skeleton-info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .skeleton-info-label {
+            background: rgba(255,255,255,0.08);
+            height: 16px;
+            border-radius: 4px;
+            width: 40%;
+        }
+
+        .skeleton-info-value {
+            background: rgba(255,255,255,0.12);
+            height: 18px;
+            border-radius: 4px;
+            width: 30%;
+        }
+
+        .skeleton-chart {
+            height: 400px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: var(--border-radius-xl);
+            margin-top: 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .skeleton-chart-header {
+            padding: 20px 20px 0 20px;
+        }
+
+        .skeleton-chart-title {
+            background: rgba(255,255,255,0.1);
+            height: 20px;
+            border-radius: 4px;
+            width: 70%;
+            margin-bottom: 8px;
+        }
+
+        .skeleton-chart-subtitle {
+            background: rgba(255,255,255,0.08);
+            height: 14px;
+            border-radius: 4px;
+            width: 50%;
+        }
+
+        .skeleton-chart-content {
+            position: absolute;
+            top: 80px;
+            left: 20px;
+            right: 20px;
+            bottom: 20px;
+            background: rgba(255,255,255,0.05);
+            border-radius: var(--border-radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .skeleton-chart-placeholder {
+            width: 80%;
+            height: 60%;
+            background: rgba(255,255,255,0.08);
+            border-radius: 8px;
+        }
+
         @media (max-width: 768px) {
             .position-grid {
                 grid-template-columns: 1fr;
@@ -175,8 +301,80 @@
     </div>
 
     <main>
-        <div class="loading" id="loading">
-            🔄 Chargement des données...
+        <div id="skeletonContent">
+            <!-- Skeleton du badge prix -->
+            <div class="skeleton skeleton-badge"></div>
+
+            <!-- Skeleton de la grille de position -->
+            <div class="position-grid">
+                <!-- Skeleton - Informations générales -->
+                <div class="card skeleton-card">
+                    <div class="skeleton skeleton-card-title"></div>
+                    <div>
+                        <div class="skeleton-info-item">
+                            <div class="skeleton skeleton-info-label"></div>
+                            <div class="skeleton skeleton-info-value"></div>
+                        </div>
+                        <div class="skeleton-info-item">
+                            <div class="skeleton skeleton-info-label"></div>
+                            <div class="skeleton skeleton-info-value"></div>
+                        </div>
+                        <div class="skeleton-info-item">
+                            <div class="skeleton skeleton-info-label"></div>
+                            <div class="skeleton skeleton-info-value"></div>
+                        </div>
+                        <div class="skeleton-info-item">
+                            <div class="skeleton skeleton-info-label"></div>
+                            <div class="skeleton skeleton-info-value"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Skeleton - Ma position -->
+                <div class="card skeleton-card">
+                    <div class="skeleton skeleton-card-title"></div>
+                    <div>
+                        <div class="skeleton-info-item">
+                            <div class="skeleton skeleton-info-label"></div>
+                            <div class="skeleton skeleton-info-value"></div>
+                        </div>
+                        <div class="skeleton-info-item">
+                            <div class="skeleton skeleton-info-label"></div>
+                            <div class="skeleton skeleton-info-value"></div>
+                        </div>
+                        <div class="skeleton-info-item">
+                            <div class="skeleton skeleton-info-label"></div>
+                            <div class="skeleton skeleton-info-value"></div>
+                        </div>
+                        <div class="skeleton-info-item">
+                            <div class="skeleton skeleton-info-label"></div>
+                            <div class="skeleton skeleton-info-value"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Skeleton - Graphique d'évolution de la part -->
+            <div class="skeleton-chart full-width">
+                <div class="skeleton-chart-header">
+                    <div class="skeleton skeleton-chart-title"></div>
+                    <div class="skeleton skeleton-chart-subtitle"></div>
+                </div>
+                <div class="skeleton-chart-content">
+                    <div class="skeleton skeleton-chart-placeholder"></div>
+                </div>
+            </div>
+
+            <!-- Skeleton - Graphique d'évolution capital/valeur -->
+            <div class="skeleton-chart full-width">
+                <div class="skeleton-chart-header">
+                    <div class="skeleton skeleton-chart-title"></div>
+                    <div class="skeleton skeleton-chart-subtitle"></div>
+                </div>
+                <div class="skeleton-chart-content">
+                    <div class="skeleton skeleton-chart-placeholder"></div>
+                </div>
+            </div>
         </div>
 
         <div id="positionContent" style="display: none;">
@@ -293,7 +491,8 @@
                 }
 
                 displayPositionData(data);
-                document.getElementById('loading').style.display = 'none';
+                // Transition du skeleton vers le contenu réel
+                document.getElementById('skeletonContent').style.display = 'none';
                 document.getElementById('positionContent').style.display = 'block';
 
                 // Charger le graphique d'évolution
@@ -306,8 +505,11 @@
 
             } catch (error) {
                 console.error('Erreur:', error);
-                document.getElementById('loading').innerHTML = `
-                    <div style="color: #f87171;">
+                // Masquer le skeleton et afficher l'erreur dans le contenu
+                document.getElementById('skeletonContent').style.display = 'none';
+                document.getElementById('positionContent').style.display = 'block';
+                document.getElementById('positionContent').innerHTML = `
+                    <div style="color: #f87171; text-align: center; padding: 60px 20px; font-size: 1.3rem;">
                         ❌ Erreur lors du chargement: ${error.message}
                     </div>
                 `;

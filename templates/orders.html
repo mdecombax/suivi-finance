@@ -88,16 +88,6 @@
             animation: spin 1s ease-in-out infinite;
         }
         
-        .table tbody tr {
-            animation: fadeInUp 0.4s ease-out;
-        }
-        
-        .table tbody tr:nth-child(1) { animation-delay: 0.1s; }
-        .table tbody tr:nth-child(2) { animation-delay: 0.2s; }
-        .table tbody tr:nth-child(3) { animation-delay: 0.3s; }
-        .table tbody tr:nth-child(4) { animation-delay: 0.4s; }
-        .table tbody tr:nth-child(5) { animation-delay: 0.5s; }
-        
         .table tbody tr:hover {
             transform: scale(1.01);
         }
@@ -190,6 +180,9 @@
         window.onAuthStateChanged = onAuthStateChanged;
         window.signOut = signOut;
     </script>
+
+    <!-- Script centralisé pour le dropdown utilisateur -->
+    <script src="/static/js/user_dropdown.js"></script>
 </head>
 <body>
     <div class="shell">
@@ -392,9 +385,9 @@
             tbody.innerHTML = orders.map((order, index) => {
                 const date = new Date(order.date).toLocaleDateString('fr-FR');
                 const totalPrice = order.quantity * order.unitPriceEUR;
-                
+
                 return `
-                    <tr class="animate-fadeInUp" style="animation-delay: ${index * 0.1}s;">
+                    <tr>
                         <td class="number">${date}</td>
                         <td>${order.isin}</td>
                         <td class="number">${order.quantity.toLocaleString('fr-FR')}</td>
@@ -597,34 +590,9 @@
         // Démarrer l'application
         init();
 
-        // Gestion du menu utilisateur - utilisé par le script centralisé
-
-        // Fonction de déconnexion
-        async function logout() {
-            try {
-                await window.signOut(window.firebaseAuth);
-                window.location.href = '/';
-            } catch (error) {
-                console.error('Erreur de déconnexion:', error);
-            }
-        }
-
-        // Fermeture du menu gérée par le script centralisé
-
-        // Fonction pour afficher les fonctionnalités à venir (conservée pour compatibilité avec les messages locaux)
-        function showComingSoon(feature) {
-            showMessage(`${feature} - Fonctionnalité à venir`, 'info');
-        }
-
         // Exposer les fonctions globalement pour les boutons
         window.deleteOrder = deleteOrder;
         window.toggleTheme = toggleTheme;
-        window.toggleUserMenu = toggleUserMenu;
-        window.logout = logout;
-        window.showComingSoon = showComingSoon;
     </script>
-
-    <!-- Script centralisé pour le dropdown utilisateur -->
-    <script src="/static/js/user_dropdown.js"></script>
 </body>
 </html>

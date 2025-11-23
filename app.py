@@ -14,15 +14,20 @@ from datetime import datetime, date
 from pathlib import Path
 from typing import Dict, Any
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+# Charger les variables d'environnement depuis .env
+from dotenv import load_dotenv
+load_dotenv()
+
+from flask import Flask, render_template, request, jsonify, redirect, url_for, g
 from flask_cors import CORS
 
 from services.price_service import PriceService
 from services.portfolio_service import PortfolioService
 from services.firebase_service import firebase_service
 from services.projection_service import ProjectionService, ProjectionParams
+from services.stripe_service import stripe_service
 from utils.logger import debug_log
-from utils.auth_middleware import require_auth, get_current_user_id, is_user_authenticated
+from utils.auth_middleware import require_auth, get_current_user_id, get_current_user, is_user_authenticated, require_premium, check_freemium_limits, get_user_plan_info
 
 
 class FinancialPortfolioApp:
@@ -74,6 +79,11 @@ class FinancialPortfolioApp:
         def projections_page():
             """Financial projections page."""
             return render_template("projections.html")
+
+        @self.app.route("/subscription")
+        def subscription_page():
+            """Subscription management page."""
+            return render_template("subscription.html")
 
         @self.app.route("/position/<isin>")
         def position_detail(isin):
@@ -244,6 +254,7 @@ class FinancialPortfolioApp:
 
         @self.app.route("/api/projections", methods=["GET", "POST"])
         @require_auth
+        @check_freemium_limits('projections')
         def projections_api():
             """API endpoint for financial projections with scenario analysis (authentification requise)."""
             try:
@@ -279,20 +290,42 @@ class FinancialPortfolioApp:
                     # Custom projections with user parameters
                     data = request.get_json() or {}
 
+                    # Appliquer les limitations freemium si nécessaire
+                    is_freemium = getattr(g, 'is_freemium', False)
+
+                    if is_freemium:
+                        # Pour les utilisateurs freemium, forcer monthly_contribution à 0
+                        data['monthly_contribution'] = 0
+                        # Ajouter un flag pour indiquer la limitation
+                        freemium_limitation = True
+                    else:
+                        freemium_limitation = False
+
                     # Validate parameters
                     validation_error = self.projection_service.validate_projection_params(data)
                     if validation_error:
                         return jsonify({"error": validation_error}), 400
 
                     # Extract parameters with fallbacks
+                    monthly_contribution = 0 if is_freemium else float(data.get("monthly_contribution", 500))
+
                     params = ProjectionParams(
                         current_value=float(data.get("current_value", current_value)),
-                        monthly_contribution=float(data.get("monthly_contribution", 500)),
+                        monthly_contribution=monthly_contribution,
                         time_horizon_years=int(data.get("time_horizon_years", 10)),
                         annual_fees_rate=float(data.get("annual_fees_rate", 0.0075))
                     )
 
                     projections_summary = self.projection_service.get_projection_summary(params)
+
+                    # Ajouter les informations de limitation freemium
+                    if freemium_limitation:
+                        projections_summary['freemium_limitation'] = {
+                            'limited': True,
+                            'message': 'Projections avec contributions récurrentes disponibles en Premium',
+                            'feature': 'monthly_contributions'
+                        }
+
                     return jsonify({"success": True, "data": projections_summary})
 
             except Exception as e:
@@ -301,6 +334,7 @@ class FinancialPortfolioApp:
 
         @self.app.route("/api/portfolio/monthly-values", methods=["GET"])
         @require_auth
+        @check_freemium_limits('dashboard_historical')
         def monthly_portfolio_values_api():
             """API endpoint for monthly portfolio values (authentification requise)."""
             print(f"📊 MONTHLY VALUES API: Début de la requête - NOUVELLE VERSION")
@@ -332,6 +366,7 @@ class FinancialPortfolioApp:
 
         @self.app.route("/api/position/<isin>/monthly-values", methods=["GET"])
         @require_auth
+        @check_freemium_limits('position_analysis')
         def position_monthly_values_api(isin):
             """API endpoint for monthly position values (authentification requise)."""
             print(f"📊 POSITION MONTHLY VALUES API: Début de la requête pour ISIN: {isin}")
@@ -373,6 +408,338 @@ class FinancialPortfolioApp:
             except Exception as e:
                 print(f"📊 POSITION MONTHLY VALUES API: ERREUR - {str(e)}")
                 debug_log("Position monthly values API error", {"error": str(e), "isin": isin})
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route("/api/export/<export_type>", methods=["GET"])
+        @require_auth
+        @check_freemium_limits('export')
+        def export_data_api(export_type):
+            """API endpoint pour exporter les données (authentification requise avec limitations freemium)."""
+            try:
+                user_id = get_current_user_id()
+                is_freemium = getattr(g, 'is_freemium', False)
+
+                # Vérifier le type d'export demandé
+                allowed_formats = ['json']
+                if not is_freemium:
+                    allowed_formats.extend(['csv', 'excel'])
+
+                if export_type not in allowed_formats:
+                    if is_freemium and export_type in ['csv', 'excel']:
+                        return jsonify({
+                            "error": "Format d'export premium",
+                            "error_type": "premium_required",
+                            "message": f"L'export {export_type.upper()} nécessite un abonnement Premium.",
+                            "available_formats": allowed_formats
+                        }), 403
+                    else:
+                        return jsonify({"error": "Type d'export non supporté"}), 400
+
+                # Récupérer les données utilisateur
+                user_orders = firebase_service.get_user_orders(user_id)
+                portfolio_summary = self.portfolio_service.get_portfolio_summary(user_orders)
+
+                # Préparer les données pour l'export
+                export_data = {
+                    "user_id": user_id,
+                    "export_date": datetime.now().isoformat(),
+                    "portfolio": {
+                        "total_invested": portfolio_summary["total_invested"],
+                        "current_value": portfolio_summary["current_value"],
+                        "profit_loss_absolute": portfolio_summary["profit_loss_absolute"],
+                        "profit_loss_percentage": portfolio_summary["profit_loss_percentage"],
+                        "orders_count": portfolio_summary["orders_count"]
+                    },
+                    "positions": portfolio_summary["positions"],
+                    "orders": user_orders[:100] if is_freemium else user_orders,  # Limiter à 100 ordres pour freemium
+                    "plan": "freemium" if is_freemium else "premium"
+                }
+
+                # Ajouter limitation freemium si applicable
+                if is_freemium:
+                    export_data["limitations"] = {
+                        "max_orders": 100,
+                        "available_formats": ["json"],
+                        "upgrade_message": "Obtenez des exports illimités et plus de formats avec Premium"
+                    }
+
+                if export_type == 'json':
+                    return jsonify({
+                        "success": True,
+                        "data": export_data,
+                        "format": "json"
+                    })
+
+                elif export_type == 'csv':
+                    # TODO: Implémenter l'export CSV
+                    return jsonify({
+                        "success": True,
+                        "message": "Export CSV sera disponible prochainement",
+                        "data": export_data
+                    })
+
+                elif export_type == 'excel':
+                    # TODO: Implémenter l'export Excel
+                    return jsonify({
+                        "success": True,
+                        "message": "Export Excel sera disponible prochainement",
+                        "data": export_data
+                    })
+
+            except Exception as e:
+                debug_log("Export API error", {"export_type": export_type, "error": str(e)})
+                return jsonify({"error": str(e)}), 500
+
+        # ========== ROUTES ABONNEMENT ==========
+
+        @self.app.route("/api/subscription", methods=["GET"])
+        @require_auth
+        def subscription_info_api():
+            """API endpoint pour récupérer les informations d'abonnement (authentification requise)."""
+            try:
+                user_id = get_current_user_id()
+                plan_info = get_user_plan_info()
+
+                return jsonify({
+                    "success": True,
+                    "data": plan_info,
+                    "user_id": user_id
+                })
+
+            except Exception as e:
+                debug_log("Subscription info API error", {"error": str(e)})
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route("/api/subscription/checkout", methods=["POST"])
+        @require_auth
+        def create_checkout_session_api():
+            """API endpoint pour créer une session de checkout Stripe (authentification requise)."""
+            try:
+                user_id = get_current_user_id()
+                user_info = get_current_user()
+
+                if not user_info or not user_info.get('email'):
+                    return jsonify({"error": "Email utilisateur requis"}), 400
+
+                # URLs de retour (à adapter selon votre domaine)
+                base_url = request.host_url.rstrip('/')
+                success_url = f"{base_url}/subscription?success=true"
+                cancel_url = f"{base_url}/subscription?canceled=true"
+
+                # Créer la session checkout
+                session_data = stripe_service.create_checkout_session(
+                    user_id=user_id,
+                    email=user_info['email'],
+                    success_url=success_url,
+                    cancel_url=cancel_url,
+                    trial_days=3  # 3 jours d'essai gratuit
+                )
+
+                if not session_data:
+                    return jsonify({"error": "Impossible de créer la session de paiement"}), 500
+
+                return jsonify({
+                    "success": True,
+                    "data": session_data
+                })
+
+            except Exception as e:
+                debug_log("Checkout session API error", {"error": str(e)})
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route("/api/subscription/sync", methods=["POST"])
+        @require_auth
+        def sync_subscription_api():
+            """Synchronise le statut d'abonnement Stripe vers Firebase."""
+            try:
+                user_id = get_current_user_id()
+                print(f"🔄 SYNC: Début synchronisation pour user_id={user_id}")
+
+                # Récupérer la subscription depuis Firebase
+                subscription = firebase_service.get_user_subscription(user_id)
+                print(f"🔄 SYNC: Subscription Firebase = {subscription}")
+
+                if not subscription or not subscription.get('stripe_customer_id'):
+                    print(f"❌ SYNC: Pas de client Stripe trouvé dans Firebase")
+                    return jsonify({
+                        "success": False,
+                        "error": "Aucun client Stripe trouvé"
+                    }), 404
+
+                customer_id = subscription['stripe_customer_id']
+                print(f"🔄 SYNC: Customer ID Stripe = {customer_id}")
+
+                # Récupérer les abonnements depuis Stripe
+                import stripe
+                print(f"🔄 SYNC: Récupération des abonnements depuis Stripe...")
+                subscriptions = stripe.Subscription.list(customer=customer_id, limit=1)
+                print(f"🔄 SYNC: Nombre d'abonnements trouvés = {len(subscriptions.data)}")
+
+                if subscriptions.data:
+                    stripe_sub = subscriptions.data[0]
+                    print(f"🔄 SYNC: Abonnement Stripe trouvé:")
+                    print(f"  - ID: {stripe_sub['id']}")
+                    print(f"  - Status: {stripe_sub['status']}")
+                    print(f"  - Trial end: {stripe_sub.get('trial_end')}")
+
+                    # Déterminer le plan
+                    from datetime import datetime
+                    plan = 'freemium'
+
+                    # Gérer les statuts 'active' et 'trialing'
+                    if stripe_sub['status'] in ['active', 'trialing']:
+                        if stripe_sub.get('trial_end') and stripe_sub['trial_end'] > datetime.now().timestamp():
+                            plan = 'trial'
+                            print(f"✅ SYNC: Plan déterminé = TRIAL (status: {stripe_sub['status']})")
+                        else:
+                            plan = 'premium'
+                            print(f"✅ SYNC: Plan déterminé = PREMIUM")
+                    else:
+                        print(f"⚠️ SYNC: Status = {stripe_sub['status']}, plan = freemium")
+
+                    # Mettre à jour Firebase
+                    subscription_data = {
+                        'plan': plan,
+                        'status': stripe_sub['status'],
+                        'stripe_customer_id': customer_id,
+                        'stripe_subscription_id': stripe_sub['id']
+                    }
+
+                    # Ajouter les champs optionnels s'ils existent
+                    if stripe_sub.get('current_period_start'):
+                        subscription_data['current_period_start'] = datetime.fromtimestamp(stripe_sub['current_period_start'])
+                    if stripe_sub.get('current_period_end'):
+                        subscription_data['current_period_end'] = datetime.fromtimestamp(stripe_sub['current_period_end'])
+                    if stripe_sub.get('trial_end'):
+                        subscription_data['trial_end'] = datetime.fromtimestamp(stripe_sub['trial_end'])
+
+                    print(f"🔄 SYNC: Mise à jour Firebase avec les données: {subscription_data}")
+                    firebase_service.update_user_subscription(user_id, subscription_data)
+                    print(f"✅ SYNC: Firebase mis à jour avec succès!")
+
+                    return jsonify({
+                        "success": True,
+                        "data": {
+                            "plan": plan,
+                            "status": stripe_sub['status']
+                        }
+                    })
+                else:
+                    print(f"❌ SYNC: Aucun abonnement actif trouvé pour customer_id={customer_id}")
+                    return jsonify({
+                        "success": False,
+                        "error": "Aucun abonnement actif trouvé"
+                    }), 404
+
+            except Exception as e:
+                print(f"❌ SYNC ERROR: {str(e)}")
+                import traceback
+                traceback.print_exc()
+                debug_log("Subscription sync error", {"error": str(e)})
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route("/api/subscription/portal", methods=["POST"])
+        @require_auth
+        def customer_portal_api():
+            """API endpoint pour accéder au portail client Stripe (authentification requise)."""
+            try:
+                user_id = get_current_user_id()
+
+                # URL de retour
+                base_url = request.host_url.rstrip('/')
+                return_url = f"{base_url}/subscription"
+
+                # Créer la session portail
+                portal_url = stripe_service.create_customer_portal_session(
+                    user_id=user_id,
+                    return_url=return_url
+                )
+
+                if not portal_url:
+                    return jsonify({"error": "Impossible d'accéder au portail client"}), 500
+
+                return jsonify({
+                    "success": True,
+                    "data": {"url": portal_url}
+                })
+
+            except Exception as e:
+                debug_log("Customer portal API error", {"error": str(e)})
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route("/api/subscription/trial", methods=["POST"])
+        @require_auth
+        def start_trial_api():
+            """API endpoint pour démarrer un essai gratuit (authentification requise)."""
+            try:
+                user_id = get_current_user_id()
+
+                # Vérifier si l'utilisateur peut démarrer un essai
+                subscription = firebase_service.get_user_subscription(user_id)
+                if subscription and subscription.get('plan') != 'freemium':
+                    return jsonify({
+                        "error": "Essai non disponible",
+                        "message": "Vous avez déjà utilisé votre essai gratuit ou avez un abonnement actif."
+                    }), 400
+
+                # Démarrer l'essai
+                success = firebase_service.start_user_trial(user_id)
+
+                if success:
+                    return jsonify({
+                        "success": True,
+                        "message": "Essai gratuit de 3 jours activé !",
+                        "data": get_user_plan_info()
+                    })
+                else:
+                    return jsonify({"error": "Impossible de démarrer l'essai"}), 500
+
+            except Exception as e:
+                debug_log("Start trial API error", {"error": str(e)})
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route("/api/subscription/cancel", methods=["POST"])
+        @require_auth
+        def cancel_subscription_api():
+            """API endpoint pour annuler un abonnement (authentification requise)."""
+            try:
+                user_id = get_current_user_id()
+
+                # Annuler l'abonnement
+                success = stripe_service.cancel_subscription(user_id)
+
+                if success:
+                    return jsonify({
+                        "success": True,
+                        "message": "Abonnement annulé. Il restera actif jusqu'à la fin de la période de facturation."
+                    })
+                else:
+                    return jsonify({"error": "Impossible d'annuler l'abonnement"}), 500
+
+            except Exception as e:
+                debug_log("Cancel subscription API error", {"error": str(e)})
+                return jsonify({"error": str(e)}), 500
+
+        @self.app.route("/api/stripe/webhook", methods=["POST"])
+        def stripe_webhook():
+            """Webhook endpoint pour Stripe."""
+            try:
+                payload = request.get_data()
+                sig_header = request.headers.get('Stripe-Signature')
+
+                if not sig_header:
+                    return jsonify({"error": "Missing Stripe signature"}), 400
+
+                # Traiter le webhook
+                success = stripe_service.handle_webhook(payload, sig_header)
+
+                if success:
+                    return jsonify({"status": "success"})
+                else:
+                    return jsonify({"error": "Webhook processing failed"}), 400
+
+            except Exception as e:
+                debug_log("Stripe webhook error", {"error": str(e)})
                 return jsonify({"error": str(e)}), 500
 
     def _get_account_type_from_request(self) -> str:
