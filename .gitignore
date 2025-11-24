@@ -38,6 +38,8 @@ instance/
 .env.test.local
 .env.production.local
 
+.env.example
+
 # IDE
 .vscode/
 .idea/
