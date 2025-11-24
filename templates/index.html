@@ -2004,7 +2004,6 @@
 
         // Fonction de navigation vers les détails de position
         function navigateToPosition(isin) {
-            console.log('Navigation vers position:', isin);
             window.location.href = `/position/${isin}`;
         }
 
@@ -2344,9 +2343,7 @@
             setTimeout(() => updatePositionsTable(), 600);
 
             // Charger les données mensuelles du portefeuille
-            console.log('🕐 PLANIFICATION du chargement du graphique dans 800ms');
             setTimeout(() => {
-                console.log('⏰ DÉBUT de l\'exécution différée - appel de loadPortfolioChart()');
                 loadPortfolioChart();
             }, 800);
         }
@@ -2389,8 +2386,6 @@
         function updatePositionsTable() {
             const tbody = document.getElementById('positionsTableBody');
             
-            console.log('Portfolio data:', portfolioData);
-            console.log('Positions:', portfolioData?.aggregated_positions);
             
             if (!portfolioData.aggregated_positions || portfolioData.aggregated_positions.length === 0) {
                 tbody.innerHTML = `
@@ -2509,7 +2504,6 @@
                 }
             }
         } catch (e) {
-            console.log('Impossible de restaurer le cache:', e);
         }
 
         // Fonction pour filtrer les données selon la période
@@ -2586,7 +2580,6 @@
                             timestamp: Date.now()
                         }));
                     } catch (e) {
-                        console.log('Impossible de sauvegarder en sessionStorage:', e);
                     }
 
                     // Filtrer les données selon la période sélectionnée
@@ -3174,7 +3167,6 @@
             }
 
             // Récupérer et afficher le statut d'abonnement
-            console.log('📡 Récupération du statut d\'abonnement...');
             try {
                 const response = await fetch('/api/subscription', {
                     headers: {
@@ -3182,16 +3174,11 @@
                     }
                 });
 
-                console.log('📡 Réponse reçue, status:', response.status, 'ok:', response.ok);
 
                 if (response.ok) {
                     const data = await response.json();
-                    console.log('📡 Données reçues:', data);
                     const planInfo = data.data;
-                    console.log('📡 Plan info extrait:', planInfo);
-                    console.log('📡 Appel de updateSubscriptionUI...');
                     updateSubscriptionUI(planInfo);
-                    console.log('✅ updateSubscriptionUI terminé');
                 } else {
                     console.error('❌ Réponse API non-ok:', response.status);
                 }
@@ -3202,11 +3189,9 @@
         }
 
         function updateSubscriptionUI(planInfo) {
-            console.log('🎯 updateSubscriptionUI: Mise à jour UI avec planInfo:', planInfo);
 
             // IMPORTANT: Stocker d'abord les données globalement (même si l'UI n'est pas prête)
             window.userPlan = planInfo;
-            console.log('💾 window.userPlan mis à jour:', window.userPlan);
 
             // Tenter de mettre à jour l'UI (peut échouer si les éléments n'existent pas encore)
             const subscriptionText = document.getElementById('subscriptionText');
@@ -3218,17 +3203,14 @@
                     premiumBadge.style.display = 'inline';
                     premiumBadge.textContent = '✓';
                     premiumBadge.className = 'premium-badge';
-                    console.log('✅ UI mise à jour: Mode PREMIUM activé');
                 } else if (planInfo.plan === 'trial') {
                     subscriptionText.textContent = 'Essai';
                     premiumBadge.style.display = 'inline';
                     premiumBadge.textContent = `${planInfo.trial_remaining_days}j`;
                     premiumBadge.className = 'trial-badge';
-                    console.log(`✅ UI mise à jour: Mode TRIAL activé (${planInfo.trial_remaining_days}j restants)`);
                 } else {
                     subscriptionText.textContent = 'Abonnement';
                     premiumBadge.style.display = 'none';
-                    console.log('ℹ️ UI mise à jour: Mode FREEMIUM');
                 }
             } else {
                 console.warn('⚠️ Éléments UI (subscriptionText/premiumBadge) non trouvés dans le DOM');
@@ -3236,7 +3218,6 @@
 
             // Mettre à jour l'état des boutons de période
             if (typeof updatePeriodButtonsAccess === 'function') {
-                console.log('🔄 Appel de updatePeriodButtonsAccess...');
                 updatePeriodButtonsAccess();
             } else {
                 console.warn('⚠️ updatePeriodButtonsAccess non trouvée');
@@ -3244,13 +3225,11 @@
 
             // Si freemium mais avec stripe_customer_id, synchroniser avec Stripe
             if (planInfo.plan === 'freemium' && planInfo.stripe_customer_id) {
-                console.log('🔄 Détection client Stripe en freemium, synchronisation auto...');
                 syncSubscriptionFromStripe();
             }
 
             // Vérifier si on doit synchroniser suite à un retour de paiement
             if (localStorage.getItem('pendingSubscriptionSync') === 'true') {
-                console.log('🔄 Synchronisation en attente détectée, déclenchement...');
                 localStorage.removeItem('pendingSubscriptionSync');
                 syncSubscriptionFromStripe();
             }
@@ -3268,7 +3247,6 @@
                 });
 
                 const result = await response.json();
-                console.log('✅ Synchronisation auto terminée:', result);
 
                 if (result.success && result.data.plan !== 'freemium') {
                     // Recharger la page pour afficher le bon statut
@@ -3778,7 +3756,6 @@
         function hasPremiumAccess() {
             // Vérifier si l'utilisateur a un plan premium ou trial
             if (!window.userPlan) {
-                console.log('🔒 hasPremiumAccess: Pas de plan utilisateur trouvé');
                 return false;
             }
 
@@ -3786,7 +3763,6 @@
             const status = window.userPlan.status;
             const isPremiumFlag = window.userPlan.is_premium;
 
-            console.log(`🔒 hasPremiumAccess: plan=${plan}, status=${status}, is_premium=${isPremiumFlag}`);
 
             // L'utilisateur a accès premium si:
             // 1. Le flag is_premium est true (donné par le backend)
@@ -3807,7 +3783,6 @@
                 hasAccess = true;
             }
 
-            console.log(`🔒 hasPremiumAccess: Résultat = ${hasAccess}`);
             return hasAccess;
         }
 
@@ -3816,16 +3791,13 @@
             const periodButtons = document.querySelectorAll('.period-btn');
             const hasPremium = hasPremiumAccess();
 
-            console.log(`🔄 updatePeriodButtonsAccess: hasPremium=${hasPremium}`);
 
             periodButtons.forEach(button => {
                 const period = button.dataset.period;
                 // Seule la période 3m est gratuite
                 if (period !== '3m' && !hasPremium) {
-                    console.log(`🔒 Verrouillage du bouton ${period}`);
                     button.classList.add('locked');
                 } else {
-                    console.log(`🔓 Déverrouillage du bouton ${period}`);
                     button.classList.remove('locked');
                 }
             });
@@ -3881,42 +3853,28 @@
 
             // Afficher toutes les informations utilisateur
             window.debugPremium.showUserInfo = function() {
-                console.log('=== INFORMATIONS UTILISATEUR ===');
-                console.log('window.userPlan:', window.userPlan);
                 try {
-                    console.log('authToken présent:', typeof authToken !== 'undefined');
                 } catch(e) {
-                    console.log('authToken: non accessible');
                 }
                 return window.userPlan;
             };
 
             // Vérifier l'accès premium
             window.debugPremium.checkAccess = function() {
-                console.log('=== VÉRIFICATION ACCÈS PREMIUM ===');
                 try {
                     var hasAccess = hasPremiumAccess();
-                    console.log('hasPremiumAccess():', hasAccess);
                 } catch(e) {
-                    console.log('Erreur lors de la vérification:', e);
                 }
                 if (window.userPlan) {
-                    console.log('Plan:', window.userPlan.plan);
-                    console.log('Status:', window.userPlan.status);
-                    console.log('is_premium:', window.userPlan.is_premium);
-                    console.log('trial_remaining_days:', window.userPlan.trial_remaining_days);
                 } else {
-                    console.log('⚠️ window.userPlan non défini');
                 }
                 return hasAccess;
             };
 
             // Forcer la mise à jour des boutons
             window.debugPremium.updateButtons = function() {
-                console.log('=== MISE À JOUR FORCÉE DES BOUTONS ===');
                 try {
                     updatePeriodButtonsAccess();
-                    console.log('✅ Boutons mis à jour');
                 } catch(e) {
                     console.error('Erreur:', e);
                 }
@@ -3924,7 +3882,6 @@
 
             // Récupérer le statut depuis l'API
             window.debugPremium.fetchStatus = function() {
-                console.log('=== RÉCUPÉRATION STATUT DEPUIS API ===');
                 return fetch('/api/subscription', {
                     headers: {
                         'Authorization': 'Bearer ' + authToken
@@ -3932,9 +3889,7 @@
                 })
                 .then(function(response) { return response.json(); })
                 .then(function(result) {
-                    console.log('Réponse API:', result);
                     if (result.success) {
-                        console.log('Plan API:', result.data);
                         return result.data;
                     }
                 })
@@ -3945,7 +3900,6 @@
 
             // Forcer la mise à jour avec les données de l'API
             window.debugPremium.forceUpdate = function() {
-                console.log('=== MISE À JOUR FORCÉE AVEC API ===');
                 return fetch('/api/subscription', {
                     headers: {
                         'Authorization': 'Bearer ' + authToken
@@ -3953,14 +3907,9 @@
                 })
                 .then(function(response) { return response.json(); })
                 .then(function(result) {
-                    console.log('Réponse API:', result);
                     if (result.success) {
-                        console.log('Plan API:', result.data);
-                        console.log('Appel de updateSubscriptionUI...');
                         updateSubscriptionUI(result.data);
-                        console.log('Appel de updatePeriodButtonsAccess...');
                         updatePeriodButtonsAccess();
-                        console.log('✅ Mise à jour forcée terminée');
                         return result.data;
                     }
                 })
@@ -3971,29 +3920,18 @@
 
             // Afficher l'état des boutons de période
             window.debugPremium.showButtonsState = function() {
-                console.log('=== ÉTAT DES BOUTONS DE PÉRIODE ===');
                 var buttons = document.querySelectorAll('.period-btn');
                 buttons.forEach(function(btn) {
                     var period = btn.dataset.period;
                     var isLocked = btn.classList.contains('locked');
-                    console.log(period + ': ' + (isLocked ? '🔒 VERROUILLÉ' : '🔓 DÉVERROUILLÉ'));
                 });
             };
 
             // Guide d'utilisation
             window.debugPremium.help = function() {
-                console.log('=== GUIDE DE DEBUGGING PREMIUM ===');
-                console.log('debugPremium.showUserInfo()    - Afficher les infos utilisateur');
-                console.log('debugPremium.checkAccess()     - Vérifier l\'accès premium');
-                console.log('debugPremium.updateButtons()   - Forcer la mise à jour des boutons');
-                console.log('debugPremium.fetchStatus()     - Récupérer le statut depuis l\'API');
-                console.log('debugPremium.forceUpdate()     - 🔥 FORCER mise à jour complète depuis API');
-                console.log('debugPremium.showButtonsState()- Afficher l\'état des boutons');
-                console.log('debugPremium.help()            - Afficher ce guide');
             };
 
             // Afficher le guide au chargement
-            console.log('🔧 Outils de debugging premium disponibles ! Tapez: debugPremium.help()');
         })();
 
     </script>

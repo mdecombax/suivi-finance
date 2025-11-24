@@ -222,10 +222,8 @@
         const success = urlParams.get('success');
         const canceled = urlParams.get('canceled');
 
-        console.log('📊 URL params - success:', success, 'canceled:', canceled);
 
         async function syncSubscription(token) {
-            console.log('🔄 Début de la synchronisation...');
             try {
                 const response = await fetch('/api/subscription/sync', {
                     method: 'POST',
@@ -236,7 +234,6 @@
                 });
 
                 const result = await response.json();
-                console.log('✅ Synchronisation abonnement:', result);
 
                 if (result.success) {
                     // Attendre 2 secondes puis rediriger
@@ -258,19 +255,15 @@
             }
         }
 
-        console.log('📊 URL params - success:', success, 'canceled:', canceled);
 
         // Écouter l'état d'authentification Firebase
         onAuthStateChanged(auth, async (user) => {
             if (user) {
-                console.log('✅ Utilisateur Firebase connecté:', user.uid);
                 // Récupérer le token Firebase
                 const token = await user.getIdToken();
-                console.log('🔑 Token Firebase récupéré');
 
                 // Afficher le bon contenu selon success/canceled
                 if (success === 'true') {
-                    console.log('✅ Mode succès activé');
                     document.getElementById('successContent').style.display = 'block';
                     document.getElementById('canceledContent').style.display = 'none';
                     document.getElementById('defaultContent').style.display = 'none';
@@ -278,7 +271,6 @@
                     // Synchroniser avec Stripe
                     syncSubscription(token);
                 } else if (canceled === 'true') {
-                    console.log('⚠️ Mode annulé activé');
                     document.getElementById('successContent').style.display = 'none';
                     document.getElementById('canceledContent').style.display = 'block';
                     document.getElementById('defaultContent').style.display = 'none';
@@ -288,11 +280,9 @@
                     document.getElementById('defaultContent').style.display = 'block';
                 }
             } else {
-                console.log('❌ Utilisateur non connecté');
 
                 // Si on revient de Stripe avec success, sauvegarder l'info pour après login
                 if (success === 'true') {
-                    console.log('💾 Sauvegarde du statut success pour après connexion');
                     localStorage.setItem('pendingSubscriptionSync', 'true');
 
                     // Afficher un message de succès et rediriger rapidement vers la page d'accueil
@@ -305,12 +295,10 @@
                     document.querySelector('#successContent .success-description').textContent =
                         'Votre paiement a été effectué avec succès ! Reconnectez-vous pour activer votre essai.';
 
-                    console.log('⏱️ Redirection vers accueil dans 3 secondes...');
                     setTimeout(() => {
                         window.location.href = '/';
                     }, 3000);
                 } else {
-                    console.log('🔄 Redirection vers accueil...');
                     window.location.href = '/';
                 }
             }

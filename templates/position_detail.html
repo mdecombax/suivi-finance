@@ -475,7 +475,6 @@
             } else {
                 // Attendre un peu avant de rediriger (au cas où l'auth est en cours)
                 authCheckTimeout = setTimeout(() => {
-                    console.log('Redirection vers / - utilisateur non authentifié');
                     window.location.href = '/';
                 }, 2000); // 2 secondes de délai
             }
@@ -594,13 +593,8 @@
                 const ordersData = await ordersResponse.json();
 
                 // Debug: afficher les données récupérées
-                console.log('Données ordres récupérées:', ordersData);
-                console.log('Nombre d\'ordres:', ordersData.orders?.length || 0);
-                console.log('ISIN recherché:', data.isin);
 
                 if (ordersData.orders && ordersData.orders.length > 0) {
-                    console.log('Premier ordre:', ordersData.orders[0]);
-                    console.log('ISINs dans les ordres:', [...new Set(ordersData.orders.map(o => o.isin))]);
                 }
 
                 if (!ordersData.success || !ordersData.orders || ordersData.orders.length === 0) {
@@ -650,7 +644,6 @@
                 const sharePercentage = totalValue > 0 ? (targetPositionValue / totalValue) * 100 : 0;
 
                 // Debug pour voir les valeurs calculées
-                console.log(`${date.toISOString().slice(0,7)}: ${targetIsin} = ${targetPositionValue}€ / ${totalValue}€ = ${sharePercentage.toFixed(1)}%`);
 
                 monthlyData.push({
                     month: date.toLocaleDateString('fr-FR', { year: 'numeric', month: 'short' }),
@@ -667,7 +660,6 @@
             const positions = {};
 
             // Debug des ordres traités
-            console.log(`=== Calcul portfolio à ${targetDate.toISOString().slice(0,10)} ===`);
 
             // Calculer les quantités détenues par ISIN à la date cible
             orders.forEach(order => {
@@ -684,7 +676,6 @@
                     // Dans ce système, tous les ordres sans type spécifique sont des achats
                     const orderType = order.type || order.orderType || 'buy';
 
-                    console.log(`Ordre ${order.date}: ${isin} ${orderType} ${order.quantity} à ${price}€`);
 
                     if (orderType === 'buy') {
                         positions[isin].quantity += order.quantity;
@@ -695,7 +686,6 @@
                         positions[isin].totalCost -= order.quantity * avgPrice;
                     }
 
-                    console.log(`  -> Position ${isin}: ${positions[isin].quantity} parts, coût total: ${positions[isin].totalCost}€`);
                 }
             });
 
@@ -711,12 +701,9 @@
                     const estimatedValue = positions[isin].quantity * avgCost;
                     positionValues[isin] = estimatedValue;
                     totalValue += estimatedValue;
-                    console.log(`Position finale ${isin}: ${positions[isin].quantity} parts × ${avgCost.toFixed(2)}€ = ${estimatedValue.toFixed(2)}€`);
                 }
             });
 
-            console.log(`Total portefeuille: ${totalValue.toFixed(2)}€`);
-            console.log('Positions:', positionValues);
 
             return {
                 positions: positionValues,

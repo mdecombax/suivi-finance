@@ -40,7 +40,7 @@ def verify_firebase_token(token: str) -> Optional[Dict[str, Any]]:
     except firebase_admin.auth.RevokedIdTokenError:
         return None
     except Exception as e:
-        print(f"Erreur lors de la vérification du token: {e}")
+        debug_log("Token verification error", {"error": str(e)})
         return None
 
 
@@ -50,31 +50,21 @@ def require_auth(f):
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        print(f"🔐 require_auth: Protection de la route {request.endpoint} - {request.method} {request.path}")
-
         # Récupérer le token de l'en-tête Authorization
         auth_header = request.headers.get('Authorization')
-        print(f"🔐 require_auth: Token présent: {'Oui' if auth_header else 'Non'}")
-
-        if auth_header:
-            print(f"🔐 require_auth: Token: {auth_header[:20]}... (tronqué pour sécurité)")
 
         if not auth_header:
-            print(f"🔐 require_auth: ERREUR - Aucun token d'authentification trouvé")
             return jsonify({'error': 'Token d\'authentification requis'}), 401
 
         # Vérifier le token
         user_info = verify_firebase_token(auth_header)
-        print(f"🔐 require_auth: Vérification token réussie: {'Oui' if user_info else 'Non'}")
 
         if not user_info:
-            print(f"🔐 require_auth: ERREUR - Token invalide ou expiré")
             return jsonify({'error': 'Token invalide ou expiré'}), 401
 
         # Stocker les infos utilisateur dans g pour les utiliser dans la route
         g.current_user = user_info
         g.user_id = user_info['uid']
-        print(f"🔐 require_auth: Authentification réussie pour l'utilisateur {user_info['uid']}")
 
         return f(*args, **kwargs)
 
@@ -128,22 +118,16 @@ def require_premium(f):
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        print(f"🔒 require_premium: Vérification accès premium pour {request.endpoint}")
-
         # Vérifier que l'utilisateur est connecté (doit être appelé après @require_auth)
         user_id = get_current_user_id()
         if not user_id:
-            print(f"🔒 require_premium: ERREUR - Aucun utilisateur connecté")
             return jsonify({'error': 'Authentification requise'}), 401
 
         # Vérifier le statut premium
         from services.firebase_service import firebase_service
         is_premium = firebase_service.is_user_premium(user_id)
-        print(f"🔒 require_premium: Statut premium pour {user_id}: {'Oui' if is_premium else 'Non'}")
 
         if not is_premium:
-            print(f"🔒 require_premium: ACCÈS REFUSÉ - Abonnement premium requis")
-
             # Récupérer les infos d'abonnement pour plus de détails
             subscription = firebase_service.get_user_subscription(user_id)
             plan = subscription.get('plan', 'freemium') if subscription else 'freemium'
@@ -155,7 +139,6 @@ def require_premium(f):
                 'message': 'Cette fonctionnalité nécessite un abonnement premium.'
             }), 403
 
-        print(f"🔒 require_premium: ACCÈS AUTORISÉ - Utilisateur premium vérifié")
         return f(*args, **kwargs)
 
     return decorated_function
@@ -172,11 +155,8 @@ def check_freemium_limits(feature: str, limit_value: int = None):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            print(f"📊 check_freemium_limits: Vérification limites pour '{feature}'")
-
             user_id = get_current_user_id()
             if not user_id:
-                print(f"📊 check_freemium_limits: ERREUR - Aucun utilisateur connecté")
                 return jsonify({'error': 'Authentification requise'}), 401
 
             # Vérifier si l'utilisateur est premium
@@ -184,12 +164,9 @@ def check_freemium_limits(feature: str, limit_value: int = None):
             is_premium = firebase_service.is_user_premium(user_id)
 
             if is_premium:
-                print(f"📊 check_freemium_limits: Utilisateur premium - aucune limite")
                 return f(*args, **kwargs)
 
             # Appliquer les limitations freemium
-            print(f"📊 check_freemium_limits: Utilisateur freemium - application des limites")
-
             # Ajouter les informations de limitation à la requête
             g.is_freemium = True
             g.feature_limits = {
@@ -214,15 +191,12 @@ def get_user_plan_info() -> Optional[Dict[str, Any]]:
     """
     user_id = get_current_user_id()
     if not user_id:
-        print("📊 get_user_plan_info: Aucun utilisateur connecté")
         return None
 
     from services.firebase_service import firebase_service
     subscription = firebase_service.get_user_subscription(user_id)
-    print(f"📊 get_user_plan_info: Subscription = {subscription}")
 
     if not subscription:
-        print("📊 get_user_plan_info: Pas d'abonnement, retour freemium")
         return {
             'plan': 'freemium',
             'is_premium': False,
@@ -231,7 +205,6 @@ def get_user_plan_info() -> Optional[Dict[str, Any]]:
 
     plan = subscription.get('plan', 'freemium')
     is_premium = firebase_service.is_user_premium(user_id)
-    print(f"📊 get_user_plan_info: Plan = {plan}, is_premium = {is_premium}")
 
     # Calculer les jours d'essai restants
     trial_remaining_days = 0
@@ -243,7 +216,6 @@ def get_user_plan_info() -> Optional[Dict[str, Any]]:
             now = datetime.now(timezone.utc)
             remaining = trial_end - now
             trial_remaining_days = max(0, remaining.days)
-            print(f"📊 get_user_plan_info: Jours d'essai restants = {trial_remaining_days}")
 
     result = {
         'plan': plan,
@@ -253,5 +225,4 @@ def get_user_plan_info() -> Optional[Dict[str, Any]]:
         'stripe_customer_id': subscription.get('stripe_customer_id'),
         'current_period_end': subscription.get('current_period_end')
     }
-    print(f"📊 get_user_plan_info: Résultat final = {result}")
     return result

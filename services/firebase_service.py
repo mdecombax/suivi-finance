@@ -19,7 +19,6 @@ class FirebaseService:
         try:
             # Vérifier si Firebase est déjà initialisé
             if firebase_admin._apps:
-                print("✅ Firebase déjà initialisé, réutilisation de l'instance existante")
                 self.db = firestore.client()
                 return
             
@@ -35,10 +34,8 @@ class FirebaseService:
             
             # Obtenir la référence Firestore
             self.db = firestore.client()
-            print("✅ Firebase initialisé avec succès")
             
         except Exception as e:
-            print(f"❌ Erreur lors de l'initialisation Firebase: {e}")
             raise
     
     def get_user_orders(self, user_id: str) -> List[Dict[str, Any]]:
@@ -55,7 +52,6 @@ class FirebaseService:
             
             return orders_list
         except Exception as e:
-            print(f"❌ Erreur lors de la récupération des ordres: {e}")
             return []
     
     def add_order(self, user_id: str, order_data: Dict[str, Any]) -> str:
@@ -69,11 +65,9 @@ class FirebaseService:
             orders_ref = self.db.collection('users').document(user_id).collection('orders')
             doc_ref = orders_ref.add(order_data)
             
-            print(f"✅ Ordre ajouté avec l'ID: {doc_ref[1].id}")
             return doc_ref[1].id
             
         except Exception as e:
-            print(f"❌ Erreur lors de l'ajout de l'ordre: {e}")
             raise
     
     def delete_order(self, user_id: str, order_id: str) -> bool:
@@ -81,62 +75,8 @@ class FirebaseService:
         try:
             order_ref = self.db.collection('users').document(user_id).collection('orders').document(order_id)
             order_ref.delete()
-            print(f"✅ Ordre {order_id} supprimé")
             return True
         except Exception as e:
-            print(f"❌ Erreur lors de la suppression de l'ordre: {e}")
-            return False
-    
-    def get_user_profile(self, user_id: str) -> Optional[Dict[str, Any]]:
-        """Récupère le profil d'un utilisateur"""
-        try:
-            user_ref = self.db.collection('users').document(user_id)
-            user_doc = user_ref.get()
-            
-            if user_doc.exists:
-                return user_doc.to_dict()
-            return None
-        except Exception as e:
-            print(f"❌ Erreur lors de la récupération du profil: {e}")
-            return None
-    
-    def create_user_profile(self, user_id: str, user_data: Dict[str, Any]) -> bool:
-        """Crée le profil d'un utilisateur"""
-        try:
-            user_data['createdAt'] = datetime.utcnow()
-            user_data['lastLogin'] = datetime.utcnow()
-            
-            user_ref = self.db.collection('users').document(user_id)
-            user_ref.set(user_data)
-            
-            print(f"✅ Profil utilisateur créé: {user_id}")
-            return True
-        except Exception as e:
-            print(f"❌ Erreur lors de la création du profil: {e}")
-            return False
-    
-    def update_user_profile(self, user_id: str, user_data: Dict[str, Any]) -> bool:
-        """Met à jour le profil d'un utilisateur"""
-        try:
-            user_data['updatedAt'] = datetime.utcnow()
-            
-            user_ref = self.db.collection('users').document(user_id)
-            user_ref.update(user_data)
-            
-            print(f"✅ Profil utilisateur mis à jour: {user_id}")
-            return True
-        except Exception as e:
-            print(f"❌ Erreur lors de la mise à jour du profil: {e}")
-            return False
-    
-    def update_last_login(self, user_id: str) -> bool:
-        """Met à jour la dernière connexion d'un utilisateur"""
-        try:
-            user_ref = self.db.collection('users').document(user_id)
-            user_ref.update({'lastLogin': datetime.utcnow()})
-            return True
-        except Exception as e:
-            print(f"❌ Erreur lors de la mise à jour de la dernière connexion: {e}")
             return False
 
     # ========== GESTION DES ABONNEMENTS ==========
@@ -171,7 +111,6 @@ class FirebaseService:
                 return subscription
             return None
         except Exception as e:
-            print(f"❌ Erreur lors de la récupération de l'abonnement: {e}")
             return None
 
     def update_user_subscription(self, user_id: str, subscription_data: Dict[str, Any]) -> bool:
@@ -183,10 +122,8 @@ class FirebaseService:
             # Utiliser set avec merge=True pour créer le document s'il n'existe pas
             user_ref.set({'subscription': subscription_data}, merge=True)
 
-            print(f"✅ Abonnement mis à jour pour l'utilisateur {user_id}")
             return True
         except Exception as e:
-            print(f"❌ Erreur lors de la mise à jour de l'abonnement: {e}")
             return False
 
     def is_user_premium(self, user_id: str) -> bool:
@@ -217,7 +154,6 @@ class FirebaseService:
 
             return False
         except Exception as e:
-            print(f"❌ Erreur lors de la vérification du statut premium: {e}")
             return False
 
     def start_user_trial(self, user_id: str) -> bool:
@@ -241,7 +177,6 @@ class FirebaseService:
 
             return self.update_user_subscription(user_id, subscription_data)
         except Exception as e:
-            print(f"❌ Erreur lors du démarrage de l'essai: {e}")
             return False
 
 # Instance globale du service

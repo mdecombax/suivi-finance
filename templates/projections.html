@@ -373,7 +373,6 @@
         // Fonction pour charger la valeur actuelle du portefeuille
         async function loadPortfolioValue() {
             try {
-                console.log('Récupération de la valeur du portefeuille...');
 
                 const response = await fetch('/api/portfolio?account_type=pea', {
                     method: 'GET',
@@ -391,7 +390,6 @@
                         // Pré-remplir le champ valeur actuelle
                         document.getElementById('currentValue').value = Math.round(currentValue);
 
-                        console.log('Valeur du portefeuille chargée:', currentValue);
                     }
                 } else {
                     console.warn('Impossible de récupérer la valeur du portefeuille, utilisation de la valeur par défaut');
@@ -432,7 +430,6 @@
 
         // Fonction de calcul des projections par défaut (sans authentification)
         function calculateProjectionsDefault() {
-            console.log('Calcul des projections par défaut');
 
             // Récupérer les paramètres du formulaire
             const formData = new FormData(document.getElementById('projectionForm'));

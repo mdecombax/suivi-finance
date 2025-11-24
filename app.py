@@ -337,18 +337,14 @@ class FinancialPortfolioApp:
         @check_freemium_limits('dashboard_historical')
         def monthly_portfolio_values_api():
             """API endpoint for monthly portfolio values (authentification requise)."""
-            print(f"📊 MONTHLY VALUES API: Début de la requête - NOUVELLE VERSION")
             try:
                 user_id = get_current_user_id()
-                print(f"📊 MONTHLY VALUES API: User ID récupéré: {user_id}")
 
                 # Récupérer les ordres depuis Firebase pour cet utilisateur
                 user_orders = firebase_service.get_user_orders(user_id)
-                print(f"📊 MONTHLY VALUES API: Nombre d'ordres trouvés: {len(user_orders) if user_orders else 0}")
 
                 # Calculer les valeurs mensuelles du portefeuille
                 monthly_values = self.portfolio_service.get_monthly_portfolio_values(user_orders)
-                print(f"📊 MONTHLY VALUES API: Calcul terminé - {len(monthly_values)} valeurs mensuelles générées")
 
                 result = {
                     "success": True,
@@ -356,11 +352,9 @@ class FinancialPortfolioApp:
                     "user_id": user_id,
                     "total_months": len(monthly_values)
                 }
-                print(f"📊 MONTHLY VALUES API: Réponse prête - succès!")
                 return jsonify(result)
 
             except Exception as e:
-                print(f"📊 MONTHLY VALUES API: ERREUR - {str(e)}")
                 debug_log("Monthly portfolio values API error", {"error": str(e)})
                 return jsonify({"error": str(e)}), 500
 
@@ -369,21 +363,16 @@ class FinancialPortfolioApp:
         @check_freemium_limits('position_analysis')
         def position_monthly_values_api(isin):
             """API endpoint for monthly position values (authentification requise)."""
-            print(f"📊 POSITION MONTHLY VALUES API: Début de la requête pour ISIN: {isin}")
             try:
                 user_id = get_current_user_id()
-                print(f"📊 POSITION MONTHLY VALUES API: User ID récupéré: {user_id}")
 
                 # Récupérer les ordres depuis Firebase pour cet utilisateur
                 user_orders = firebase_service.get_user_orders(user_id)
-                print(f"📊 POSITION MONTHLY VALUES API: Nombre d'ordres trouvés: {len(user_orders) if user_orders else 0}")
 
                 # Filtrer les ordres pour cet ISIN spécifique
                 position_orders = [order for order in (user_orders or []) if order.get('isin') == isin]
-                print(f"📊 POSITION MONTHLY VALUES API: Ordres pour {isin}: {len(position_orders)}")
 
                 if not position_orders:
-                    print(f"📊 POSITION MONTHLY VALUES API: Aucun ordre trouvé pour {isin}")
                     return jsonify({
                         "success": True,
                         "data": [],
@@ -393,7 +382,6 @@ class FinancialPortfolioApp:
 
                 # Calculer les valeurs mensuelles pour cette position
                 monthly_values = self.portfolio_service.get_monthly_position_values(position_orders, isin)
-                print(f"📊 POSITION MONTHLY VALUES API: Calcul terminé - {len(monthly_values)} valeurs mensuelles générées")
 
                 result = {
                     "success": True,
@@ -402,11 +390,9 @@ class FinancialPortfolioApp:
                     "user_id": user_id,
                     "total_months": len(monthly_values)
                 }
-                print(f"📊 POSITION MONTHLY VALUES API: Réponse prête - succès!")
                 return jsonify(result)
 
             except Exception as e:
-                print(f"📊 POSITION MONTHLY VALUES API: ERREUR - {str(e)}")
                 debug_log("Position monthly values API error", {"error": str(e), "isin": isin})
                 return jsonify({"error": str(e)}), 500
 
@@ -553,34 +539,24 @@ class FinancialPortfolioApp:
             """Synchronise le statut d'abonnement Stripe vers Firebase."""
             try:
                 user_id = get_current_user_id()
-                print(f"🔄 SYNC: Début synchronisation pour user_id={user_id}")
 
                 # Récupérer la subscription depuis Firebase
                 subscription = firebase_service.get_user_subscription(user_id)
-                print(f"🔄 SYNC: Subscription Firebase = {subscription}")
 
                 if not subscription or not subscription.get('stripe_customer_id'):
-                    print(f"❌ SYNC: Pas de client Stripe trouvé dans Firebase")
                     return jsonify({
                         "success": False,
                         "error": "Aucun client Stripe trouvé"
                     }), 404
 
                 customer_id = subscription['stripe_customer_id']
-                print(f"🔄 SYNC: Customer ID Stripe = {customer_id}")
 
                 # Récupérer les abonnements depuis Stripe
                 import stripe
-                print(f"🔄 SYNC: Récupération des abonnements depuis Stripe...")
                 subscriptions = stripe.Subscription.list(customer=customer_id, limit=1)
-                print(f"🔄 SYNC: Nombre d'abonnements trouvés = {len(subscriptions.data)}")
 
                 if subscriptions.data:
                     stripe_sub = subscriptions.data[0]
-                    print(f"🔄 SYNC: Abonnement Stripe trouvé:")
-                    print(f"  - ID: {stripe_sub['id']}")
-                    print(f"  - Status: {stripe_sub['status']}")
-                    print(f"  - Trial end: {stripe_sub.get('trial_end')}")
 
                     # Déterminer le plan
                     from datetime import datetime
@@ -590,12 +566,8 @@ class FinancialPortfolioApp:
                     if stripe_sub['status'] in ['active', 'trialing']:
                         if stripe_sub.get('trial_end') and stripe_sub['trial_end'] > datetime.now().timestamp():
                             plan = 'trial'
-                            print(f"✅ SYNC: Plan déterminé = TRIAL (status: {stripe_sub['status']})")
                         else:
                             plan = 'premium'
-                            print(f"✅ SYNC: Plan déterminé = PREMIUM")
-                    else:
-                        print(f"⚠️ SYNC: Status = {stripe_sub['status']}, plan = freemium")
 
                     # Mettre à jour Firebase
                     subscription_data = {
@@ -613,9 +585,7 @@ class FinancialPortfolioApp:
                     if stripe_sub.get('trial_end'):
                         subscription_data['trial_end'] = datetime.fromtimestamp(stripe_sub['trial_end'])
 
-                    print(f"🔄 SYNC: Mise à jour Firebase avec les données: {subscription_data}")
                     firebase_service.update_user_subscription(user_id, subscription_data)
-                    print(f"✅ SYNC: Firebase mis à jour avec succès!")
 
                     return jsonify({
                         "success": True,
@@ -625,16 +595,12 @@ class FinancialPortfolioApp:
                         }
                     })
                 else:
-                    print(f"❌ SYNC: Aucun abonnement actif trouvé pour customer_id={customer_id}")
                     return jsonify({
                         "success": False,
                         "error": "Aucun abonnement actif trouvé"
                     }), 404
 
             except Exception as e:
-                print(f"❌ SYNC ERROR: {str(e)}")
-                import traceback
-                traceback.print_exc()
                 debug_log("Subscription sync error", {"error": str(e)})
                 return jsonify({"error": str(e)}), 500
 

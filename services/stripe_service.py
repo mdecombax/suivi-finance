@@ -15,24 +15,16 @@ class StripeService:
         # Configuration Stripe (utilisez vos vraies clés en production)
         secret_key = os.environ.get('STRIPE_SECRET_KEY', 'sk_test_...')
 
-        # DEBUG: Afficher la clé pour vérifier
-        print(f"🔑 DEBUG: STRIPE_SECRET_KEY brute = '{secret_key}'")
-        print(f"🔑 DEBUG: Longueur de la clé = {len(secret_key)}")
-        print(f"🔑 DEBUG: Premier caractère = '{secret_key[0]}' (code: {ord(secret_key[0])})")
-        print(f"🔑 DEBUG: Dernier caractère = '{secret_key[-1]}' (code: {ord(secret_key[-1])})")
-        print(f"🔑 DEBUG: La clé contient des guillemets? {'"' in secret_key}")
-
         # Nettoyer la clé (enlever guillemets et espaces)
         secret_key = secret_key.strip().strip('"').strip("'")
-        print(f"🔑 DEBUG: STRIPE_SECRET_KEY après nettoyage = '{secret_key}'")
 
         stripe.api_key = secret_key
-        self.webhook_secret = os.environ.get('STRIPE_WEBHOOK_SECRET', 'whsec_...')  # À remplacer
+        self.webhook_secret = os.environ.get('STRIPE_WEBHOOK_SECRET', 'whsec_...')
 
         # IDs des produits Stripe (à créer dans votre dashboard Stripe)
-        self.premium_price_id = os.environ.get('STRIPE_PREMIUM_PRICE_ID', 'price_premium_monthly')  # 4,99€/mois
+        self.premium_price_id = os.environ.get('STRIPE_PREMIUM_PRICE_ID', 'price_premium_monthly')
 
-        print("✅ Service Stripe initialisé")
+        debug_log("Stripe service initialized")
 
     def create_customer(self, user_id: str, email: str, name: str = None) -> Optional[str]:
         """Crée un client Stripe pour un utilisateur"""
@@ -72,7 +64,6 @@ class StripeService:
             return customer.id
 
         except Exception as e:
-            print(f"❌ Erreur lors de la création du client Stripe: {e}")
             debug_log("Stripe customer creation error", {"user_id": user_id, "error": str(e)})
             return None
 
@@ -128,7 +119,6 @@ class StripeService:
             }
 
         except Exception as e:
-            print(f"❌ Erreur lors de la création de la session checkout: {e}")
             debug_log("Stripe checkout session error", {"user_id": user_id, "error": str(e)})
             return None
 
@@ -154,7 +144,6 @@ class StripeService:
             return session.url
 
         except Exception as e:
-            print(f"❌ Erreur lors de la création de la session portail: {e}")
             debug_log("Stripe portal session error", {"user_id": user_id, "error": str(e)})
             return None
 
@@ -185,7 +174,6 @@ class StripeService:
             return True
 
         except Exception as e:
-            print(f"❌ Erreur lors de l'annulation de l'abonnement: {e}")
             debug_log("Stripe subscription cancellation error", {"user_id": user_id, "error": str(e)})
             return False
 
@@ -220,10 +208,9 @@ class StripeService:
             return True
 
         except ValueError as e:
-            print(f"❌ Signature webhook invalide: {e}")
+            debug_log("Invalid webhook signature", {"error": str(e)})
             return False
         except Exception as e:
-            print(f"❌ Erreur lors du traitement du webhook: {e}")
             debug_log("Stripe webhook error", {"error": str(e)})
             return False
 
@@ -232,7 +219,7 @@ class StripeService:
         try:
             user_id = session['metadata'].get('firebase_uid')
             if not user_id:
-                print("❌ Pas d'ID utilisateur dans les métadonnées de la session")
+                debug_log("No user ID in session metadata")
                 return
 
             customer_id = session['customer']
@@ -245,14 +232,14 @@ class StripeService:
             })
 
         except Exception as e:
-            print(f"❌ Erreur lors du traitement de checkout.session.completed: {e}")
+            debug_log("Error handling checkout.session.completed", {"error": str(e)})
 
     def _handle_subscription_created(self, subscription):
         """Traite la création d'un abonnement"""
         try:
             user_id = subscription['metadata'].get('firebase_uid')
             if not user_id:
-                print("❌ Pas d'ID utilisateur dans les métadonnées de l'abonnement")
+                debug_log("No user ID in subscription metadata")
                 return
 
             # Mettre à jour Firebase
@@ -277,14 +264,14 @@ class StripeService:
             })
 
         except Exception as e:
-            print(f"❌ Erreur lors du traitement de customer.subscription.created: {e}")
+            debug_log("Error handling customer.subscription.created", {"error": str(e)})
 
     def _handle_subscription_updated(self, subscription):
         """Traite la mise à jour d'un abonnement"""
         try:
             user_id = subscription['metadata'].get('firebase_uid')
             if not user_id:
-                print("❌ Pas d'ID utilisateur dans les métadonnées de l'abonnement")
+                debug_log("No user ID in subscription metadata")
                 return
 
             # Déterminer le plan en fonction de l'état de l'abonnement
@@ -319,14 +306,14 @@ class StripeService:
             })
 
         except Exception as e:
-            print(f"❌ Erreur lors du traitement de customer.subscription.updated: {e}")
+            debug_log("Error handling customer.subscription.updated", {"error": str(e)})
 
     def _handle_subscription_deleted(self, subscription):
         """Traite la suppression d'un abonnement"""
         try:
             user_id = subscription['metadata'].get('firebase_uid')
             if not user_id:
-                print("❌ Pas d'ID utilisateur dans les métadonnées de l'abonnement")
+                debug_log("No user ID in subscription metadata")
                 return
 
             # Repasser en freemium
@@ -349,7 +336,7 @@ class StripeService:
             })
 
         except Exception as e:
-            print(f"❌ Erreur lors du traitement de customer.subscription.deleted: {e}")
+            debug_log("Error handling customer.subscription.deleted", {"error": str(e)})
 
     def _handle_payment_succeeded(self, invoice):
         """Traite le succès d'un paiement"""
@@ -370,7 +357,7 @@ class StripeService:
                 })
 
         except Exception as e:
-            print(f"❌ Erreur lors du traitement de invoice.payment_succeeded: {e}")
+            debug_log("Error handling invoice.payment_succeeded", {"error": str(e)})
 
     def _handle_payment_failed(self, invoice):
         """Traite l'échec d'un paiement"""
@@ -391,7 +378,7 @@ class StripeService:
                 })
 
         except Exception as e:
-            print(f"❌ Erreur lors du traitement de invoice.payment_failed: {e}")
+            debug_log("Error handling invoice.payment_failed", {"error": str(e)})
 
 
 # Instance globale du service
