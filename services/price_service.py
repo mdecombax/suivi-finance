@@ -9,7 +9,7 @@ import yfinance as yf
 from datetime import datetime, timedelta, date
 from typing import Optional, Tuple, Dict, Any
 
-from models.portfolio import PriceQuote
+from models import PriceQuote
 
 
 class PriceService:

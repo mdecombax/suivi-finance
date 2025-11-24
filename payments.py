@@ -1,33 +1,38 @@
 """
-Service Stripe pour la gestion des abonnements et paiements
+Payments module - Stripe integration for subscription management.
+Handles checkout, webhooks, and subscription lifecycle.
 """
+
 import os
+import logging
 import stripe
-from typing import Dict, Any, Optional, List
-from datetime import datetime, timedelta
-from .firebase_service import firebase_service
-from utils.logger import debug_log
+from typing import Dict, Any, Optional
+from datetime import datetime
+
+from database import firebase_service
 
 
 class StripeService:
+    """Service for managing Stripe subscriptions and payments."""
+
     def __init__(self):
-        """Initialise le service Stripe"""
-        # Configuration Stripe (utilisez vos vraies clés en production)
+        """Initialize Stripe service."""
+        # Configure Stripe (use your real keys in production)
         secret_key = os.environ.get('STRIPE_SECRET_KEY', 'sk_test_...')
 
-        # Nettoyer la clé (enlever guillemets et espaces)
+        # Clean the key (remove quotes and spaces)
         secret_key = secret_key.strip().strip('"').strip("'")
 
         stripe.api_key = secret_key
         self.webhook_secret = os.environ.get('STRIPE_WEBHOOK_SECRET', 'whsec_...')
 
-        # IDs des produits Stripe (à créer dans votre dashboard Stripe)
+        # Stripe product IDs (create in your Stripe dashboard)
         self.premium_price_id = os.environ.get('STRIPE_PREMIUM_PRICE_ID', 'price_premium_monthly')
 
-        debug_log("Stripe service initialized")
+        logging.info("Stripe service initialized")
 
     def create_customer(self, user_id: str, email: str, name: str = None) -> Optional[str]:
-        """Crée un client Stripe pour un utilisateur"""
+        """Create a Stripe customer for a user."""
         try:
             customer_data = {
                 'email': email,
@@ -41,45 +46,40 @@ class StripeService:
 
             customer = stripe.Customer.create(**customer_data)
 
-            # Mettre à jour Firebase avec l'ID client Stripe
+            # Update Firebase with Stripe customer ID
             subscription = firebase_service.get_user_subscription(user_id)
             if not subscription:
-                # Créer un nouveau document subscription si il n'existe pas
+                # Create new subscription document if it doesn't exist
                 subscription = {
                     'plan': 'freemium',
                     'stripe_customer_id': customer.id
                 }
             else:
-                # Mettre à jour le document existant
+                # Update existing document
                 subscription['stripe_customer_id'] = customer.id
 
             firebase_service.update_user_subscription(user_id, subscription)
 
-            debug_log("Stripe customer created", {
-                "user_id": user_id,
-                "customer_id": customer.id,
-                "email": email
-            })
-
+            logging.info(f"Stripe customer created for user {user_id}: {customer.id}")
             return customer.id
 
         except Exception as e:
-            debug_log("Stripe customer creation error", {"user_id": user_id, "error": str(e)})
+            logging.error(f"Stripe customer creation error for user {user_id}: {e}")
             return None
 
     def create_checkout_session(self, user_id: str, email: str,
                               success_url: str, cancel_url: str,
                               trial_days: int = 3) -> Optional[Dict[str, Any]]:
-        """Crée une session de checkout Stripe pour l'abonnement premium"""
+        """Create a Stripe checkout session for premium subscription."""
         try:
-            # Créer ou récupérer le client Stripe
+            # Create or retrieve Stripe customer
             subscription = firebase_service.get_user_subscription(user_id)
             customer_id = subscription.get('stripe_customer_id') if subscription else None
 
             if not customer_id:
                 customer_id = self.create_customer(user_id, email)
                 if not customer_id:
-                    raise Exception("Impossible de créer le client Stripe")
+                    raise Exception("Unable to create Stripe customer")
 
             session_params = {
                 'customer': customer_id,
@@ -101,17 +101,13 @@ class StripeService:
                 }
             }
 
-            # Ajouter l'essai gratuit si spécifié
+            # Add free trial if specified
             if trial_days > 0:
                 session_params['subscription_data']['trial_period_days'] = trial_days
 
             session = stripe.checkout.Session.create(**session_params)
 
-            debug_log("Stripe checkout session created", {
-                "user_id": user_id,
-                "session_id": session.id,
-                "trial_days": trial_days
-            })
+            logging.info(f"Stripe checkout session created for user {user_id}: {session.id}")
 
             return {
                 'session_id': session.id,
@@ -119,74 +115,66 @@ class StripeService:
             }
 
         except Exception as e:
-            debug_log("Stripe checkout session error", {"user_id": user_id, "error": str(e)})
+            logging.error(f"Stripe checkout session error for user {user_id}: {e}")
             return None
 
     def create_customer_portal_session(self, user_id: str, return_url: str) -> Optional[str]:
-        """Crée une session de portail client pour gérer l'abonnement"""
+        """Create a customer portal session for managing subscription."""
         try:
             subscription = firebase_service.get_user_subscription(user_id)
             customer_id = subscription.get('stripe_customer_id') if subscription else None
 
             if not customer_id:
-                raise Exception("Aucun client Stripe trouvé pour cet utilisateur")
+                raise Exception("No Stripe customer found for this user")
 
             session = stripe.billing_portal.Session.create(
                 customer=customer_id,
                 return_url=return_url,
             )
 
-            debug_log("Stripe portal session created", {
-                "user_id": user_id,
-                "customer_id": customer_id
-            })
-
+            logging.info(f"Stripe portal session created for user {user_id}")
             return session.url
 
         except Exception as e:
-            debug_log("Stripe portal session error", {"user_id": user_id, "error": str(e)})
+            logging.error(f"Stripe portal session error for user {user_id}: {e}")
             return None
 
     def cancel_subscription(self, user_id: str) -> bool:
-        """Annule l'abonnement d'un utilisateur"""
+        """Cancel a user's subscription."""
         try:
             subscription = firebase_service.get_user_subscription(user_id)
             stripe_subscription_id = subscription.get('stripe_subscription_id') if subscription else None
 
             if not stripe_subscription_id:
-                raise Exception("Aucun abonnement Stripe trouvé")
+                raise Exception("No Stripe subscription found")
 
-            # Annuler l'abonnement à la fin de la période de facturation
+            # Cancel subscription at end of billing period
             stripe.Subscription.modify(
                 stripe_subscription_id,
                 cancel_at_period_end=True
             )
 
-            # Mettre à jour Firebase
+            # Update Firebase
             subscription['status'] = 'cancel_at_period_end'
             firebase_service.update_user_subscription(user_id, subscription)
 
-            debug_log("Stripe subscription cancelled", {
-                "user_id": user_id,
-                "subscription_id": stripe_subscription_id
-            })
-
+            logging.info(f"Stripe subscription cancelled for user {user_id}")
             return True
 
         except Exception as e:
-            debug_log("Stripe subscription cancellation error", {"user_id": user_id, "error": str(e)})
+            logging.error(f"Stripe subscription cancellation error for user {user_id}: {e}")
             return False
 
     def handle_webhook(self, payload: bytes, sig_header: str) -> bool:
-        """Traite les webhooks Stripe"""
+        """Process Stripe webhooks."""
         try:
             event = stripe.Webhook.construct_event(
                 payload, sig_header, self.webhook_secret
             )
 
-            debug_log("Stripe webhook received", {"event_type": event['type']})
+            logging.info(f"Stripe webhook received: {event['type']}")
 
-            # Gérer les différents types d'événements
+            # Handle different event types
             if event['type'] == 'checkout.session.completed':
                 self._handle_checkout_completed(event['data']['object'])
 
@@ -208,41 +196,37 @@ class StripeService:
             return True
 
         except ValueError as e:
-            debug_log("Invalid webhook signature", {"error": str(e)})
+            logging.error(f"Invalid webhook signature: {e}")
             return False
         except Exception as e:
-            debug_log("Stripe webhook error", {"error": str(e)})
+            logging.error(f"Stripe webhook error: {e}")
             return False
 
     def _handle_checkout_completed(self, session):
-        """Traite la completion d'une session de checkout"""
+        """Handle checkout session completion."""
         try:
             user_id = session['metadata'].get('firebase_uid')
             if not user_id:
-                debug_log("No user ID in session metadata")
+                logging.warning("No user ID in session metadata")
                 return
 
             customer_id = session['customer']
             subscription_id = session['subscription']
 
-            debug_log("Checkout session completed", {
-                "user_id": user_id,
-                "customer_id": customer_id,
-                "subscription_id": subscription_id
-            })
+            logging.info(f"Checkout completed for user {user_id}: subscription {subscription_id}")
 
         except Exception as e:
-            debug_log("Error handling checkout.session.completed", {"error": str(e)})
+            logging.error(f"Error handling checkout.session.completed: {e}")
 
     def _handle_subscription_created(self, subscription):
-        """Traite la création d'un abonnement"""
+        """Handle subscription creation."""
         try:
             user_id = subscription['metadata'].get('firebase_uid')
             if not user_id:
-                debug_log("No user ID in subscription metadata")
+                logging.warning("No user ID in subscription metadata")
                 return
 
-            # Mettre à jour Firebase
+            # Update Firebase
             subscription_data = {
                 'plan': 'trial' if subscription.get('trial_end') else 'premium',
                 'status': subscription['status'],
@@ -257,25 +241,21 @@ class StripeService:
 
             firebase_service.update_user_subscription(user_id, subscription_data)
 
-            debug_log("Subscription created", {
-                "user_id": user_id,
-                "subscription_id": subscription['id'],
-                "status": subscription['status']
-            })
+            logging.info(f"Subscription created for user {user_id}: {subscription['id']}")
 
         except Exception as e:
-            debug_log("Error handling customer.subscription.created", {"error": str(e)})
+            logging.error(f"Error handling customer.subscription.created: {e}")
 
     def _handle_subscription_updated(self, subscription):
-        """Traite la mise à jour d'un abonnement"""
+        """Handle subscription update."""
         try:
             user_id = subscription['metadata'].get('firebase_uid')
             if not user_id:
-                debug_log("No user ID in subscription metadata")
+                logging.warning("No user ID in subscription metadata")
                 return
 
-            # Déterminer le plan en fonction de l'état de l'abonnement
-            plan = 'freemium'  # Par défaut
+            # Determine plan based on subscription state
+            plan = 'freemium'  # Default
 
             if subscription['status'] == 'active':
                 if subscription.get('trial_end') and subscription['trial_end'] > datetime.now().timestamp():
@@ -283,7 +263,7 @@ class StripeService:
                 else:
                     plan = 'premium'
 
-            # Mettre à jour Firebase
+            # Update Firebase
             subscription_data = {
                 'plan': plan,
                 'status': subscription['status'],
@@ -298,25 +278,20 @@ class StripeService:
 
             firebase_service.update_user_subscription(user_id, subscription_data)
 
-            debug_log("Subscription updated", {
-                "user_id": user_id,
-                "subscription_id": subscription['id'],
-                "status": subscription['status'],
-                "plan": plan
-            })
+            logging.info(f"Subscription updated for user {user_id}: plan={plan}, status={subscription['status']}")
 
         except Exception as e:
-            debug_log("Error handling customer.subscription.updated", {"error": str(e)})
+            logging.error(f"Error handling customer.subscription.updated: {e}")
 
     def _handle_subscription_deleted(self, subscription):
-        """Traite la suppression d'un abonnement"""
+        """Handle subscription deletion."""
         try:
             user_id = subscription['metadata'].get('firebase_uid')
             if not user_id:
-                debug_log("No user ID in subscription metadata")
+                logging.warning("No user ID in subscription metadata")
                 return
 
-            # Repasser en freemium
+            # Revert to freemium
             subscription_data = {
                 'plan': 'freemium',
                 'status': 'active',
@@ -330,56 +305,45 @@ class StripeService:
 
             firebase_service.update_user_subscription(user_id, subscription_data)
 
-            debug_log("Subscription deleted", {
-                "user_id": user_id,
-                "subscription_id": subscription['id']
-            })
+            logging.info(f"Subscription deleted for user {user_id}, reverted to freemium")
 
         except Exception as e:
-            debug_log("Error handling customer.subscription.deleted", {"error": str(e)})
+            logging.error(f"Error handling customer.subscription.deleted: {e}")
 
     def _handle_payment_succeeded(self, invoice):
-        """Traite le succès d'un paiement"""
+        """Handle successful payment."""
         try:
             subscription_id = invoice.get('subscription')
             if not subscription_id:
                 return
 
-            # Récupérer l'abonnement pour obtenir l'ID utilisateur
+            # Retrieve subscription to get user ID
             subscription = stripe.Subscription.retrieve(subscription_id)
             user_id = subscription['metadata'].get('firebase_uid')
 
             if user_id:
-                debug_log("Payment succeeded", {
-                    "user_id": user_id,
-                    "invoice_id": invoice['id'],
-                    "amount": invoice['amount_paid']
-                })
+                logging.info(f"Payment succeeded for user {user_id}: {invoice['amount_paid']} cents")
 
         except Exception as e:
-            debug_log("Error handling invoice.payment_succeeded", {"error": str(e)})
+            logging.error(f"Error handling invoice.payment_succeeded: {e}")
 
     def _handle_payment_failed(self, invoice):
-        """Traite l'échec d'un paiement"""
+        """Handle failed payment."""
         try:
             subscription_id = invoice.get('subscription')
             if not subscription_id:
                 return
 
-            # Récupérer l'abonnement pour obtenir l'ID utilisateur
+            # Retrieve subscription to get user ID
             subscription = stripe.Subscription.retrieve(subscription_id)
             user_id = subscription['metadata'].get('firebase_uid')
 
             if user_id:
-                debug_log("Payment failed", {
-                    "user_id": user_id,
-                    "invoice_id": invoice['id'],
-                    "amount": invoice['amount_due']
-                })
+                logging.warning(f"Payment failed for user {user_id}: {invoice['amount_due']} cents")
 
         except Exception as e:
-            debug_log("Error handling invoice.payment_failed", {"error": str(e)})
+            logging.error(f"Error handling invoice.payment_failed: {e}")
 
 
-# Instance globale du service
+# Global instance
 stripe_service = StripeService()

@@ -6,35 +6,9 @@ Calculates portfolio evolution under different market conditions.
 from datetime import datetime, date, timedelta
 from typing import Dict, Any, List, Optional
 import numpy as np
-from dataclasses import dataclass
+import logging
 
-@dataclass
-class ProjectionScenario:
-    """Represents a financial projection scenario."""
-    name: str
-    annual_return: float
-    volatility: float
-    description: str
-
-@dataclass
-class ProjectionParams:
-    """Parameters for portfolio projection."""
-    current_value: float
-    monthly_contribution: float
-    time_horizon_years: int
-    annual_fees_rate: float = 0.0075  # 0.75% annual fees
-
-@dataclass
-class ProjectionResult:
-    """Result of a portfolio projection."""
-    scenario_name: str
-    final_value: float
-    total_contributions: float
-    total_gains: float
-    total_fees: float
-    annualized_return: float
-    monthly_values: List[float]
-    labels: List[str]
+from models import ProjectionScenario, ProjectionParams, ProjectionResult
 
 class ProjectionService:
     """Service for calculating financial projections with multiple scenarios."""
@@ -68,6 +42,11 @@ class ProjectionService:
         """Log debug information if logger is available."""
         if self.logger:
             self.logger(message, extra)
+        else:
+            if extra:
+                logging.info(f"{message}: {extra}")
+            else:
+                logging.info(message)
 
     def calculate_projections(self, params: ProjectionParams) -> Dict[str, ProjectionResult]:
         """Calculate projections for all scenarios."""
@@ -183,16 +162,7 @@ class ProjectionService:
 
     def _projection_to_dict(self, projection: ProjectionResult) -> Dict[str, Any]:
         """Convert ProjectionResult to dictionary for JSON serialization."""
-        return {
-            "scenario_name": projection.scenario_name,
-            "final_value": projection.final_value,
-            "total_contributions": projection.total_contributions,
-            "total_gains": projection.total_gains,
-            "total_fees": projection.total_fees,
-            "annualized_return": projection.annualized_return,
-            "monthly_values": projection.monthly_values,
-            "labels": projection.labels
-        }
+        return projection.to_dict()
 
     def validate_projection_params(self, params_dict: Dict[str, Any]) -> Optional[str]:
         """Validate projection parameters. Returns error message if invalid, None if valid."""

@@ -9,7 +9,7 @@ from typing import List, Dict, Any, Optional
 import numpy as np
 from scipy.optimize import fsolve
 
-from models.portfolio import (
+from models import (
     InvestmentOrder, PositionSummary, PerformanceMetrics, FiscalScenario
 )
 from services.price_service import PriceService
