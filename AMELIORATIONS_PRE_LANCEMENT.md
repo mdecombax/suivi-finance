@@ -3,47 +3,36 @@
 ## 🎨 Branding & Identité Visuelle
 
 ### Nom du Produit
-- [ ] Trouver un nom correct et professionnel pour l'application
-- [ ] Vérifier la disponibilité du domaine
+- [x] Trouver un nom correct et professionnel pour l'application
+- [x] Vérifier la disponibilité du domaine
 
 ### Logo & Favicon
-- [ ] Créer un logo professionnel
-- [ ] Créer une favicon
-- [ ] Intégrer le logo dans l'application
-- [ ] Mettre à jour les métadonnées HTML avec la favicon
+- [ x] Créer un logo professionnel
+- [x] Créer une favicon
+- [x] Intégrer le logo dans l'application
+- [x] Mettre à jour les métadonnées HTML avec la favicon
 
 ---
 
 ## ⚡ Performance & Chargement
 
 ### Graphiques
-- [ ] **URGENT** Optimiser le chargement du graphique de la page d'accueil (actuellement trop lent)
+- [x] **URGENT** Optimiser le chargement du graphique de la page d'accueil (actuellement trop lent)
 
-
-### Animations
-- [ ] Rendre l'animation de chargement des ordres plus fluide et premium
-- [ ] Optimiser les transitions globales
 
 ---
 
 ## 🐛 Corrections de Bugs & Données
 
 ### Page Détails des Positions
-- [ ] Corriger les frais de gestion (valeurs incorrectes)
-- [ ] Corriger les plus/moins-values. L'air qui est affiché lors d'une moins-value d'être affiché en rouge et celui d'une plus-value d'être affiché en vert comme le graphique qui se trouve sur la page portefeuille.
-- [ ] Vérifier la cohérence de tous les chiffres affichés Entre la page portefeuille et la page Détails des Positions
-- [ ] Récupérer l'animation de chargement du graphique sur la page portefeuille pour la mettre sur le graphique des pages Page Détails des Positions
+- [x] Corriger les frais de gestion (valeurs incorrectes)
+- [x] Corriger les plus/moins-values. L'air qui est affiché lors d'une moins-value d'être affiché en rouge et celui d'une plus-value d'être affiché en vert comme le graphique qui se trouve sur la page portefeuille.
+- [x] Vérifier la cohérence de tous les chiffres affichés Entre la page portefeuille et la page Détails des Positions
+- [x] Récupérer l'animation de chargement du graphique sur la page portefeuille pour la mettre sur le graphique des pages Page Détails des Positions
 ---
 
-## 🎨 Interface & UX
-
-### Mode Clair (Light Mode)
-- [ ] Corriger les problèmes d'affichage en mode clair
-- [ ] Vérifier tous les composants en mode clair
-- [ ] S'assurer d'un contraste suffisant
-
 ### Profil Utilisateur
-- [ ] Corriger l'affichage de l'email qui s'affiche sur deux lignes
+- [x] Corriger l'affichage de l'email qui s'affiche sur deux lignes
   - L'email doit s'afficher sur une seule ligne
   - Doit fonctionner quelle que soit la taille de l'écran
   - Utiliser text-overflow: ellipsis si nécessaire
@@ -55,13 +44,13 @@
 ### Menu Paramètres (Settings)
 **PRIORITÉ HAUTE** - Centraliser le code
 
-- [ ] Le bouton paramètres ne fonctionne pas sur :
+- [x] Le bouton paramètres ne fonctionne pas sur :
   - Page Ordres
   - Page Projection
-- [ ] Créer un composant unique pour le menu paramètres qui doit être identique au composant lorsque l'on clique sur la Photo de profil sur la page portefeuille
-- [ ] Importer ce composant sur toutes les pages
-- [ ] S'assurer que toutes les modales se chargent de la même manière
-- [ ] Toute modification du composant doit se répercuter automatiquement sur toutes les pages
+- [x] Créer un composant unique pour le menu paramètres qui doit être identique au composant lorsque l'on clique sur la Photo de profil sur la page portefeuille
+- [x] Importer ce composant sur toutes les pages
+- [x] S'assurer que toutes les modales se chargent de la même manière
+- [x] Toute modification du composant doit se répercuter automatiquement sur toutes les pages
 
 **Localisation recommandée:**
 - Créer un composant `SettingsMenu.jsx` ou `SettingsModal.jsx` dans `/components/shared/`

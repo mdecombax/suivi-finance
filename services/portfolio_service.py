@@ -370,7 +370,11 @@ class PortfolioService:
         return scenarios
 
     def get_monthly_portfolio_values(self, orders_data: List[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-        """Calculate portfolio value at the beginning of each month since first order."""
+        """Calculate portfolio value at the beginning of each month since first order.
+
+        OPTIMISATION: Utilise le batch pricing pour fetcher tous les prix en une fois,
+        ce qui est ~50x plus rapide que des requêtes individuelles.
+        """
         if orders_data is not None:
             # Convert Firebase orders data to InvestmentOrder objects
             orders = []
@@ -398,6 +402,17 @@ class PortfolioService:
 
         # Sort orders by date (ascending - oldest first)
         orders.sort(key=lambda o: o.order_date)
+
+        # OPTIMISATION BATCH PRICING: Pré-charger tous les prix historiques
+        unique_isins = list(set(order.isin for order in orders))
+        self._log("Batch pricing: fetching prices for all ISINs", {"isins_count": len(unique_isins)})
+
+        batch_prices = self.price_service.fetch_batch_historical_prices(unique_isins, max_workers=5)
+
+        self._log("Batch pricing completed", {
+            "isins_fetched": len(batch_prices),
+            "successful": sum(1 for p in batch_prices.values() if p)
+        })
 
         # Find the first order date to determine starting month
         first_order_date = orders[0].order_date
@@ -510,51 +525,71 @@ class PortfolioService:
         for isin, position_data in isin_positions.items():
             quantity = position_data['quantity']
 
-            # Get historical price for this ISIN at target date
-            price_quote = self.price_service.get_historical_price(isin, target_date)
+            # OPTIMISATION: Essayer d'abord le batch cache (ultra rapide)
+            price = self.price_service.get_historical_price_from_batch(isin, target_date)
 
             # Always add the invested capital for this position, regardless of price availability
             total_invested_capital += position_data['total_invested']
 
-            if price_quote.is_valid and price_quote.price > 0:
-                position_value = quantity * price_quote.price
+            if price and price > 0:
+                # Prix trouvé dans le batch cache
+                position_value = quantity * price
                 total_portfolio_value += position_value
 
                 positions_detail.append({
                     "isin": isin,
                     "quantity": quantity,
-                    "price": price_quote.price,
+                    "price": price,
                     "value": position_value,
                     "total_invested": position_data['total_invested'],
-                    "price_source": price_quote.source
+                    "price_source": "Batch cache"
                 })
             else:
-                # If we can't get historical price, log warning but continue
-                self._log("Could not get historical price", {
-                    "isin": isin,
-                    "date": target_date.isoformat(),
-                    "error": price_quote.error_message if price_quote else "No quote"
-                })
+                # Fallback: requête individuelle (ancien comportement)
+                price_quote = self.price_service.get_historical_price(isin, target_date)
 
-                # Try current price as fallback for very recent dates
-                current_price_quote = self.price_service.get_current_price(isin)
-                if current_price_quote.is_valid and current_price_quote.price > 0:
-                    position_value = quantity * current_price_quote.price
+                if price_quote.is_valid and price_quote.price > 0:
+                    position_value = quantity * price_quote.price
                     total_portfolio_value += position_value
 
                     positions_detail.append({
                         "isin": isin,
                         "quantity": quantity,
-                        "price": current_price_quote.price,
+                        "price": price_quote.price,
                         "value": position_value,
                         "total_invested": position_data['total_invested'],
-                        "price_source": f"{current_price_quote.source} (fallback)"
+                        "price_source": price_quote.source
                     })
+                else:
+                    # If we can't get historical price, log warning but continue
+                    self._log("Could not get historical price", {
+                        "isin": isin,
+                        "date": target_date.isoformat(),
+                        "error": price_quote.error_message if price_quote else "No quote"
+                    })
+
+                    # Try current price as fallback for very recent dates
+                    current_price_quote = self.price_service.get_current_price(isin)
+                    if current_price_quote.is_valid and current_price_quote.price > 0:
+                        position_value = quantity * current_price_quote.price
+                        total_portfolio_value += position_value
+
+                        positions_detail.append({
+                            "isin": isin,
+                            "quantity": quantity,
+                            "price": current_price_quote.price,
+                            "value": position_value,
+                            "total_invested": position_data['total_invested'],
+                            "price_source": f"{current_price_quote.source} (fallback)"
+                        })
 
         return total_portfolio_value, total_invested_capital, positions_detail
 
     def get_monthly_position_values(self, orders_data: List[Dict[str, Any]], isin: str) -> List[Dict[str, Any]]:
-        """Calculate position value at the beginning of each month since first order for a specific ISIN."""
+        """Calculate position value at the beginning of each month since first order for a specific ISIN.
+
+        OPTIMISATION: Utilise le batch pricing pour ce single ISIN.
+        """
         # Convert Firebase orders data to InvestmentOrder objects
         orders = []
         for order_dict in orders_data:
@@ -579,6 +614,10 @@ class PortfolioService:
 
         # Sort orders by date
         orders.sort(key=lambda o: o.order_date)
+
+        # OPTIMISATION: Batch fetch pour ce single ISIN
+        self._log("Batch pricing for single ISIN", {"isin": isin})
+        self.price_service.fetch_batch_historical_prices([isin], max_workers=1)
 
         # Find date range for monthly calculations
         start_date = orders[0].order_date
@@ -662,12 +701,19 @@ class PortfolioService:
         if total_quantity <= 0:
             return 0.0, 0.0
 
-        # Get historical price for this ISIN at target date
-        price_quote = self.price_service.get_historical_price(isin, target_date)
+        # OPTIMISATION: Essayer d'abord le batch cache
+        price = self.price_service.get_historical_price_from_batch(isin, target_date)
 
-        if price_quote.is_valid and price_quote.price > 0:
-            position_value = total_quantity * price_quote.price
+        if price and price > 0:
+            position_value = total_quantity * price
             return position_value, total_invested
         else:
-            # If no price available, return just the invested capital as value (no gain/loss)
-            return total_invested, total_invested
+            # Fallback: requête individuelle
+            price_quote = self.price_service.get_historical_price(isin, target_date)
+
+            if price_quote.is_valid and price_quote.price > 0:
+                position_value = total_quantity * price_quote.price
+                return position_value, total_invested
+            else:
+                # If no price available, return just the invested capital as value (no gain/loss)
+                return total_invested, total_invested

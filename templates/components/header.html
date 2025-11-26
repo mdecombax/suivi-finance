@@ -1,0 +1,64 @@
+<!-- Header Navigation -->
+<header class="animate-fadeInDown">
+    <div class="header-content">
+        <div class="logo animate-slideInLeft">
+            <img src="/static/images/logo.png" alt="Suivi Finance Logo" class="logo-icon">
+            <div class="logo-text">Finolio</div>
+        </div>
+
+        <nav class="nav animate-slideInRight">
+            <a href="/" class="nav-link {% if active_page == 'portfolio' %}active{% endif %}">Portefeuille</a>
+            <a href="/orders" class="nav-link {% if active_page == 'orders' %}active{% endif %}">Ordres</a>
+            <a href="#" class="nav-link {% if active_page == 'projections' %}active{% endif %}" id="projectionsLink">
+                <span id="projectionsText">Projections</span>
+                <span id="projectionsLock" style="margin-left: 6px; font-size: 0.85em;">🔒</span>
+            </a>
+        </nav>
+
+        <script>
+        // Bloquer l'onglet Projections avec le paywall
+        document.addEventListener('DOMContentLoaded', function() {
+            const projectionsLink = document.getElementById('projectionsLink');
+            const projectionsLock = document.getElementById('projectionsLock');
+
+            // Fonction pour mettre à jour l'affichage du cadenas
+            function updateProjectionsLock() {
+                const hasPremium = window.hasPremiumAccess ? window.hasPremiumAccess() : false;
+                if (projectionsLock) {
+                    projectionsLock.style.display = hasPremium ? 'none' : 'inline';
+                }
+            }
+
+            if (projectionsLink) {
+                // Mettre à jour le cadenas au chargement
+                updateProjectionsLock();
+
+                // Remettre à jour après 1 seconde (quand userPlan est chargé)
+                setTimeout(updateProjectionsLock, 1000);
+
+                projectionsLink.addEventListener('click', function(e) {
+                    e.preventDefault();
+
+                    // Vérifier si l'utilisateur a un accès premium
+                    const hasPremium = window.hasPremiumAccess ? window.hasPremiumAccess() : false;
+
+                    if (!hasPremium) {
+                        // Ouvrir la modal premium
+                        if (window.openPremiumModal) {
+                            window.openPremiumModal();
+                        }
+                    } else {
+                        // Rediriger vers la page projections
+                        window.location.href = '/projections';
+                    }
+                });
+            }
+        });
+        </script>
+
+        <div class="header-controls">
+            <!-- Avatar utilisateur -->
+            {% include 'components/user_dropdown.html' %}
+        </div>
+    </div>
+</header>

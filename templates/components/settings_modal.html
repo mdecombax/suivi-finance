@@ -1,0 +1,62 @@
+<!-- Modale des Paramètres -->
+<div class="popup-overlay" id="settingsPopup">
+    <div class="popup-content settings-popup">
+        <div class="popup-header">
+            <div class="popup-title">Paramètres</div>
+            <button class="popup-close" onclick="closeSettings()">&times;</button>
+        </div>
+        <div class="popup-body">
+            <div class="settings-section">
+                <h3>Type de Compte</h3>
+                <p class="settings-description">Choisissez votre type de compte pour un calcul fiscal précis</p>
+                <div class="settings-account-selector">
+                    <div class="settings-radio-option" onclick="changeAccountType('pea')">
+                        <input type="radio" id="settings-pea" name="settings_account_type" value="pea">
+                        <label for="settings-pea">
+                            <div class="option-header">
+                                <span class="option-icon">🏛️</span>
+                                <span class="option-title">PEA</span>
+                            </div>
+                            <div class="option-description">Plan d'Épargne en Actions</div>
+                            <div class="option-tax">17,5% de prélèvements sociaux</div>
+                        </label>
+                    </div>
+                    <div class="settings-radio-option" onclick="changeAccountType('cto')">
+                        <input type="radio" id="settings-cto" name="settings_account_type" value="cto">
+                        <label for="settings-cto">
+                            <div class="option-header">
+                                <span class="option-icon">📊</span>
+                                <span class="option-title">CTO</span>
+                            </div>
+                            <div class="option-description">Compte-Titres Ordinaire</div>
+                            <div class="option-tax">30% de flat tax</div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <h3>Affichage</h3>
+                <p class="settings-description">Personnalisez l'affichage de votre tableau de bord</p>
+                <div class="settings-option">
+                    <label class="toggle-label">
+                        <input type="checkbox" id="showDetailedKpis" onchange="toggleDetailedKpisDefault()">
+                        <span class="toggle-slider"></span>
+                        Afficher les détails par défaut
+                    </label>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <h3>Données</h3>
+                <p class="settings-description">Gestion de vos données de portefeuille</p>
+                <div class="settings-actions">
+                    <button class="settings-action-btn danger" onclick="resetData()">
+                        <span class="icon">🗑️</span>
+                        Réinitialiser les données
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

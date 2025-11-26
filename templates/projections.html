@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Suivi Finance — Projections</title>
     <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/settings_modal.css">
+    <link rel="icon" href="/static/images/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/static/images/favicon.ico" type="image/x-icon" sizes="any" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -245,31 +248,14 @@
 
     <!-- Script centralisé pour le dropdown utilisateur -->
     <script src="/static/js/user_dropdown.js"></script>
+
+    <!-- Script centralisé pour la modale des paramètres -->
+    <script src="/static/js/settings_modal.js"></script>
 </head>
 <body>
     <div class="shell">
-        <header class="animate-fadeInDown">
-            <div class="header-content">
-                <div class="logo animate-slideInLeft">
-                    <div class="logo-icon"></div>
-                    <div class="logo-text">Suivi Finance</div>
-                </div>
-
-                <nav class="nav animate-slideInRight">
-                    <a href="/" class="nav-link">Portefeuille</a>
-                    <a href="/orders" class="nav-link">Ordres</a>
-                    <a href="/projections" class="nav-link active">Projections</a>
-                </nav>
-
-                <div class="header-controls">
-                    <button class="theme-switch animate-scaleIn animate-delay-300" onclick="toggleTheme()" aria-label="Changer de thème">
-                        <span class="theme-icon">🌙</span>
-                    </button>
-                    <!-- Avatar utilisateur -->
-                    {% include 'components/user_dropdown.html' %}
-                </div>
-            </div>
-        </header>
+        {% set active_page = 'projections' %}
+        {% include 'components/header.html' %}
 
         <main class="main-content">
             <div class="projections-container">
@@ -345,6 +331,9 @@
             </div>
         </main>
     </div>
+
+    <!-- Modale des paramètres -->
+    {% include 'components/settings_modal.html' %}
 
     <script>
         let projectionChart = null;
@@ -785,39 +774,8 @@
             }, 1000);
         });
 
-        // Gestion du thème
-        function toggleTheme() {
-            const body = document.body;
-            const currentTheme = body.classList.contains('light-theme') ? 'light' : 'dark';
-            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-
-            if (newTheme === 'light') {
-                body.classList.add('light-theme');
-            } else {
-                body.classList.remove('light-theme');
-            }
-
-            localStorage.setItem('theme', newTheme);
-
-            // Mettre à jour l'icône
-            const themeIcon = document.querySelector('.theme-icon');
-            if (themeIcon) {
-                themeIcon.textContent = newTheme === 'light' ? '🌙' : '☀️';
-            }
-        }
-
-        // Initialiser le thème au chargement
-        function initTheme() {
-            const savedTheme = localStorage.getItem('theme') || 'dark';
-            if (savedTheme === 'light') {
-                document.body.classList.add('light-theme');
-                const themeIcon = document.querySelector('.theme-icon');
-                if (themeIcon) themeIcon.textContent = '🌙';
-            }
-        }
-
-        // Initialiser le thème au chargement
-        initTheme();
+        // Forcer le thème dark
+        document.documentElement.setAttribute('data-theme', 'dark');
     </script>
 </body>
 </html>

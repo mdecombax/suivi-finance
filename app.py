@@ -255,11 +255,15 @@ def price_history_api():
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/position/<isin>", methods=["GET"])
+@require_auth
 def position_detail_api(isin):
     """API endpoint for position details with enriched data."""
     try:
-                # Récupérer les données enrichies pour cette position
-        enriched_data = _get_enriched_position_data(isin)
+        # Récupérer l'ID de l'utilisateur connecté
+        user_id = get_current_user_id()
+
+        # Récupérer les données enrichies pour cette position (filtrées par utilisateur)
+        enriched_data = _get_enriched_position_data(isin, user_id)
         return jsonify(enriched_data)
     except Exception as e:
         debug_log("Position detail API error", {"isin": isin, "error": str(e)})
@@ -872,8 +876,13 @@ def _extract_history_parameters() -> Dict[str, str]:
     }
 
 
-def _get_enriched_position_data(isin: str) -> Dict[str, Any]:
-    """Get enriched data for a specific position including name, portfolio info, and technical data."""
+def _get_enriched_position_data(isin: str, user_id: str) -> Dict[str, Any]:
+    """Get enriched data for a specific position including name, portfolio info, and technical data.
+
+    Args:
+        isin: The ISIN of the position
+        user_id: The authenticated user's ID to filter orders
+    """
     import yfinance as yf
     import requests
     from datetime import datetime, timedelta
@@ -920,16 +929,24 @@ def _get_enriched_position_data(isin: str) -> Dict[str, Any]:
         except Exception as e:
             debug_log("Error fetching Yahoo data", {"isin": isin, "error": str(e)})
 
-        # Récupérer les données de portefeuille utilisateur
+        # Récupérer les données de portefeuille utilisateur depuis Firebase (seulement les ordres de cet utilisateur)
         portfolio_info = {}
         try:
-            orders = portfolio_service.load_orders()
-            user_positions = [order for order in orders if order.isin == isin]
+            # Charger les ordres de l'utilisateur connecté depuis Firebase
+            user_orders = firebase_service.get_user_orders(user_id)
+
+            # Filtrer les ordres pour cet ISIN
+            user_positions = [order for order in user_orders if order.get('isin') == isin]
 
             if user_positions:
-                total_quantity = sum(order.quantity for order in user_positions)
-                total_invested = sum(order.total_price_eur for order in user_positions)
+                # Calculer les métriques uniquement sur les ordres de l'utilisateur
+                total_quantity = sum(order.get('quantity', 0) for order in user_positions)
+                # FIX: Utiliser 'totalPriceEUR' au lieu de 'totalPrice' (nom réel dans Firebase)
+                total_invested = sum(order.get('totalPriceEUR', 0) for order in user_positions)
                 avg_price = total_invested / total_quantity if total_quantity > 0 else 0
+
+                # Convertir les dates string en objets datetime pour pouvoir faire min/max
+                order_dates = [datetime.fromisoformat(order.get('date').replace('Z', '+00:00')) if isinstance(order.get('date'), str) else order.get('date') for order in user_positions]
 
                 portfolio_info = {
                     'has_position': True,
@@ -937,19 +954,24 @@ def _get_enriched_position_data(isin: str) -> Dict[str, Any]:
                     'total_invested': total_invested,
                     'average_purchase_price': avg_price,
                     'orders_count': len(user_positions),
-                    'first_purchase_date': min(order.order_date for order in user_positions).isoformat(),
-                    'last_purchase_date': max(order.order_date for order in user_positions).isoformat(),
+                    'first_purchase_date': min(order_dates).isoformat() if order_dates else None,
+                    'last_purchase_date': max(order_dates).isoformat() if order_dates else None,
                     'current_value': current_price_quote.price * total_quantity if current_price_quote.is_valid else None
                 }
 
-                if portfolio_info['current_value']:
+                # Calcul des P&L avec vérification défensive (éviter division par zéro)
+                if portfolio_info['current_value'] and total_invested > 0:
                     portfolio_info['unrealized_pnl'] = portfolio_info['current_value'] - total_invested
                     portfolio_info['unrealized_pnl_pct'] = (portfolio_info['unrealized_pnl'] / total_invested) * 100
+                elif portfolio_info['current_value']:
+                    # Si current_value existe mais total_invested = 0, il y a un problème de données
+                    portfolio_info['unrealized_pnl'] = 0
+                    portfolio_info['unrealized_pnl_pct'] = 0
             else:
                 portfolio_info = {'has_position': False}
 
         except Exception as e:
-            debug_log("Error fetching portfolio data", {"isin": isin, "error": str(e)})
+            debug_log("Error fetching portfolio data", {"isin": isin, "user_id": user_id, "error": str(e)})
             portfolio_info = {'has_position': False}
 
         # Récupérer des données JustETF enrichies

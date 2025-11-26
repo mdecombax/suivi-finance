@@ -195,6 +195,89 @@
             border-radius: 4px;
         }
 
+        /* Paywall Blur Effect */
+        .premium-content-wrapper {
+            position: relative;
+        }
+
+        .premium-content-wrapper.locked .premium-content {
+            filter: blur(8px);
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .premium-overlay {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            text-align: center;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .premium-content-wrapper.locked .premium-overlay {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            padding: 32px;
+            background: rgba(20, 24, 38, 0.95);
+            border: 2px solid rgba(130,196,255,0.3);
+            border-radius: var(--border-radius-xl);
+            backdrop-filter: blur(12px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+
+        .premium-overlay-icon {
+            font-size: 3rem;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.1);
+                opacity: 0.8;
+            }
+        }
+
+        .premium-overlay-text {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .premium-overlay-subtitle {
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
+
+        .premium-overlay-button {
+            margin-top: 12px;
+            padding: 12px 24px;
+            background: var(--gradient-primary);
+            border: none;
+            border-radius: 24px;
+            color: white;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            box-shadow: 0 4px 12px rgba(130,196,255,0.3);
+        }
+
+        .premium-overlay-button:hover {
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 6px 20px rgba(130,196,255,0.4);
+        }
+
         /* Force position-grid visibility when showing skeleton */
         #skeletonContent .position-grid {
             opacity: 1 !important;
@@ -429,6 +512,7 @@
                     </div>
                     <div id="positionEvolutionChart" style="position: relative; height: 400px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--border-radius-xl); padding: 20px;">
                         <canvas id="evolutionChart"></canvas>
+                        <canvas id="loadingEvolutionChart" style="position: absolute; top: 20px; left: 20px; right: 20px; bottom: 20px; width: calc(100% - 40px); height: calc(100% - 40px);"></canvas>
                         <div id="evolutionChartLoadingState" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: var(--muted); display: none;">
                             <div style="font-size: 2rem; margin-bottom: 10px;">⚠️</div>
                             <div>Erreur de chargement</div>
@@ -482,7 +566,17 @@
 
         async function loadPositionData() {
             try {
-                const response = await fetch(`/api/position/${isin}`);
+                if (!authToken) {
+                    throw new Error('Utilisateur non authentifié');
+                }
+
+                const response = await fetch(`/api/position/${isin}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
                 const data = await response.json();
 
                 if (data.error) {
@@ -535,7 +629,7 @@
                 ['Gestionnaire', data.yahoo_finance?.fund_family || 'N/A'],
                 ['Bourse', data.yahoo_finance?.exchange || data.justetf?.trading_venue || 'N/A'],
                 ['Devise', data.basic_quote?.currency || 'EUR'],
-                ['Frais de gestion', data.yahoo_finance?.expense_ratio ? `${(data.yahoo_finance.expense_ratio * 100).toFixed(2)}%` : 'N/A']
+                ['Frais de gestion', data.yahoo_finance?.expense_ratio ? `${data.yahoo_finance.expense_ratio.toFixed(2)}%` : 'N/A']
             ]);
 
             // Ma position
@@ -913,8 +1007,150 @@
             });
         }
 
+        // Variables pour l'animation de chargement
+        let evolutionLoadingAnimationId = null;
+
+        function startEvolutionLoadingAnimation() {
+            const loadingCanvas = document.getElementById('loadingEvolutionChart');
+            const realCanvas = document.getElementById('evolutionChart');
+
+            if (!loadingCanvas) return;
+
+            // Afficher le canvas de chargement
+            loadingCanvas.style.display = 'block';
+            realCanvas.style.display = 'none';
+
+            const ctx = loadingCanvas.getContext('2d');
+            const width = loadingCanvas.offsetWidth;
+            const height = loadingCanvas.offsetHeight;
+
+            loadingCanvas.width = width;
+            loadingCanvas.height = height;
+
+            // Données de skeleton plus réalistes - tendance croissante
+            const skeletonData = [];
+            const points = 10;
+            for (let i = 0; i < points; i++) {
+                const x = (width * 0.1) + ((width * 0.8) / (points - 1)) * i;
+                const baseY = height * 0.8 - (i * height * 0.03); // Légère tendance haussière
+                const y = baseY + Math.sin(i * 0.8) * height * 0.05;
+                skeletonData.push({ x, y });
+            }
+
+            // Animation de tracé progressif en un seul sens
+            let progress = 0;
+            const animationDuration = 3000; // 3 secondes pour tracer complètement
+            let startTime = Date.now();
+
+            function animate() {
+                const elapsed = Date.now() - startTime;
+                progress = Math.min(elapsed / animationDuration, 1);
+
+                ctx.clearRect(0, 0, width, height);
+
+                // Grille subtile ton sur ton
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+                ctx.lineWidth = 1;
+
+                // Lignes horizontales subtiles
+                for (let i = 1; i < 6; i++) {
+                    const y = (height / 6) * i;
+                    ctx.beginPath();
+                    ctx.moveTo(width * 0.1, y);
+                    ctx.lineTo(width * 0.9, y);
+                    ctx.stroke();
+                }
+
+                // Lignes verticales subtiles
+                for (let i = 1; i < points; i++) {
+                    const x = (width * 0.1) + ((width * 0.8) / (points - 1)) * i;
+                    ctx.beginPath();
+                    ctx.moveTo(x, height * 0.1);
+                    ctx.lineTo(x, height * 0.9);
+                    ctx.stroke();
+                }
+
+                // Points et segments à tracer progressivement
+                const segmentsToShow = Math.floor(progress * (skeletonData.length - 1));
+                const currentSegmentProgress = (progress * (skeletonData.length - 1)) % 1;
+
+                if (segmentsToShow >= 0) {
+                    // Courbe skeleton ton sur ton
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(skeletonData[0].x, skeletonData[0].y);
+
+                    // Dessiner les segments complets
+                    for (let i = 1; i <= segmentsToShow; i++) {
+                        ctx.lineTo(skeletonData[i].x, skeletonData[i].y);
+                    }
+
+                    // Dessiner le segment en cours de tracé
+                    if (segmentsToShow < skeletonData.length - 1) {
+                        const currentPoint = skeletonData[segmentsToShow];
+                        const nextPoint = skeletonData[segmentsToShow + 1];
+                        const interpolatedX = currentPoint.x + (nextPoint.x - currentPoint.x) * currentSegmentProgress;
+                        const interpolatedY = currentPoint.y + (nextPoint.y - currentPoint.y) * currentSegmentProgress;
+                        ctx.lineTo(interpolatedX, interpolatedY);
+                    }
+
+                    ctx.stroke();
+
+                    // Points skeleton
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+                    for (let i = 0; i <= segmentsToShow; i++) {
+                        ctx.beginPath();
+                        ctx.arc(skeletonData[i].x, skeletonData[i].y, 3, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    // Point actuel avec pulsation subtile
+                    if (segmentsToShow < skeletonData.length - 1) {
+                        const currentPoint = skeletonData[segmentsToShow];
+                        const nextPoint = skeletonData[segmentsToShow + 1];
+                        const interpolatedX = currentPoint.x + (nextPoint.x - currentPoint.x) * currentSegmentProgress;
+                        const interpolatedY = currentPoint.y + (nextPoint.y - currentPoint.y) * currentSegmentProgress;
+
+                        const pulse = 0.5 + 0.5 * Math.sin(elapsed / 200);
+                        ctx.fillStyle = `rgba(255, 255, 255, ${0.15 * pulse})`;
+                        ctx.beginPath();
+                        ctx.arc(interpolatedX, interpolatedY, 4 + pulse, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+
+                // Redémarrer l'animation si terminée
+                if (progress >= 1) {
+                    startTime = Date.now();
+                }
+
+                evolutionLoadingAnimationId = requestAnimationFrame(animate);
+            }
+
+            animate();
+        }
+
+        function stopEvolutionLoadingAnimation() {
+            if (evolutionLoadingAnimationId) {
+                cancelAnimationFrame(evolutionLoadingAnimationId);
+                evolutionLoadingAnimationId = null;
+            }
+
+            const loadingCanvas = document.getElementById('loadingEvolutionChart');
+            const realCanvas = document.getElementById('evolutionChart');
+
+            if (loadingCanvas && realCanvas) {
+                loadingCanvas.style.display = 'none';
+                realCanvas.style.display = 'block';
+            }
+        }
+
         // Chargement et affichage du graphique d'évolution de la position
         async function loadPositionEvolutionChart() {
+            // Démarrer l'animation de chargement
+            startEvolutionLoadingAnimation();
+
             try {
                 if (!authToken) {
                     throw new Error('Utilisateur non authentifié');
@@ -934,6 +1170,8 @@
 
                 const result = await response.json();
                 if (result.success) {
+                    // Arrêter l'animation de chargement et afficher le vrai graphique
+                    stopEvolutionLoadingAnimation();
                     setTimeout(() => {
                         createPositionEvolutionChart(result.data);
                     }, 300);
@@ -942,6 +1180,7 @@
                 }
             } catch (error) {
                 console.error('Erreur lors du chargement du graphique d\'évolution:', error);
+                stopEvolutionLoadingAnimation();
                 const loadingState = document.getElementById('evolutionChartLoadingState');
                 loadingState.style.display = 'block';
                 loadingState.innerHTML = `
@@ -991,6 +1230,13 @@
                 const value = positionValues[index];
                 return Math.min(capital, value); // Le point le plus bas pour l'aire
             });
+
+            // Déterminer la couleur de la ligne de valeur selon la performance actuelle
+            const lastCapital = investedCapitals[investedCapitals.length - 1];
+            const lastValue = positionValues[positionValues.length - 1];
+            const isPositive = lastValue >= lastCapital;
+            const valueLineColor = isPositive ? '#81C784' : '#f87171';
+            const valuePointColor = isPositive ? '#388E3C' : '#dc2626';
 
             // Détruire le graphique existant s'il y en a un
             if (positionEvolutionChart) {
@@ -1081,13 +1327,13 @@
                         {
                             label: 'Valeur de la position',
                             data: positionValues,
-                            borderColor: '#81C784',
+                            borderColor: valueLineColor,
                             backgroundColor: 'transparent',
                             borderWidth: 2,
                             tension: 0.3,
                             fill: false,
-                            pointBackgroundColor: '#81C784',
-                            pointBorderColor: '#388E3C',
+                            pointBackgroundColor: valueLineColor,
+                            pointBorderColor: valuePointColor,
                             pointBorderWidth: 2,
                             pointRadius: 4,
                             pointHoverRadius: 6,
@@ -1229,8 +1475,277 @@
             });
         }
 
+        // Fonctions pour gérer la modal premium
+        function openPremiumModal() {
+            const modal = document.getElementById('premiumModal');
+            if (modal) {
+                modal.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            }
+        }
+        window.openPremiumModal = openPremiumModal;
+
+        function closePremiumModal() {
+            const modal = document.getElementById('premiumModal');
+            if (modal) {
+                modal.classList.remove('show');
+                document.body.style.overflow = '';
+            }
+        }
+
+        function hasPremiumAccess() {
+            if (!window.userPlan) {
+                return false;
+            }
+
+            const plan = window.userPlan.plan;
+            const status = window.userPlan.status;
+            const isPremiumFlag = window.userPlan.is_premium;
+
+            let hasAccess = false;
+
+            if (isPremiumFlag === true) {
+                hasAccess = true;
+            } else if (plan === 'premium' || plan === 'trial') {
+                hasAccess = true;
+            } else if ((status === 'trialing' || status === 'active') && plan !== 'freemium') {
+                hasAccess = true;
+            }
+
+            return hasAccess;
+        }
+        window.hasPremiumAccess = hasPremiumAccess;
+
+        async function startSubscription() {
+            try {
+                const response = await fetch('/api/subscription/checkout', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success && result.data && result.data.url) {
+                    window.location.href = result.data.url;
+                } else {
+                    alert('Erreur lors de la création de la session de paiement');
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('Une erreur est survenue. Veuillez réessayer.');
+            }
+        }
+
         // Ne plus charger automatiquement - l'authentification se charge de lancer loadPositionData()
         // document.addEventListener('DOMContentLoaded', loadPositionData);
     </script>
+
+    <!-- Modal Premium -->
+    <div id="premiumModal" class="premium-modal">
+        <div class="premium-modal-content">
+            <button class="premium-modal-close" onclick="closePremiumModal()">×</button>
+
+            <div class="premium-modal-header">
+                <div class="premium-modal-icon">⭐</div>
+                <h2 class="premium-modal-title">Passez à Premium</h2>
+                <p class="premium-modal-subtitle">Accédez à tous les graphiques et analyses avancées</p>
+            </div>
+
+            <div class="premium-modal-price">
+                <div class="premium-modal-price-amount">3,99€</div>
+                <div class="premium-modal-price-period">par mois</div>
+                <div class="premium-modal-trial">3 jours d'essai gratuit</div>
+            </div>
+
+            <ul class="premium-modal-features">
+                <li>Graphiques d'évolution détaillés</li>
+                <li>Analyses de performance avancées</li>
+                <li>Toutes les périodes temporelles</li>
+                <li>Exports illimités</li>
+                <li>Support prioritaire</li>
+            </ul>
+
+            <button class="premium-modal-cta" onclick="startSubscription()">
+                Commencer l'essai gratuit
+            </button>
+
+            <p class="premium-modal-note">Sans engagement • Annulez à tout moment</p>
+        </div>
+    </div>
+
+    <style>
+        .premium-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .premium-modal.show {
+            display: flex;
+        }
+
+        .premium-modal-content {
+            background: var(--card-bg);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: var(--border-radius-xl);
+            padding: 40px;
+            max-width: 500px;
+            width: 90%;
+            position: relative;
+            animation: slideUp 0.3s ease;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+
+        .premium-modal-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: var(--muted);
+            font-size: 2rem;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all var(--transition-fast);
+        }
+
+        .premium-modal-close:hover {
+            background: rgba(255,255,255,0.1);
+            color: var(--text);
+        }
+
+        .premium-modal-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .premium-modal-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+
+        .premium-modal-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .premium-modal-subtitle {
+            color: var(--muted);
+            font-size: 1rem;
+        }
+
+        .premium-modal-price {
+            text-align: center;
+            margin-bottom: 32px;
+            padding: 24px;
+            background: rgba(130,196,255,0.1);
+            border-radius: var(--border-radius-lg);
+            border: 1px solid rgba(130,196,255,0.2);
+        }
+
+        .premium-modal-price-amount {
+            font-size: 3rem;
+            font-weight: 800;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .premium-modal-price-period {
+            color: var(--muted);
+            font-size: 1rem;
+        }
+
+        .premium-modal-trial {
+            margin-top: 8px;
+            color: var(--success);
+            font-weight: 600;
+        }
+
+        .premium-modal-features {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 32px 0;
+        }
+
+        .premium-modal-features li {
+            padding: 12px 0;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .premium-modal-features li:before {
+            content: '✓';
+            color: var(--success);
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .premium-modal-cta {
+            width: 100%;
+            padding: 16px;
+            background: var(--gradient-primary);
+            border: none;
+            border-radius: var(--border-radius);
+            color: white;
+            font-weight: 700;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            box-shadow: 0 4px 12px rgba(130,196,255,0.3);
+        }
+
+        .premium-modal-cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(130,196,255,0.4);
+        }
+
+        .premium-modal-note {
+            text-align: center;
+            color: var(--muted);
+            font-size: 0.85rem;
+            margin-top: 16px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
 </body>
 </html>
