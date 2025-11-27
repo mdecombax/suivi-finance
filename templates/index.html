@@ -1597,7 +1597,6 @@
                                     <span id="totalInvested">€0</span>
                                     <button class="calc-info-btn" onclick="showCalculationTooltip('totalInvested', event)" title="Voir le détail du calcul">i</button>
                                 </div>
-                                <div class="kpi-value-lock" onclick="openPremiumModal()">🔒</div>
                             </div>
                         </div>
                         <div class="kpi-card">
@@ -1607,7 +1606,6 @@
                                     <span id="currentValue">€0</span>
                                     <button class="calc-info-btn" onclick="showCalculationTooltip('currentValue', event)" title="Voir le détail du calcul">i</button>
                                 </div>
-                                <div class="kpi-value-lock" onclick="openPremiumModal()">🔒</div>
                             </div>
                         </div>
                         <div class="kpi-card">
@@ -3546,10 +3544,8 @@
         function updateDetailedKpisAccess() {
             const hasPremium = hasPremiumAccess();
 
-            // Liste des wrappers de valeurs KPI
+            // Liste des wrappers de valeurs KPI (KPIs premium uniquement)
             const kpiWrappers = [
-                'totalInvestedWrapper',
-                'currentValueWrapper',
                 'annualizedReturnWrapper',
                 'totalGainPctWrapper',
                 'estimatedTaxWrapper'
@@ -3563,6 +3559,15 @@
                     } else {
                         wrapper.classList.remove('locked');
                     }
+                }
+            });
+
+            // Total Investi et Valeur Actuelle Brute sont toujours débloqués
+            const freeKpis = ['totalInvestedWrapper', 'currentValueWrapper'];
+            freeKpis.forEach(wrapperId => {
+                const wrapper = document.getElementById(wrapperId);
+                if (wrapper) {
+                    wrapper.classList.remove('locked');
                 }
             });
         }

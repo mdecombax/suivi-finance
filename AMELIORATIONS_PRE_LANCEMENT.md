@@ -7,7 +7,7 @@
 - [x] Vérifier la disponibilité du domaine
 
 ### Logo & Favicon
-- [ x] Créer un logo professionnel
+- [x] Créer un logo professionnel
 - [x] Créer une favicon
 - [x] Intégrer le logo dans l'application
 - [x] Mettre à jour les métadonnées HTML avec la favicon
