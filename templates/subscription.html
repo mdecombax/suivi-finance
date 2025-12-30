@@ -260,9 +260,42 @@
                     document.getElementById('canceledContent').style.display = 'block';
                     document.getElementById('defaultContent').style.display = 'none';
                 } else {
+                    // IMPORTANT: Retour du portail client Stripe (après annulation par exemple)
+                    // Toujours synchroniser pour détecter les changements d'abonnement
                     document.getElementById('successContent').style.display = 'none';
                     document.getElementById('canceledContent').style.display = 'none';
                     document.getElementById('defaultContent').style.display = 'block';
+
+                    // Synchroniser silencieusement avec Stripe pour détecter les annulations
+                    try {
+                        const response = await fetch('/api/subscription/sync', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json'
+                            }
+                        });
+
+                        const result = await response.json();
+
+                        // Si l'abonnement a été annulé, afficher un message et rediriger
+                        if (result.success && result.data && result.data.status === 'canceled') {
+                            // Afficher un message d'annulation
+                            document.getElementById('defaultContent').innerHTML = `
+                                <div class="success-icon">✅</div>
+                                <h1 class="success-message">Abonnement annulé</h1>
+                                <p class="success-description">Votre abonnement a été annulé avec succès.</p>
+                                <div class="canceled-message">
+                                    <h3>Retour à la version gratuite</h3>
+                                    <p>Vous êtes maintenant sur le plan gratuit.</p>
+                                    <p>Vous pouvez réactiver Premium à tout moment.</p>
+                                </div>
+                                <a href="/" class="cta-button">Retour au portefeuille</a>
+                            `;
+                        }
+                    } catch (error) {
+                        console.error('Erreur lors de la synchronisation:', error);
+                    }
                 }
             } else {
 

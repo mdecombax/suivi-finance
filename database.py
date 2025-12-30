@@ -55,9 +55,9 @@ class FirebaseService:
     # ========== ORDER MANAGEMENT ==========
 
     def get_user_orders(self, user_id: str) -> List[Dict[str, Any]]:
-        """Retrieve all orders for a user."""
+        """Retrieve all orders for a user from customers/{user_id}/orders."""
         try:
-            orders_ref = self.db.collection('users').document(user_id).collection('orders')
+            orders_ref = self.db.collection('customers').document(user_id).collection('orders')
             orders = orders_ref.order_by('date', direction=firestore.Query.ASCENDING).stream()
 
             orders_list = []
@@ -72,14 +72,14 @@ class FirebaseService:
             return []
 
     def add_order(self, user_id: str, order_data: Dict[str, Any]) -> str:
-        """Add a new order for a user."""
+        """Add a new order for a user to customers/{user_id}/orders."""
         try:
             # Add metadata
             order_data['createdAt'] = datetime.utcnow()
             order_data['updatedAt'] = datetime.utcnow()
 
             # Add order to Firestore
-            orders_ref = self.db.collection('users').document(user_id).collection('orders')
+            orders_ref = self.db.collection('customers').document(user_id).collection('orders')
             doc_ref = orders_ref.add(order_data)
 
             logging.info(f"Order added for user {user_id}: {doc_ref[1].id}")
@@ -90,9 +90,9 @@ class FirebaseService:
             raise
 
     def delete_order(self, user_id: str, order_id: str) -> bool:
-        """Delete a user's order."""
+        """Delete a user's order from customers/{user_id}/orders."""
         try:
-            order_ref = self.db.collection('users').document(user_id).collection('orders').document(order_id)
+            order_ref = self.db.collection('customers').document(user_id).collection('orders').document(order_id)
             order_ref.delete()
             logging.info(f"Order deleted for user {user_id}: {order_id}")
             return True
@@ -102,35 +102,98 @@ class FirebaseService:
 
     # ========== SUBSCRIPTION MANAGEMENT ==========
 
-    def get_user_subscription(self, user_id: str) -> Optional[Dict[str, Any]]:
-        """Retrieve current subscription for a user."""
+    def get_stripe_customer_id(self, user_id: str) -> Optional[str]:
+        """Get Stripe customer ID for a user.
+
+        Checks both:
+        1. customers/{uid}.stripeId (Firebase Extension format)
+        2. users/{uid}.subscription.stripe_customer_id (legacy format)
+
+        Returns the first one found, prioritizing the Extension format.
+        """
         try:
+            # First, check the 'customers' collection (Firebase Stripe Extension format)
+            customers_ref = self.db.collection('customers').document(user_id)
+            customers_doc = customers_ref.get()
+
+            if customers_doc.exists:
+                customer_data = customers_doc.to_dict()
+                stripe_id = customer_data.get('stripeId')
+                if stripe_id:
+                    logging.info(f"Found stripeId in customers collection for user {user_id}: {stripe_id}")
+                    return stripe_id
+
+            # Fallback: check users/{uid}.subscription.stripe_customer_id
             user_ref = self.db.collection('users').document(user_id)
             user_doc = user_ref.get()
 
             if user_doc.exists:
                 user_data = user_doc.to_dict()
                 subscription = user_data.get('subscription', {})
+                stripe_customer_id = subscription.get('stripe_customer_id')
+                if stripe_customer_id:
+                    logging.info(f"Found stripe_customer_id in users collection for user {user_id}: {stripe_customer_id}")
+                    return stripe_customer_id
 
-                # Default values for new users
-                if not subscription:
-                    subscription = {
-                        'plan': 'freemium',
-                        'status': 'active',
-                        'stripe_customer_id': None,
-                        'stripe_subscription_id': None,
-                        'trial_start': None,
-                        'trial_end': None,
-                        'current_period_start': None,
-                        'current_period_end': None,
-                        'created_at': datetime.utcnow(),
-                        'updated_at': datetime.utcnow()
-                    }
-                    # Save defaults
-                    self.update_user_subscription(user_id, subscription)
-
-                return subscription
             return None
+
+        except Exception as e:
+            logging.error(f"Error getting Stripe customer ID for user {user_id}: {e}")
+            return None
+
+    def update_stripe_customer_id(self, user_id: str, stripe_customer_id: str) -> bool:
+        """Update Stripe customer ID in both collections for consistency."""
+        try:
+            # Update customers collection (for Firebase Extension)
+            customers_ref = self.db.collection('customers').document(user_id)
+            customers_ref.set({'stripeId': stripe_customer_id}, merge=True)
+
+            # Also update users collection (for legacy code)
+            user_ref = self.db.collection('users').document(user_id)
+            user_ref.set({
+                'subscription': {
+                    'stripe_customer_id': stripe_customer_id
+                }
+            }, merge=True)
+
+            logging.info(f"Updated Stripe customer ID for user {user_id}: {stripe_customer_id}")
+            return True
+
+        except Exception as e:
+            logging.error(f"Error updating Stripe customer ID for user {user_id}: {e}")
+            return False
+
+    def get_user_subscription(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve current subscription for a user from Stripe Extension collection.
+
+        Reads from customers/{uid}/subscriptions/ (Firebase Stripe Extension format).
+        Returns the most recent active/trialing subscription, or None if no subscription.
+        """
+        try:
+            # Read from customers/{uid}/subscriptions/ collection
+            subscriptions_ref = self.db.collection('customers').document(user_id).collection('subscriptions')
+
+            # Get all subscriptions, ordered by created date (most recent first)
+            subscriptions = subscriptions_ref.order_by('created', direction=firestore.Query.DESCENDING).limit(5).stream()
+
+            # Find the first active or trialing subscription
+            for sub_doc in subscriptions:
+                sub_data = sub_doc.to_dict()
+                status = sub_data.get('status')
+
+                # Return active or trialing subscription
+                if status in ['active', 'trialing']:
+                    sub_data['id'] = sub_doc.id
+                    return sub_data
+
+                # Also return if cancel_at_period_end but still in period
+                if status == 'active' or (sub_data.get('cancel_at_period_end') and status != 'canceled'):
+                    sub_data['id'] = sub_doc.id
+                    return sub_data
+
+            # No active subscription found - return None (freemium user)
+            return None
+
         except Exception as e:
             logging.error(f"Error fetching subscription for user {user_id}: {e}")
             return None
@@ -151,27 +214,52 @@ class FirebaseService:
             return False
 
     def is_user_premium(self, user_id: str) -> bool:
-        """Check if a user has an active premium subscription."""
+        """Check if a user has an active premium subscription.
+
+        Uses Stripe Extension format from customers/{uid}/subscriptions/.
+        User is premium if they have an active or trialing subscription.
+
+        Important: If user is trialing and has requested cancellation (cancel_at is set),
+        they lose access immediately (no payment made = no access).
+        """
         try:
             subscription = self.get_user_subscription(user_id)
             if not subscription:
                 return False
 
-            plan = subscription.get('plan', 'freemium')
-            status = subscription.get('status', 'inactive')
+            status = subscription.get('status')
 
-            # User is premium if:
-            # 1. Has premium plan with active status
-            # 2. Or is in trial period (status can be 'active' or 'trialing')
-            if plan == 'premium' and status == 'active':
+            # Check if subscription is canceled
+            if status == 'canceled':
+                return False
+
+            # User is premium if status is 'active'
+            if status == 'active':
+                # If cancel_at_period_end, user keeps access until period ends
                 return True
 
-            if plan == 'trial' and status in ['active', 'trialing']:
+            if status == 'trialing':
+                # IMPORTANT: If trialing user requested cancellation, revoke access immediately
+                # (they haven't paid, so no access after cancellation request)
+                cancel_at = subscription.get('cancel_at')
+                canceled_at = subscription.get('canceled_at')
+
+                if cancel_at is not None or canceled_at is not None:
+                    # User requested cancellation during trial - no access
+                    logging.info(f"User {user_id} is trialing but has requested cancellation - access revoked")
+                    return False
+
                 # Check trial hasn't expired
                 trial_end = subscription.get('trial_end')
                 if trial_end:
-                    now = datetime.now(timezone.utc)
-                    if trial_end > now:
+                    # Handle both timestamp and datetime objects
+                    if hasattr(trial_end, 'timestamp'):
+                        trial_end_ts = trial_end.timestamp()
+                    else:
+                        trial_end_ts = trial_end
+
+                    now_ts = datetime.now(timezone.utc).timestamp()
+                    if trial_end_ts > now_ts:
                         return True
 
             return False
@@ -334,7 +422,18 @@ def require_premium(f):
         if not is_premium:
             # Get subscription info for more details
             subscription = firebase_service.get_user_subscription(user_id)
-            plan = subscription.get('plan', 'freemium') if subscription else 'freemium'
+
+            # Determine plan from subscription status
+            if subscription:
+                status = subscription.get('status')
+                if status == 'trialing':
+                    plan = 'trial'
+                elif status == 'active':
+                    plan = 'premium'
+                else:
+                    plan = 'freemium'
+            else:
+                plan = 'freemium'
 
             return jsonify({
                 'error': 'Premium subscription required',
@@ -389,6 +488,8 @@ def get_user_plan_info() -> Optional[Dict[str, Any]]:
     """
     Get plan information for the current user.
 
+    Uses Stripe Extension format from customers/{uid}/subscriptions/.
+
     Returns:
         Dict with plan info or None if not authenticated
     """
@@ -402,27 +503,57 @@ def get_user_plan_info() -> Optional[Dict[str, Any]]:
         return {
             'plan': 'freemium',
             'is_premium': False,
-            'trial_remaining_days': 0
+            'trial_remaining_days': 0,
+            'status': None,
+            'current_period_end': None,
+            'cancel_at_period_end': False
         }
 
-    plan = subscription.get('plan', 'freemium')
+    status = subscription.get('status')
     is_premium = firebase_service.is_user_premium(user_id)
+
+    # Determine plan type based on is_premium flag (not just status)
+    # This ensures that cancelled trials show as freemium
+    if not is_premium:
+        plan = 'freemium'
+    elif status == 'trialing':
+        plan = 'trial'
+    elif status == 'active':
+        plan = 'premium'
+    else:
+        plan = 'freemium'
 
     # Calculate remaining trial days
     trial_remaining_days = 0
-    if plan == 'trial' and subscription.get('trial_end'):
-        trial_end = subscription['trial_end']
-        if isinstance(trial_end, datetime):
-            now = datetime.now(timezone.utc)
-            remaining = trial_end - now
-            trial_remaining_days = max(0, remaining.days)
+    trial_end = subscription.get('trial_end')
+    if trial_end and status == 'trialing':
+        # Handle both timestamp and datetime objects
+        if hasattr(trial_end, 'timestamp'):
+            trial_end_dt = trial_end
+        else:
+            # Convert timestamp to datetime
+            trial_end_dt = datetime.fromtimestamp(trial_end, tz=timezone.utc)
+
+        now = datetime.now(timezone.utc)
+        remaining = trial_end_dt - now
+        trial_remaining_days = max(0, remaining.days)
+
+    # Get current_period_end for display
+    current_period_end = subscription.get('current_period_end')
+    if current_period_end and hasattr(current_period_end, 'isoformat'):
+        current_period_end_str = current_period_end.isoformat()
+    elif current_period_end:
+        current_period_end_str = datetime.fromtimestamp(current_period_end, tz=timezone.utc).isoformat()
+    else:
+        current_period_end_str = None
 
     result = {
         'plan': plan,
         'is_premium': is_premium,
         'trial_remaining_days': trial_remaining_days,
-        'status': subscription.get('status', 'active'),
-        'stripe_customer_id': subscription.get('stripe_customer_id'),
-        'current_period_end': subscription.get('current_period_end')
+        'status': status,
+        'current_period_end': current_period_end_str,
+        'cancel_at_period_end': subscription.get('cancel_at_period_end', False),
+        'subscription_id': subscription.get('id')
     }
     return result

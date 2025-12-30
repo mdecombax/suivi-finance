@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 import numpy as np
 from scipy.optimize import fsolve
+import yfinance as yf
 
 from models import (
     InvestmentOrder, PositionSummary, PerformanceMetrics, FiscalScenario
@@ -172,6 +173,16 @@ class PortfolioService:
             "orders_count": len(orders)
         }
     
+    def _get_position_name(self, isin: str) -> Optional[str]:
+        """Get the short name for a position from Yahoo Finance."""
+        try:
+            ticker = yf.Ticker(isin)
+            info = ticker.info or {}
+            return info.get('shortName') or info.get('longName') or None
+        except Exception as e:
+            self._log(f"Error fetching name for {isin}", {"error": str(e)})
+            return None
+
     def _calculate_position_summaries(self, orders: List[InvestmentOrder]) -> List[PositionSummary]:
         """Calculate aggregated position summaries by ISIN."""
         # Group orders by ISIN
@@ -180,23 +191,26 @@ class PortfolioService:
             if order.isin not in isin_groups:
                 isin_groups[order.isin] = []
             isin_groups[order.isin].append(order)
-        
+
         positions = []
         for isin, isin_orders in isin_groups.items():
             # Calculate aggregated values
             total_quantity = sum(order.quantity for order in isin_orders)
             total_invested = sum(order.total_price_eur for order in isin_orders)
             average_unit_price = total_invested / total_quantity if total_quantity > 0 else 0.0
-            
+
             # Get current price
             current_price_quote = self.price_service.get_current_price(isin)
             current_price = current_price_quote.price if current_price_quote.is_valid else None
-            
+
+            # Get position name from Yahoo Finance
+            position_name = self._get_position_name(isin)
+
             # Calculate current value and P&L
             current_value = None
             profit_loss_absolute = None
             profit_loss_percentage = None
-            
+
             if current_price is not None and current_price > 0:
                 current_value = current_price * total_quantity
                 profit_loss_absolute = current_value - total_invested
@@ -204,7 +218,7 @@ class PortfolioService:
                     (profit_loss_absolute / total_invested * 100.0)
                     if total_invested > 0 else None
                 )
-            
+
             position = PositionSummary(
                 isin=isin,
                 quantity=total_quantity,
@@ -213,11 +227,12 @@ class PortfolioService:
                 current_price=current_price,
                 current_value=current_value,
                 profit_loss_absolute=profit_loss_absolute,
-                profit_loss_percentage=profit_loss_percentage
+                profit_loss_percentage=profit_loss_percentage,
+                name=position_name
             )
-            
+
             positions.append(position)
-        
+
         # Sort by ISIN for consistent ordering
         positions.sort(key=lambda p: p.isin)
         return positions

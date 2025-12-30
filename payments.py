@@ -72,14 +72,16 @@ class StripeService:
                               trial_days: int = 3) -> Optional[Dict[str, Any]]:
         """Create a Stripe checkout session for premium subscription."""
         try:
-            # Create or retrieve Stripe customer
-            subscription = firebase_service.get_user_subscription(user_id)
-            customer_id = subscription.get('stripe_customer_id') if subscription else None
+            # Get existing Stripe customer ID (checks both customers/ and users/ collections)
+            customer_id = firebase_service.get_stripe_customer_id(user_id)
 
             if not customer_id:
+                # Create new customer and sync to both collections
                 customer_id = self.create_customer(user_id, email)
                 if not customer_id:
                     raise Exception("Unable to create Stripe customer")
+                # Sync to both collections for consistency
+                firebase_service.update_stripe_customer_id(user_id, customer_id)
 
             session_params = {
                 'customer': customer_id,
@@ -121,8 +123,8 @@ class StripeService:
     def create_customer_portal_session(self, user_id: str, return_url: str) -> Optional[str]:
         """Create a customer portal session for managing subscription."""
         try:
-            subscription = firebase_service.get_user_subscription(user_id)
-            customer_id = subscription.get('stripe_customer_id') if subscription else None
+            # Get Stripe customer ID from customers/{uid} collection
+            customer_id = firebase_service.get_stripe_customer_id(user_id)
 
             if not customer_id:
                 raise Exception("No Stripe customer found for this user")
@@ -140,7 +142,12 @@ class StripeService:
             return None
 
     def cancel_subscription(self, user_id: str) -> bool:
-        """Cancel a user's subscription."""
+        """Cancel a user's subscription.
+
+        Behavior:
+        - If user is on FREE TRIAL: Cancel immediately (no payment made)
+        - If user is PAYING: Cancel at end of period (they paid, they keep access)
+        """
         try:
             subscription = firebase_service.get_user_subscription(user_id)
             stripe_subscription_id = subscription.get('stripe_subscription_id') if subscription else None
@@ -148,17 +155,38 @@ class StripeService:
             if not stripe_subscription_id:
                 raise Exception("No Stripe subscription found")
 
-            # Cancel subscription at end of billing period
-            stripe.Subscription.modify(
-                stripe_subscription_id,
-                cancel_at_period_end=True
-            )
+            # Retrieve the Stripe subscription to check status
+            stripe_sub = stripe.Subscription.retrieve(stripe_subscription_id)
 
-            # Update Firebase
-            subscription['status'] = 'cancel_at_period_end'
-            firebase_service.update_user_subscription(user_id, subscription)
+            # Check if user is in trial period (trialing status)
+            is_trial = stripe_sub['status'] == 'trialing'
 
-            logging.info(f"Stripe subscription cancelled for user {user_id}")
+            if is_trial:
+                # TRIAL: Cancel IMMEDIATELY - no payment made, revoke access now
+                stripe.Subscription.cancel(stripe_subscription_id)
+
+                # Update Firebase immediately to revoke access
+                subscription_data = {
+                    'plan': 'freemium',
+                    'status': 'canceled',
+                    'stripe_customer_id': subscription.get('stripe_customer_id'),
+                    'stripe_subscription_id': None,
+                    'canceled_at': datetime.now(),
+                    'trial_start': None,
+                    'trial_end': None
+                }
+                firebase_service.update_user_subscription(user_id, subscription_data)
+                logging.info(f"Trial subscription IMMEDIATELY cancelled for user {user_id}")
+            else:
+                # PAYING: Cancel at end of billing period (user paid, keep access until end)
+                stripe.Subscription.modify(
+                    stripe_subscription_id,
+                    cancel_at_period_end=True
+                )
+                subscription['status'] = 'cancel_at_period_end'
+                firebase_service.update_user_subscription(user_id, subscription)
+                logging.info(f"Paid subscription scheduled for end-of-period cancellation for user {user_id}")
+
             return True
 
         except Exception as e:
@@ -231,11 +259,14 @@ class StripeService:
                 'plan': 'trial' if subscription.get('trial_end') else 'premium',
                 'status': subscription['status'],
                 'stripe_customer_id': subscription['customer'],
-                'stripe_subscription_id': subscription['id'],
-                'current_period_start': datetime.fromtimestamp(subscription['current_period_start']),
-                'current_period_end': datetime.fromtimestamp(subscription['current_period_end'])
+                'stripe_subscription_id': subscription['id']
             }
 
+            # Add optional fields safely
+            if subscription.get('current_period_start'):
+                subscription_data['current_period_start'] = datetime.fromtimestamp(subscription['current_period_start'])
+            if subscription.get('current_period_end'):
+                subscription_data['current_period_end'] = datetime.fromtimestamp(subscription['current_period_end'])
             if subscription.get('trial_end'):
                 subscription_data['trial_end'] = datetime.fromtimestamp(subscription['trial_end'])
 
@@ -254,10 +285,87 @@ class StripeService:
                 logging.warning("No user ID in subscription metadata")
                 return
 
-            # Determine plan based on subscription state
+            # DEBUG: Log subscription details
+            print(f"=== SUBSCRIPTION UPDATED ===")
+            print(f"User ID: {user_id}")
+            print(f"Status: {subscription['status']}")
+            print(f"cancel_at_period_end: {subscription.get('cancel_at_period_end', False)}")
+            print(f"canceled_at: {subscription.get('canceled_at')}")
+
+            # Check if subscription is FULLY cancelled (status = 'canceled')
+            # This happens when trial is cancelled immediately
+            if subscription['status'] == 'canceled':
+                # Revert to freemium IMMEDIATELY
+                subscription_data = {
+                    'plan': 'freemium',
+                    'status': 'canceled',
+                    'stripe_customer_id': subscription['customer'],
+                    'stripe_subscription_id': None,
+                    'canceled_at': datetime.now(),
+                    'current_period_end': datetime.fromtimestamp(subscription['current_period_end']) if subscription.get('current_period_end') else None
+                }
+
+                firebase_service.update_user_subscription(user_id, subscription_data)
+                logging.info(f"Subscription CANCELLED for user {user_id} - reverted to freemium immediately")
+                return
+
+            # Check if subscription is scheduled for cancellation (cancel_at_period_end)
+            # This happens when user cancels via portal
+            if subscription.get('cancel_at_period_end', False):
+                # Check if it's a TRIAL or PAID subscription
+                is_trial = subscription['status'] == 'trialing'
+
+                if is_trial:
+                    # TRIAL + cancel_at_period_end = Should cancel IMMEDIATELY
+                    # The portal sets cancel_at_period_end=true, but we want immediate cancellation
+                    # So we need to force cancel it via API
+                    logging.info(f"Trial subscription with cancel_at_period_end detected - forcing immediate cancellation for user {user_id}")
+
+                    # Cancel immediately via Stripe API
+                    try:
+                        stripe.Subscription.cancel(subscription['id'])
+
+                        # Update Firebase
+                        subscription_data = {
+                            'plan': 'freemium',
+                            'status': 'canceled',
+                            'stripe_customer_id': subscription['customer'],
+                            'stripe_subscription_id': None,
+                            'canceled_at': datetime.now()
+                        }
+                        firebase_service.update_user_subscription(user_id, subscription_data)
+                        logging.info(f"Trial subscription IMMEDIATELY cancelled for user {user_id}")
+                        return
+                    except Exception as e:
+                        logging.error(f"Error force-cancelling trial: {e}")
+
+                # PAID subscription - keep access until end of period
+                plan = 'premium'
+
+                subscription_data = {
+                    'plan': plan,
+                    'status': 'active',
+                    'cancel_at_period_end': True,
+                    'stripe_customer_id': subscription['customer'],
+                    'stripe_subscription_id': subscription['id']
+                }
+
+                # Add optional fields safely
+                if subscription.get('current_period_start'):
+                    subscription_data['current_period_start'] = datetime.fromtimestamp(subscription['current_period_start'])
+                if subscription.get('current_period_end'):
+                    subscription_data['current_period_end'] = datetime.fromtimestamp(subscription['current_period_end'])
+                if subscription.get('trial_end'):
+                    subscription_data['trial_end'] = datetime.fromtimestamp(subscription['trial_end'])
+
+                firebase_service.update_user_subscription(user_id, subscription_data)
+                logging.info(f"Paid subscription scheduled for cancellation for user {user_id} - access until period end")
+                return
+
+            # Normal update: active or trialing subscription
             plan = 'freemium'  # Default
 
-            if subscription['status'] == 'active':
+            if subscription['status'] in ['active', 'trialing']:
                 if subscription.get('trial_end') and subscription['trial_end'] > datetime.now().timestamp():
                     plan = 'trial'
                 else:
@@ -268,11 +376,14 @@ class StripeService:
                 'plan': plan,
                 'status': subscription['status'],
                 'stripe_customer_id': subscription['customer'],
-                'stripe_subscription_id': subscription['id'],
-                'current_period_start': datetime.fromtimestamp(subscription['current_period_start']),
-                'current_period_end': datetime.fromtimestamp(subscription['current_period_end'])
+                'stripe_subscription_id': subscription['id']
             }
 
+            # Add optional fields safely
+            if subscription.get('current_period_start'):
+                subscription_data['current_period_start'] = datetime.fromtimestamp(subscription['current_period_start'])
+            if subscription.get('current_period_end'):
+                subscription_data['current_period_end'] = datetime.fromtimestamp(subscription['current_period_end'])
             if subscription.get('trial_end'):
                 subscription_data['trial_end'] = datetime.fromtimestamp(subscription['trial_end'])
 

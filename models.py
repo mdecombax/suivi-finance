@@ -74,11 +74,13 @@ class PositionSummary:
     current_value: Optional[float] = None
     profit_loss_absolute: Optional[float] = None
     profit_loss_percentage: Optional[float] = None
+    name: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert PositionSummary to dictionary for API responses."""
         return {
             'isin': self.isin,
+            'name': self.name or self.isin,
             'quantity': self.quantity,
             'invested': self.total_invested,
             'avgUnitPrice': self.average_unit_price,

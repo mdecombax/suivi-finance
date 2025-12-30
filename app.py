@@ -22,7 +22,7 @@ from flask import Flask, render_template, request, jsonify, g
 from flask_cors import CORS
 
 # New consolidated imports
-from database import firebase_service, require_auth, get_current_user_id, get_current_user, require_premium, check_freemium_limits, get_user_plan_info
+from database import firebase_service, require_auth, get_current_user_id, get_current_user, require_premium, get_user_plan_info
 from payments import stripe_service
 from models import ProjectionParams
 
@@ -271,7 +271,7 @@ def position_detail_api(isin):
 
 @app.route("/api/projections", methods=["GET", "POST"])
 @require_auth
-@check_freemium_limits('projections')
+@require_premium
 def projections_api():
     """API endpoint for financial projections with scenario analysis (authentification requise)."""
     try:
@@ -351,23 +351,41 @@ def projections_api():
 
 @app.route("/api/portfolio/monthly-values", methods=["GET"])
 @require_auth
-@check_freemium_limits('dashboard_historical')
 def monthly_portfolio_values_api():
-    """API endpoint for monthly portfolio values (authentification requise)."""
+    """API endpoint for monthly portfolio values (authentification requise).
+
+    Les utilisateurs freemium ont accès aux 3 derniers mois uniquement.
+    Les utilisateurs premium ont accès à l'historique complet.
+    """
     try:
         user_id = get_current_user_id()
 
-                # Récupérer les ordres depuis Firebase pour cet utilisateur
+        # Vérifier si l'utilisateur est premium
+        is_premium = firebase_service.is_user_premium(user_id)
+
+        # Récupérer les ordres depuis Firebase pour cet utilisateur
         user_orders = firebase_service.get_user_orders(user_id)
 
-                # Calculer les valeurs mensuelles du portefeuille
+        # Calculer les valeurs mensuelles du portefeuille
         monthly_values = portfolio_service.get_monthly_portfolio_values(user_orders)
+
+        # Pour les utilisateurs freemium, limiter aux 3 derniers mois
+        is_limited = False
+        total_months_available = len(monthly_values)
+
+        if not is_premium and len(monthly_values) > 3:
+            monthly_values = monthly_values[-3:]  # Garder uniquement les 3 derniers mois
+            is_limited = True
 
         result = {
             "success": True,
             "data": monthly_values,
             "user_id": user_id,
-            "total_months": len(monthly_values)
+            "total_months": len(monthly_values),
+            "is_premium": is_premium,
+            "is_limited": is_limited,
+            "total_months_available": total_months_available if is_limited else len(monthly_values),
+            "freemium_limit_months": 3 if is_limited else None
         }
         return jsonify(result)
 
@@ -377,16 +395,22 @@ def monthly_portfolio_values_api():
 
 @app.route("/api/position/<isin>/monthly-values", methods=["GET"])
 @require_auth
-@check_freemium_limits('position_analysis')
 def position_monthly_values_api(isin):
-    """API endpoint for monthly position values (authentification requise)."""
+    """API endpoint for monthly position values (authentification requise).
+
+    Les utilisateurs freemium ont accès aux 3 derniers mois uniquement.
+    Les utilisateurs premium ont accès à l'historique complet.
+    """
     try:
         user_id = get_current_user_id()
 
-                # Récupérer les ordres depuis Firebase pour cet utilisateur
+        # Vérifier si l'utilisateur est premium
+        is_premium = firebase_service.is_user_premium(user_id)
+
+        # Récupérer les ordres depuis Firebase pour cet utilisateur
         user_orders = firebase_service.get_user_orders(user_id)
 
-                # Filtrer les ordres pour cet ISIN spécifique
+        # Filtrer les ordres pour cet ISIN spécifique
         position_orders = [order for order in (user_orders or []) if order.get('isin') == isin]
 
         if not position_orders:
@@ -397,15 +421,27 @@ def position_monthly_values_api(isin):
                 "message": "Aucun ordre trouvé pour cette position"
             })
 
-                # Calculer les valeurs mensuelles pour cette position
+        # Calculer les valeurs mensuelles pour cette position
         monthly_values = portfolio_service.get_monthly_position_values(position_orders, isin)
+
+        # Pour les utilisateurs freemium, limiter aux 3 derniers mois
+        is_limited = False
+        total_months_available = len(monthly_values)
+
+        if not is_premium and len(monthly_values) > 3:
+            monthly_values = monthly_values[-3:]  # Garder uniquement les 3 derniers mois
+            is_limited = True
 
         result = {
             "success": True,
             "data": monthly_values,
             "isin": isin,
             "user_id": user_id,
-            "total_months": len(monthly_values)
+            "total_months": len(monthly_values),
+            "is_premium": is_premium,
+            "is_limited": is_limited,
+            "total_months_available": total_months_available if is_limited else len(monthly_values),
+            "freemium_limit_months": 3 if is_limited else None
         }
         return jsonify(result)
 
@@ -415,34 +451,22 @@ def position_monthly_values_api(isin):
 
 @app.route("/api/export/<export_type>", methods=["GET"])
 @require_auth
-@check_freemium_limits('export')
+@require_premium
 def export_data_api(export_type):
-    """API endpoint pour exporter les données (authentification requise avec limitations freemium)."""
+    """API endpoint pour exporter les données (premium uniquement)."""
     try:
         user_id = get_current_user_id()
-        is_freemium = getattr(g, 'is_freemium', False)
 
-                # Vérifier le type d'export demandé
-        allowed_formats = ['json']
-        if not is_freemium:
-            allowed_formats.extend(['csv', 'excel'])
-
+        # Vérifier le type d'export demandé
+        allowed_formats = ['json', 'csv', 'excel']
         if export_type not in allowed_formats:
-            if is_freemium and export_type in ['csv', 'excel']:
-                return jsonify({
-                    "error": "Format d'export premium",
-                    "error_type": "premium_required",
-                    "message": f"L'export {export_type.upper()} nécessite un abonnement Premium.",
-                    "available_formats": allowed_formats
-                }), 403
-            else:
-                return jsonify({"error": "Type d'export non supporté"}), 400
+            return jsonify({"error": "Type d'export non supporté"}), 400
 
-                # Récupérer les données utilisateur
+        # Récupérer les données utilisateur
         user_orders = firebase_service.get_user_orders(user_id)
         portfolio_summary = portfolio_service.get_portfolio_summary(user_orders)
 
-                # Préparer les données pour l'export
+        # Préparer les données pour l'export
         export_data = {
             "user_id": user_id,
             "export_date": datetime.now().isoformat(),
@@ -454,17 +478,9 @@ def export_data_api(export_type):
                 "orders_count": portfolio_summary["orders_count"]
             },
             "positions": portfolio_summary["positions"],
-            "orders": user_orders[:100] if is_freemium else user_orders,  # Limiter à 100 ordres pour freemium
-            "plan": "freemium" if is_freemium else "premium"
+            "orders": user_orders,
+            "plan": "premium"
         }
-
-                # Ajouter limitation freemium si applicable
-        if is_freemium:
-            export_data["limitations"] = {
-                "max_orders": 100,
-                "available_formats": ["json"],
-                "upgrade_message": "Obtenez des exports illimités et plus de formats avec Premium"
-            }
 
         if export_type == 'json':
             return jsonify({
@@ -568,7 +584,7 @@ def sync_subscription_api():
 
         customer_id = subscription['stripe_customer_id']
 
-                # Récupérer les abonnements depuis Stripe
+                # Récupérer les abonnements depuis Stripe (inclure les annulés)
         import stripe
         subscriptions = stripe.Subscription.list(customer=customer_id, limit=1)
 
@@ -579,7 +595,65 @@ def sync_subscription_api():
             from datetime import datetime
             plan = 'freemium'
 
-                    # Gérer les statuts 'active' et 'trialing'
+                    # Check if subscription is FULLY cancelled (status = 'canceled')
+            if stripe_sub['status'] == 'canceled':
+                        # Révoquer l'accès immédiatement
+                plan = 'freemium'
+                subscription_data = {
+                    'plan': 'freemium',
+                    'status': 'canceled',
+                    'stripe_customer_id': customer_id,
+                    'stripe_subscription_id': None,
+                    'canceled_at': datetime.now()
+                }
+
+                if stripe_sub.get('current_period_end'):
+                    subscription_data['current_period_end'] = datetime.fromtimestamp(stripe_sub['current_period_end'])
+
+                firebase_service.update_user_subscription(user_id, subscription_data)
+
+                return jsonify({
+                    "success": True,
+                    "data": {
+                        "plan": "freemium",
+                        "status": "canceled",
+                        "message": "Abonnement annulé - accès premium désactivé"
+                    }
+                })
+
+                    # Check if subscription is scheduled for cancellation (cancel_at_period_end)
+                    # Don't revoke access - user keeps it until end of paid period
+            if stripe_sub.get('cancel_at_period_end', False):
+                plan = 'premium'
+                if stripe_sub.get('trial_end') and stripe_sub['trial_end'] > datetime.now().timestamp():
+                    plan = 'trial'
+
+                subscription_data = {
+                    'plan': plan,
+                    'status': 'active',
+                    'cancel_at_period_end': True,
+                    'stripe_customer_id': customer_id,
+                    'stripe_subscription_id': stripe_sub['id'],
+                    'current_period_start': datetime.fromtimestamp(stripe_sub['current_period_start']),
+                    'current_period_end': datetime.fromtimestamp(stripe_sub['current_period_end'])
+                }
+
+                if stripe_sub.get('trial_end'):
+                    subscription_data['trial_end'] = datetime.fromtimestamp(stripe_sub['trial_end'])
+
+                firebase_service.update_user_subscription(user_id, subscription_data)
+
+                return jsonify({
+                    "success": True,
+                    "data": {
+                        "plan": plan,
+                        "status": "active",
+                        "cancel_at_period_end": True,
+                        "message": f"Abonnement actif jusqu'au {subscription_data['current_period_end']}"
+                    }
+                })
+
+                    # Gérer les statuts 'active' et 'trialing' (seulement si pas annulé)
             if stripe_sub['status'] in ['active', 'trialing']:
                 if stripe_sub.get('trial_end') and stripe_sub['trial_end'] > datetime.now().timestamp():
                     plan = 'trial'
@@ -612,10 +686,22 @@ def sync_subscription_api():
                 }
             })
         else:
+                    # Aucun abonnement trouvé - réinitialiser à freemium
+            subscription_data = {
+                'plan': 'freemium',
+                'status': 'none',
+                'stripe_customer_id': customer_id,
+                'stripe_subscription_id': None
+            }
+            firebase_service.update_user_subscription(user_id, subscription_data)
+
             return jsonify({
-                "success": False,
-                "error": "Aucun abonnement actif trouvé"
-            }), 404
+                "success": True,
+                "data": {
+                    "plan": "freemium",
+                    "status": "none"
+                }
+            })
 
     except Exception as e:
         debug_log("Subscription sync error", {"error": str(e)})
@@ -688,13 +774,13 @@ def cancel_subscription_api():
     try:
         user_id = get_current_user_id()
 
-                # Annuler l'abonnement
+                # Annuler l'abonnement (logique automatique : immédiat si essai, fin de période si payé)
         success = stripe_service.cancel_subscription(user_id)
 
         if success:
             return jsonify({
                 "success": True,
-                "message": "Abonnement annulé. Il restera actif jusqu'à la fin de la période de facturation."
+                "message": "Abonnement annulé."
             })
         else:
             return jsonify({"error": "Impossible d'annuler l'abonnement"}), 500

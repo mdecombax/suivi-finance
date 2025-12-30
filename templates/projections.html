@@ -399,6 +399,14 @@
                     window.updateUserInterface(user);
                 }
 
+                // Vérifier le statut premium avant de charger la page
+                const hasPremium = await checkPremiumAccess();
+                if (!hasPremium) {
+                    // Afficher le paywall ou rediriger
+                    showPremiumRequired();
+                    return;
+                }
+
                 // Récupérer la valeur actuelle du portefeuille
                 await loadPortfolioValue();
 
@@ -411,6 +419,77 @@
                 window.location.href = '/';
             }
         });
+
+        // Vérifier l'accès premium
+        async function checkPremiumAccess() {
+            try {
+                const response = await fetch('/api/subscription', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    window.userPlan = data.data;
+                    return data.data.is_premium === true;
+                }
+                return false;
+            } catch (error) {
+                console.error('Erreur vérification premium:', error);
+                return false;
+            }
+        }
+
+        // Afficher le message premium requis
+        function showPremiumRequired() {
+            const container = document.querySelector('.projections-container');
+            container.innerHTML = `
+                <div style="text-align: center; padding: 60px 20px;">
+                    <div style="font-size: 4rem; margin-bottom: 24px;">🔒</div>
+                    <h2 style="font-size: 1.8rem; font-weight: 700; color: var(--text); margin-bottom: 16px;">
+                        Fonctionnalité Premium
+                    </h2>
+                    <p style="color: var(--muted); font-size: 1.1rem; margin-bottom: 32px; max-width: 400px; margin-left: auto; margin-right: auto;">
+                        Les projections financières sont réservées aux utilisateurs Premium.
+                        Accédez à des analyses avancées et des projections personnalisées.
+                    </p>
+                    <button onclick="startSubscription()" class="calculate-btn" style="margin-bottom: 16px;">
+                        Passer à Premium - 3,99€/mois
+                    </button>
+                    <p style="color: var(--muted); font-size: 0.85rem;">
+                        3 jours d'essai gratuit • Sans engagement
+                    </p>
+                    <a href="/" style="color: var(--primary); text-decoration: none; display: inline-block; margin-top: 24px;">
+                        ← Retour au portefeuille
+                    </a>
+                </div>
+            `;
+        }
+
+        // Fonction pour démarrer l'abonnement
+        async function startSubscription() {
+            try {
+                const response = await fetch('/api/subscription/checkout', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success && result.data && result.data.url) {
+                    window.location.href = result.data.url;
+                } else {
+                    alert('Erreur lors de la création de la session de paiement');
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('Une erreur est survenue. Veuillez réessayer.');
+            }
+        }
 
         // Fonction wrapper pour calculer les projections
         function calculateProjectionsWrapper() {

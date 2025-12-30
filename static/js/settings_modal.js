@@ -111,12 +111,52 @@ function resetData() {
     }
 }
 
+/**
+ * Ouvre le portail client Stripe pour gérer l'abonnement
+ */
+async function openCustomerPortal() {
+    try {
+        // Récupérer le token Firebase de l'utilisateur connecté
+        const auth = window.firebaseAuth || firebase.auth();
+        const user = auth.currentUser;
+
+        if (!user) {
+            alert('Vous devez être connecté pour gérer votre abonnement');
+            return;
+        }
+
+        const token = await user.getIdToken();
+
+        // Appeler l'API pour créer une session portail
+        const response = await fetch('/api/subscription/portal', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const result = await response.json();
+
+        if (result.success && result.data && result.data.url) {
+            // Rediriger vers le portail Stripe
+            window.location.href = result.data.url;
+        } else {
+            alert('Impossible d\'accéder au portail client. Veuillez réessayer.');
+        }
+    } catch (error) {
+        console.error('Erreur lors de l\'ouverture du portail client:', error);
+        alert('Une erreur est survenue. Veuillez réessayer.');
+    }
+}
+
 // Exposer les fonctions globalement
 window.openSettings = openSettings;
 window.closeSettings = closeSettings;
 window.changeAccountType = changeAccountType;
 window.toggleDetailedKpisDefault = toggleDetailedKpisDefault;
 window.resetData = resetData;
+window.openCustomerPortal = openCustomerPortal;
 
 // Fermer la modale en cliquant sur l'overlay
 document.addEventListener('click', (e) => {

@@ -1676,7 +1676,7 @@
                         <thead>
                             <tr>
                                 <th style="width: 60px;">Part</th>
-                                <th>ISIN</th>
+                                <th>Nom</th>
                                 <th class="number">Quantité</th>
                                 <th class="number">Prix Moyen</th>
                                 <th class="number">Prix Actuel</th>
@@ -2204,7 +2204,7 @@
                                 <div class="portfolio-pie-text">${portfolioPercentage.toFixed(0)}%</div>
                             </div>
                         </td>
-                        <td>${position.isin}</td>
+                        <td class="position-name" title="${position.name} (${position.isin})">${position.name}</td>
                         <td class="number">${position.quantity.toLocaleString('fr-FR')}</td>
                         <td class="number">€${(position.avgUnitPrice || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
                         <td class="number">€${(position.currentPrice || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
@@ -3593,10 +3593,8 @@
 
                     // Recharger le graphique avec la nouvelle période
                     if (fullMonthlyData) {
-                        // Si on a déjà les données, juste filtrer et recharger
                         loadPortfolioChart(newPeriod);
                     } else {
-                        // Sinon charger les données depuis l'API
                         currentPeriod = newPeriod;
                         loadPortfolioChart();
                     }
@@ -3614,94 +3612,6 @@
                 closePremiumModal();
             }
         });
-
-        // ========== FONCTIONS DE DEBUGGING GLOBALES ==========
-        // Création des fonctions de debug de manière plus robuste
-        (function() {
-            window.debugPremium = {};
-
-            // Afficher toutes les informations utilisateur
-            window.debugPremium.showUserInfo = function() {
-                try {
-                } catch(e) {
-                }
-                return window.userPlan;
-            };
-
-            // Vérifier l'accès premium
-            window.debugPremium.checkAccess = function() {
-                try {
-                    var hasAccess = hasPremiumAccess();
-                } catch(e) {
-                }
-                if (window.userPlan) {
-                } else {
-                }
-                return hasAccess;
-            };
-
-            // Forcer la mise à jour des boutons
-            window.debugPremium.updateButtons = function() {
-                try {
-                    updatePeriodButtonsAccess();
-                } catch(e) {
-                    console.error('Erreur:', e);
-                }
-            };
-
-            // Récupérer le statut depuis l'API
-            window.debugPremium.fetchStatus = function() {
-                return fetch('/api/subscription', {
-                    headers: {
-                        'Authorization': 'Bearer ' + authToken
-                    }
-                })
-                .then(function(response) { return response.json(); })
-                .then(function(result) {
-                    if (result.success) {
-                        return result.data;
-                    }
-                })
-                .catch(function(error) {
-                    console.error('❌ Erreur:', error);
-                });
-            };
-
-            // Forcer la mise à jour avec les données de l'API
-            window.debugPremium.forceUpdate = function() {
-                return fetch('/api/subscription', {
-                    headers: {
-                        'Authorization': 'Bearer ' + authToken
-                    }
-                })
-                .then(function(response) { return response.json(); })
-                .then(function(result) {
-                    if (result.success) {
-                        updateSubscriptionUI(result.data);
-                        updatePeriodButtonsAccess();
-                        return result.data;
-                    }
-                })
-                .catch(function(error) {
-                    console.error('❌ Erreur:', error);
-                });
-            };
-
-            // Afficher l'état des boutons de période
-            window.debugPremium.showButtonsState = function() {
-                var buttons = document.querySelectorAll('.period-btn');
-                buttons.forEach(function(btn) {
-                    var period = btn.dataset.period;
-                    var isLocked = btn.classList.contains('locked');
-                });
-            };
-
-            // Guide d'utilisation
-            window.debugPremium.help = function() {
-            };
-
-            // Afficher le guide au chargement
-        })();
 
     </script>
 

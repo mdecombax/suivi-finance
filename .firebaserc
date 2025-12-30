@@ -1,0 +1,11 @@
+{
+  "projects": {},
+  "targets": {},
+  "etags": {
+    "suivi-financ": {
+      "extensionInstances": {
+        "firestore-stripe-payments": "aa47dca0bad9584e45f9fc2029145ff2829316bfd2058fd5963c14cf77125977"
+      }
+    }
+  }
+}

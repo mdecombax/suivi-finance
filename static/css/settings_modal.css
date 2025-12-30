@@ -174,6 +174,17 @@
     transform: translateY(-2px);
 }
 
+.settings-action-btn.primary {
+    border-color: rgba(130,196,255,0.3);
+    color: var(--primary);
+    background: rgba(130,196,255,0.05);
+}
+
+.settings-action-btn.primary:hover {
+    border-color: var(--primary);
+    background: rgba(130,196,255,0.15);
+}
+
 .settings-action-btn.danger {
     border-color: rgba(248,113,113,0.3);
     color: #f87171;

@@ -360,6 +360,54 @@
             border-radius: 8px;
         }
 
+        /* Freemium Limit Banner Styles */
+        .freemium-limit-banner {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(255, 255, 255, 0.05));
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: var(--border-radius-lg);
+            padding: 16px 20px;
+            margin-bottom: 16px;
+        }
+
+        .freemium-limit-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .freemium-limit-icon {
+            font-size: 1.3rem;
+        }
+
+        .freemium-limit-text {
+            color: var(--warning);
+            font-size: 0.95rem;
+        }
+
+        .freemium-limit-text strong {
+            color: var(--text);
+        }
+
+        .freemium-limit-btn {
+            padding: 8px 16px;
+            background: var(--gradient-primary);
+            border: none;
+            border-radius: 20px;
+            color: white;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            box-shadow: 0 2px 8px rgba(130, 196, 255, 0.3);
+        }
+
+        .freemium-limit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(130, 196, 255, 0.4);
+        }
+
         @media (max-width: 768px) {
             .position-grid {
                 grid-template-columns: 1fr;
@@ -371,6 +419,15 @@
 
             .position-title {
                 font-size: 1.8rem;
+            }
+
+            .freemium-limit-content {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .freemium-limit-btn {
+                margin-top: 8px;
             }
         }
     </style>
@@ -1173,7 +1230,7 @@
                     // Arrêter l'animation de chargement et afficher le vrai graphique
                     stopEvolutionLoadingAnimation();
                     setTimeout(() => {
-                        createPositionEvolutionChart(result.data);
+                        createPositionEvolutionChart(result.data, result.is_limited, result.total_months_available);
                     }, 300);
                 } else {
                     throw new Error(result.error || 'Erreur inconnue');
@@ -1193,9 +1250,35 @@
             }
         }
 
-        function createPositionEvolutionChart(monthlyData) {
+        function createPositionEvolutionChart(monthlyData, isLimited = false, totalMonthsAvailable = 0) {
             const canvas = document.getElementById('evolutionChart');
             const loadingState = document.getElementById('evolutionChartLoadingState');
+            const chartContainer = document.getElementById('positionEvolutionChart');
+
+            // Supprimer l'ancien bandeau de limitation s'il existe
+            const existingBanner = document.getElementById('freemiumLimitBanner');
+            if (existingBanner) {
+                existingBanner.remove();
+            }
+
+            // Afficher un bandeau si les données sont limitées (freemium)
+            if (isLimited && totalMonthsAvailable > 3) {
+                const banner = document.createElement('div');
+                banner.id = 'freemiumLimitBanner';
+                banner.className = 'freemium-limit-banner';
+                banner.innerHTML = `
+                    <div class="freemium-limit-content">
+                        <span class="freemium-limit-icon">📊</span>
+                        <span class="freemium-limit-text">
+                            Affichage limité aux <strong>3 derniers mois</strong> (${totalMonthsAvailable} mois disponibles)
+                        </span>
+                        <button class="freemium-limit-btn" onclick="openPremiumModal()">
+                            Voir tout l'historique
+                        </button>
+                    </div>
+                `;
+                chartContainer.parentNode.insertBefore(banner, chartContainer);
+            }
 
             if (!monthlyData || monthlyData.length === 0) {
                 loadingState.innerHTML = `
