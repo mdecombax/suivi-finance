@@ -30,6 +30,7 @@ from models import ProjectionParams
 from services.price_service import PriceService
 from services.portfolio_service import PortfolioService
 from services.projection_service import ProjectionService
+from services.position_service import PositionService
 
 # Configure logging
 logging.basicConfig(
@@ -62,6 +63,12 @@ portfolio_service = PortfolioService(
 )
 
 projection_service = ProjectionService(debug_logger=debug_log)
+
+position_service = PositionService(
+    price_service=price_service,
+    firebase_service=firebase_service,
+    debug_logger=debug_log
+)
 
 
 # ============================================================================
@@ -259,11 +266,8 @@ def price_history_api():
 def position_detail_api(isin):
     """API endpoint for position details with enriched data."""
     try:
-        # Récupérer l'ID de l'utilisateur connecté
         user_id = get_current_user_id()
-
-        # Récupérer les données enrichies pour cette position (filtrées par utilisateur)
-        enriched_data = _get_enriched_position_data(isin, user_id)
+        enriched_data = position_service.get_enriched_position_data(isin, user_id)
         return jsonify(enriched_data)
     except Exception as e:
         debug_log("Position detail API error", {"isin": isin, "error": str(e)})
@@ -960,165 +964,6 @@ def _extract_history_parameters() -> Dict[str, str]:
         "date_from": date_from,
         "date_to": date_to
     }
-
-
-def _get_enriched_position_data(isin: str, user_id: str) -> Dict[str, Any]:
-    """Get enriched data for a specific position including name, portfolio info, and technical data.
-
-    Args:
-        isin: The ISIN of the position
-        user_id: The authenticated user's ID to filter orders
-    """
-    import yfinance as yf
-    import requests
-    from datetime import datetime, timedelta
-
-    try:
-        # Récupérer les données de base
-        current_price_quote = price_service.get_current_price(isin)
-
-        # Récupérer les informations détaillées via Yahoo Finance
-        yahoo_info = {}
-        try:
-            ticker = yf.Ticker(isin)
-            info = ticker.info or {}
-            yahoo_info = {
-                'full_name': info.get('longName') or info.get('shortName', isin),
-                'short_name': info.get('shortName', isin),
-                'fund_family': info.get('fundFamily', 'N/A'),
-                'currency': info.get('currency', 'EUR'),
-                'expense_ratio': info.get('netExpenseRatio'),
-                'pe_ratio': info.get('trailingPE'),
-                'beta': info.get('beta3Year'),
-                'ytd_return': info.get('ytdReturn'),
-                'inception_date': info.get('fundInceptionDate'),
-                'exchange': info.get('exchange', 'N/A'),
-                'week_52_low': info.get('fiftyTwoWeekLow'),
-                'week_52_high': info.get('fiftyTwoWeekHigh'),
-                'avg_volume': info.get('averageVolume'),
-                'market_cap': info.get('marketCap')
-            }
-
-            # Calculs historiques
-            hist_1y = ticker.history(period='1y')
-            if not hist_1y.empty:
-                current_price = hist_1y['Close'].iloc[-1]
-                sma_50 = hist_1y['Close'].rolling(50).mean().iloc[-1] if len(hist_1y) > 50 else None
-                sma_200 = hist_1y['Close'].rolling(200).mean().iloc[-1] if len(hist_1y) > 200 else None
-
-                yahoo_info.update({
-                    'sma_50': float(sma_50) if sma_50 is not None else None,
-                    'sma_200': float(sma_200) if sma_200 is not None else None,
-                    'current_price_yahoo': float(current_price)
-                })
-
-        except Exception as e:
-            debug_log("Error fetching Yahoo data", {"isin": isin, "error": str(e)})
-
-        # Récupérer les données de portefeuille utilisateur depuis Firebase (seulement les ordres de cet utilisateur)
-        portfolio_info = {}
-        try:
-            # Charger les ordres de l'utilisateur connecté depuis Firebase
-            user_orders = firebase_service.get_user_orders(user_id)
-
-            # Filtrer les ordres pour cet ISIN
-            user_positions = [order for order in user_orders if order.get('isin') == isin]
-
-            if user_positions:
-                # Calculer les métriques uniquement sur les ordres de l'utilisateur
-                total_quantity = sum(order.get('quantity', 0) for order in user_positions)
-                # FIX: Utiliser 'totalPriceEUR' au lieu de 'totalPrice' (nom réel dans Firebase)
-                total_invested = sum(order.get('totalPriceEUR', 0) for order in user_positions)
-                avg_price = total_invested / total_quantity if total_quantity > 0 else 0
-
-                # Convertir les dates string en objets datetime pour pouvoir faire min/max
-                order_dates = [datetime.fromisoformat(order.get('date').replace('Z', '+00:00')) if isinstance(order.get('date'), str) else order.get('date') for order in user_positions]
-
-                portfolio_info = {
-                    'has_position': True,
-                    'total_quantity': total_quantity,
-                    'total_invested': total_invested,
-                    'average_purchase_price': avg_price,
-                    'orders_count': len(user_positions),
-                    'first_purchase_date': min(order_dates).isoformat() if order_dates else None,
-                    'last_purchase_date': max(order_dates).isoformat() if order_dates else None,
-                    'current_value': current_price_quote.price * total_quantity if current_price_quote.is_valid else None
-                }
-
-                # Calcul des P&L avec vérification défensive (éviter division par zéro)
-                if portfolio_info['current_value'] and total_invested > 0:
-                    portfolio_info['unrealized_pnl'] = portfolio_info['current_value'] - total_invested
-                    portfolio_info['unrealized_pnl_pct'] = (portfolio_info['unrealized_pnl'] / total_invested) * 100
-                elif portfolio_info['current_value']:
-                    # Si current_value existe mais total_invested = 0, il y a un problème de données
-                    portfolio_info['unrealized_pnl'] = 0
-                    portfolio_info['unrealized_pnl_pct'] = 0
-            else:
-                portfolio_info = {'has_position': False}
-
-        except Exception as e:
-            debug_log("Error fetching portfolio data", {"isin": isin, "user_id": user_id, "error": str(e)})
-            portfolio_info = {'has_position': False}
-
-        # Récupérer des données JustETF enrichies
-        justetf_data = {}
-        try:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15',
-                'Accept': 'application/json',
-                'Referer': f'https://www.justetf.com/fr/etf-profile.html?isin={isin}'
-            }
-
-            # Quote avec plus de détails
-            url = f"https://www.justetf.com/api/etfs/{isin}/quote"
-            params = {'currency': 'EUR', 'locale': 'fr'}
-            response = requests.get(url, params=params, headers=headers, timeout=8)
-
-            if response.status_code == 200:
-                data = response.json()
-                justetf_data = {
-                    'latest_quote': data.get('latestQuote', {}).get('raw'),
-                    'previous_quote': data.get('previousQuote', {}).get('raw'),
-                    'daily_change_pct': data.get('dtdPrc', {}).get('raw'),
-                    'daily_change_abs': data.get('dtdAmt', {}).get('raw'),
-                    'trading_venue': data.get('quoteTradingVenue'),
-                    'week_52_low': data.get('quoteLowHigh', {}).get('low', {}).get('raw'),
-                    'week_52_high': data.get('quoteLowHigh', {}).get('high', {}).get('raw')
-                }
-
-        except Exception as e:
-            debug_log("Error fetching JustETF data", {"isin": isin, "error": str(e)})
-
-        # Combiner toutes les données
-        enriched_data = {
-            'isin': isin,
-            'basic_quote': {
-                'price': current_price_quote.price,
-                'source': current_price_quote.source,
-                'is_valid': current_price_quote.is_valid,
-                'currency': current_price_quote.currency or 'EUR'
-            },
-            'yahoo_finance': yahoo_info,
-            'justetf': justetf_data,
-            'portfolio': portfolio_info,
-            'last_updated': datetime.now().isoformat()
-        }
-
-        return enriched_data
-
-    except Exception as e:
-        debug_log("Error getting enriched position data", {"isin": isin, "error": str(e)})
-        return {
-            'isin': isin,
-            'error': str(e),
-            'basic_quote': {
-                'price': 0.0,
-                'source': 'Error',
-                'is_valid': False,
-                'currency': 'EUR'
-            },
-            'portfolio': {'has_position': False}
-        }
 
 
 # ============================================================================

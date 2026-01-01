@@ -1292,6 +1292,9 @@
             cursor: pointer;
             transition: all var(--transition-fast);
             min-width: 40px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
         }
 
         .period-btn:hover {
@@ -1306,15 +1309,12 @@
         }
 
         .period-btn.locked {
-            position: relative;
-            opacity: 0.6;
-            cursor: not-allowed;
+            cursor: pointer;
         }
 
-        .period-btn.locked::after {
-            content: '🔒';
-            margin-left: 4px;
-            font-size: 0.75rem;
+        .period-btn.locked:hover {
+            background: rgba(255,255,255,0.05);
+            color: var(--text);
         }
 
         /* Bouton "Voir plus" dans le tableau des positions */
@@ -3527,7 +3527,6 @@
         function updatePeriodButtonsAccess() {
             const periodButtons = document.querySelectorAll('.period-btn');
             const hasPremium = hasPremiumAccess();
-
 
             periodButtons.forEach(button => {
                 const period = button.dataset.period;

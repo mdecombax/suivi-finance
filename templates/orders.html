@@ -4,189 +4,28 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Suivi Finance — Ordres</title>
+
+    <!-- CSS -->
     <link rel="stylesheet" href="/static/css/main.css">
     <link rel="stylesheet" href="/static/css/settings_modal.css">
-    <style>
-        /* Styles spécifiques à la page des ordres */
-        .add-order-section {
-            animation: fadeInUp 0.6s ease-out;
-        }
-        
-        .orders-section {
-            animation: fadeInUp 0.8s ease-out 0.2s both;
-        }
-        
-        .section-title {
-            font-size: 1.25rem;
-            font-weight: 700;
-            margin-bottom: 20px;
-            color: var(--text);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        .section-title::before {
-            content: '';
-            width: 4px;
-            height: 24px;
-            background: var(--gradient-primary);
-            border-radius: 2px;
-        }
-        
-        .info-tip {
-            margin-bottom: 16px;
-            padding: 12px;
-            background: rgba(130,196,255,0.1);
-            border: 1px solid rgba(130,196,255,0.2);
-            border-radius: var(--border-radius-lg);
-            font-size: 0.9rem;
-            color: var(--text);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            animation: fadeInDown 0.4s ease-out 0.3s both;
-        }
-        
-        .info-tip::before {
-            content: '💡';
-            font-size: 1.2rem;
-        }
-        
-        .form-input:focus {
-            transform: scale(1.02);
-        }
-        
-        .btn-primary {
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .btn-primary::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 0;
-            height: 0;
-            background: rgba(255,255,255,0.2);
-            border-radius: 50%;
-            transition: all var(--transition-normal);
-            transform: translate(-50%, -50%);
-        }
-        
-        .btn-primary:hover::before {
-            width: 300px;
-            height: 300px;
-        }
-        
-        .loading-spinner {
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-radius: 50%;
-            border-top-color: currentColor;
-            animation: spin 1s ease-in-out infinite;
-        }
-        
-        .table tbody tr:hover {
-            transform: scale(1.01);
-        }
-        
-        /* Animation pour les actions de suppression */
-        .btn-danger {
-            position: relative;
-            overflow: hidden;
-            transition: all var(--transition-fast);
-        }
-        
-        .btn-danger::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 0;
-            height: 0;
-            background: rgba(255,255,255,0.2);
-            border-radius: 50%;
-            transition: all var(--transition-normal);
-            transform: translate(-50%, -50%);
-        }
-        
-        .btn-danger:hover::before {
-            width: 200px;
-            height: 200px;
-        }
-        
-        .btn-danger:hover {
-            transform: translateY(-2px) scale(1.05);
-        }
-        
-        /* Animation de confirmation pour les suppressions */
-        .delete-confirm {
-            animation: shake 0.5s ease-in-out;
-        }
-        
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
-        }
-        
-        /* Effet de succès pour les actions */
-        .success-flash {
-            animation: successFlash 0.6s ease-out;
-        }
-        
-        @keyframes successFlash {
-            0% { background-color: transparent; }
-            50% { background-color: rgba(76,175,80,0.2); }
-            100% { background-color: transparent; }
-        }
-        
-        /* Responsive amélioré */
-        @media (max-width: 768px) {
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="/static/css/orders.css">
+
+    <!-- Meta -->
     <meta name="robots" content="noindex" />
     <meta name="color-scheme" content="light dark" />
     <link rel="icon" href="/static/images/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/static/images/favicon.ico" type="image/x-icon" sizes="any" />
     <meta name="description" content="Gestion des ordres d'investissement" />
 
-    <!-- Firebase SDK -->
-    <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js';
-        import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js';
+    <!-- Firebase SDK (compat pour cohérence avec toutes les pages) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
-        // Configuration Firebase
-        const firebaseConfig = {
-            "apiKey": "AIzaSyBFrk8tZVEuM0LeQ0D8kJ7N2Bt-KyuQv0I",
-            "authDomain": "suivi-financ.firebaseapp.com",
-            "projectId": "suivi-financ",
-            "storageBucket": "suivi-financ.firebasestorage.app",
-            "messagingSenderId": "959011615445",
-            "appId": "1:959011615445:web:993be6cee77fc6cedae85c",
-            "measurementId": "G-8QXCJ8J23S"
-        };
-
-        // Initialiser Firebase
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-
-        // Exposer Firebase globalement
-        window.firebaseAuth = auth;
-        window.onAuthStateChanged = onAuthStateChanged;
-        window.signOut = signOut;
-    </script>
-
-    <!-- Script centralisé pour le dropdown utilisateur -->
+    <!-- Modules partagés -->
+    <script src="/static/js/shared/firebase-config.js"></script>
+    <script src="/static/js/shared/auth.js"></script>
+    <script src="/static/js/shared/utils.js"></script>
     <script src="/static/js/user_dropdown.js"></script>
-
-    <!-- Script centralisé pour la modale des paramètres -->
     <script src="/static/js/settings_modal.js"></script>
 </head>
 <body>
@@ -199,7 +38,7 @@
                 <div class="loading-spinner animate-spin"></div>
                 <span class="loading-text">Chargement de vos ordres...</span>
             </div>
-                    
+
             <div id="ordersContent" style="display: none;">
                 <!-- Add Order Section -->
                 <div class="add-order-section card">
@@ -209,42 +48,39 @@
                         <div class="form-grid">
                             <div class="form-group">
                                 <label class="form-label" for="isin">ISIN</label>
-                                <input 
-                                    class="form-input" 
-                                    type="text" 
-                                    id="isin" 
-                                    name="isin" 
-                                    placeholder="LU1681043599" 
-                                    required 
+                                <input
+                                    class="form-input"
+                                    type="text"
+                                    id="isin"
+                                    name="isin"
+                                    placeholder="LU1681043599"
+                                    required
                                     maxlength="12"
                                 />
                             </div>
                             <div class="form-group">
                                 <label class="form-label" for="quantity">Quantité</label>
-                                <input 
-                                    class="form-input" 
-                                    type="number" 
-                                    id="quantity" 
-                                    name="quantity" 
-                                    placeholder="10" 
-                                    step="0.01" 
-                                    min="0.01" 
-                                    required 
+                                <input
+                                    class="form-input"
+                                    type="number"
+                                    id="quantity"
+                                    name="quantity"
+                                    placeholder="10"
+                                    step="0.01"
+                                    min="0.01"
+                                    required
                                 />
                             </div>
                             <div class="form-group">
                                 <label class="form-label" for="date">Date</label>
-                                <input 
-                                    class="form-input" 
-                                    type="date" 
-                                    id="date" 
-                                    name="date" 
-                                    required 
+                                <input
+                                    class="form-input"
+                                    type="date"
+                                    id="date"
+                                    name="date"
+                                    required
                                 />
                             </div>
-                        </div>
-                        <div class="info-tip">
-                            Le prix sera récupéré automatiquement via JustETF ou Yahoo Finance pour la date sélectionnée
                         </div>
                         <button type="submit" class="btn btn-primary" id="addOrderBtn">
                             <span id="addOrderBtnText">Ajouter l'ordre</span>
@@ -282,46 +118,16 @@
     {% include 'components/settings_modal.html' %}
 
     <script>
-        // État de l'application
+        // État de l'application (simplifié - utilise AuthState global)
         let orders = [];
-        let currentUser = null;
-        let authToken = null;
 
         // Forcer le thème dark
         document.documentElement.setAttribute('data-theme', 'dark');
 
-        // Gestion des messages
-        function showMessage(message, type = 'error') {
-            const container = document.getElementById('messageContainer');
-            container.innerHTML = `<div class="${type} animate-fadeInDown">${message}</div>`;
-            
-            if (type === 'success') {
-                setTimeout(() => {
-                    container.innerHTML = '';
-                }, 3000);
-            }
-        }
-
-        // Chargement des ordres
+        // Chargement des ordres (utilise apiGet du module partagé)
         async function loadOrders() {
             try {
-                if (!authToken) {
-                    throw new Error('Utilisateur non authentifié');
-                }
-
-                const response = await fetch('/api/orders', {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error('Erreur lors du chargement des ordres');
-                }
-
-                const result = await response.json();
+                const result = await apiGet('/api/orders');
                 if (result.success) {
                     orders = result.orders;
                     updateOrdersTable();
@@ -336,7 +142,7 @@
 
         function updateOrdersTable() {
             const tbody = document.getElementById('ordersTableBody');
-            
+
             if (orders.length === 0) {
                 tbody.innerHTML = `
                     <tr class="empty-state">
@@ -350,17 +156,17 @@
                 return;
             }
 
-            tbody.innerHTML = orders.map((order, index) => {
-                const date = new Date(order.date).toLocaleDateString('fr-FR');
+            tbody.innerHTML = orders.map((order) => {
+                const date = formatDate(order.date);
                 const totalPrice = order.quantity * order.unitPriceEUR;
 
                 return `
                     <tr>
                         <td class="number">${date}</td>
                         <td>${order.isin}</td>
-                        <td class="number">${order.quantity.toLocaleString('fr-FR')}</td>
-                        <td class="number">€${order.unitPriceEUR.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
-                        <td class="number">€${totalPrice.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}</td>
+                        <td class="number">${formatNumber(order.quantity, 2)}</td>
+                        <td class="number">${formatCurrency(order.unitPriceEUR, {maximumFractionDigits: 2})}</td>
+                        <td class="number">${formatCurrency(totalPrice, {maximumFractionDigits: 2})}</td>
                         <td>
                             <button class="btn btn-danger" onclick="deleteOrder('${order.id}')" style="padding: 6px 12px; font-size: 0.8rem;">
                                 Supprimer
@@ -371,30 +177,13 @@
             }).join('');
         }
 
-        // Ajout d'un ordre
+        // Ajout d'un ordre (utilise apiPost du module partagé)
         async function addOrder(orderData) {
             try {
-                if (!authToken) {
-                    throw new Error('Utilisateur non authentifié');
-                }
-
-                const response = await fetch('/api/orders', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    },
-                    body: JSON.stringify(orderData)
-                });
-
-                if (!response.ok) {
-                    throw new Error('Erreur lors de l\'ajout de l\'ordre');
-                }
-
-                const result = await response.json();
+                const result = await apiPost('/api/orders', orderData);
                 if (result.success) {
                     showMessage('Ordre ajouté avec succès', 'success');
-                    await loadOrders(); // Recharger la liste
+                    await loadOrders();
                 } else {
                     throw new Error(result.error || 'Erreur inconnue');
                 }
@@ -406,41 +195,27 @@
 
         // Suppression d'un ordre
         async function deleteOrder(orderId) {
-            // Animation de confirmation
             const deleteBtn = event.target;
             deleteBtn.classList.add('delete-confirm');
-            
+
             setTimeout(() => {
                 deleteBtn.classList.remove('delete-confirm');
             }, 500);
-            
+
             if (!confirm('Êtes-vous sûr de vouloir supprimer cet ordre ?')) {
                 return;
             }
 
             try {
-                const response = await fetch(`/api/orders?order_id=${orderId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error('Erreur lors de la suppression de l\'ordre');
-                }
-
-                const result = await response.json();
+                const result = await apiDelete(`/api/orders?order_id=${orderId}`);
                 if (result.success) {
                     showMessage('Ordre supprimé avec succès', 'success');
-                    
-                    // Animation de succès sur la ligne supprimée
+
                     const row = deleteBtn.closest('tr');
                     row.classList.add('success-flash');
-                    
+
                     setTimeout(async () => {
-                        await loadOrders(); // Recharger la liste
+                        await loadOrders();
                     }, 600);
                 } else {
                     throw new Error(result.error || 'Erreur inconnue');
@@ -451,106 +226,154 @@
             }
         }
 
-        // Validation de l'ISIN
-        function validateISIN(isin) {
-            const isinRegex = /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/;
-            return isinRegex.test(isin.toUpperCase());
-        }
-
         // Gestion du formulaire d'ajout d'ordre
         document.getElementById('addOrderForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             const formData = new FormData(e.target);
             const isin = formData.get('isin').toUpperCase();
             const quantity = parseFloat(formData.get('quantity'));
             const date = formData.get('date');
-            
-            // Validation
+
+            // Validation (utilise validateISIN du module partagé)
             if (!validateISIN(isin)) {
                 showMessage('ISIN invalide (format: 2 lettres + 9 caractères alphanumériques + 1 chiffre)', 'error');
                 return;
             }
-            
+
             if (quantity <= 0) {
                 showMessage('La quantité doit être positive', 'error');
                 return;
             }
-            
+
             if (!date) {
                 showMessage('La date est requise', 'error');
                 return;
             }
-            
+
             const addBtn = document.getElementById('addOrderBtn');
             const addBtnText = document.getElementById('addOrderBtnText');
             const addBtnLoading = document.getElementById('addOrderBtnLoading');
-            
-            // Afficher le loading
+
             addBtn.disabled = true;
             addBtnText.style.display = 'none';
             addBtnLoading.style.display = 'inline-block';
-            
+
             try {
-                const orderData = {
-                    isin: isin,
-                    quantity: quantity,
-                    date: date
-                };
-                
-                await addOrder(orderData);
-                
-                // Réinitialiser le formulaire
+                await addOrder({ isin, quantity, date });
                 e.target.reset();
-                // Remettre la date d'aujourd'hui
-                const today = new Date().toISOString().split('T')[0];
-                document.getElementById('date').value = today;
+                document.getElementById('date').value = getTodayISO();
             } catch (error) {
                 console.error('Erreur lors de l\'ajout de l\'ordre:', error);
             } finally {
-                // Masquer le loading
                 addBtn.disabled = false;
                 addBtnText.style.display = 'inline';
                 addBtnLoading.style.display = 'none';
             }
         });
 
-        // Gestion de l'authentification
-        function initAuth() {
-            window.onAuthStateChanged(window.firebaseAuth, async (user) => {
-                if (user) {
-                    // Utilisateur connecté
-                    currentUser = user;
-                    authToken = await user.getIdToken();
+        // ========== PREMIUM FUNCTIONS ==========
 
-                    // Utiliser la fonction centralisée du module user_dropdown
-                    if (typeof window.updateUserInterface === 'function') {
-                        window.updateUserInterface(user);
+        // Fonction pour ouvrir la modal premium
+        function openPremiumModal() {
+            const modal = document.getElementById('premiumModal');
+            modal.classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+        window.openPremiumModal = openPremiumModal;
+
+        // Fonction pour fermer la modal premium
+        function closePremiumModal() {
+            const modal = document.getElementById('premiumModal');
+            modal.classList.remove('show');
+            document.body.style.overflow = '';
+        }
+        window.closePremiumModal = closePremiumModal;
+
+        // Fonction pour démarrer l'abonnement
+        async function startSubscription() {
+            try {
+                const response = await fetch('/api/subscription/checkout', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
                     }
+                });
 
-                    // Masquer le loading et afficher le contenu
-                    document.getElementById('loadingState').style.display = 'none';
-                    document.getElementById('ordersContent').style.display = 'block';
+                const result = await response.json();
 
-                    // Charger les ordres
-                    loadOrders();
+                if (result.success && result.data && result.data.url) {
+                    window.location.href = result.data.url;
                 } else {
-                    // Utilisateur non connecté, rediriger vers la page principale
-                    window.location.href = '/';
+                    alert('Erreur lors de la création de la session de paiement');
                 }
-            });
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('Une erreur est survenue. Veuillez réessayer.');
+            }
+        }
+
+        // Fonction pour vérifier si l'utilisateur a accès premium
+        function hasPremiumAccess() {
+            if (!window.userPlan) {
+                return false;
+            }
+
+            const plan = window.userPlan.plan;
+            const status = window.userPlan.status;
+            const isPremiumFlag = window.userPlan.is_premium;
+
+            let hasAccess = false;
+
+            if (isPremiumFlag === true) {
+                hasAccess = true;
+            } else if (plan === 'premium' || plan === 'trial') {
+                hasAccess = true;
+            } else if ((status === 'trialing' || status === 'active') && plan !== 'freemium') {
+                hasAccess = true;
+            }
+
+            return hasAccess;
+        }
+        window.hasPremiumAccess = hasPremiumAccess;
+
+        // Charger le statut d'abonnement
+        async function loadSubscriptionStatus() {
+            try {
+                const result = await apiGet('/api/subscription');
+                if (result && result.data) {
+                    window.userPlan = result.data;
+                }
+            } catch (error) {
+                console.error('Erreur lors de la récupération du statut d\'abonnement:', error);
+            }
         }
 
         // Initialisation
         function init() {
-            // Définir la date d'aujourd'hui par défaut
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('date').value = today;
+            // Initialiser Firebase
+            initializeFirebase();
 
-            // Attendre que Firebase soit chargé puis vérifier l'authentification
-            setTimeout(() => {
-                initAuth();
-            }, 100);
+            // Définir la date d'aujourd'hui par défaut
+            document.getElementById('date').value = getTodayISO();
+
+            // Initialiser l'authentification avec le module partagé
+            initAuth({
+                requireAuth: true,
+                onAuthenticated: async (user, token) => {
+                    // Charger le statut d'abonnement
+                    await loadSubscriptionStatus();
+
+                    // Masquer le loading et afficher le contenu
+                    hideElement('loadingState');
+                    showElement('ordersContent');
+                    document.getElementById('ordersContent').style.display = 'block';
+
+                    // Charger les ordres
+                    loadOrders();
+                }
+            });
         }
 
         // Démarrer l'application
@@ -559,5 +382,39 @@
         // Exposer les fonctions globalement pour les boutons
         window.deleteOrder = deleteOrder;
     </script>
+
+    <!-- Modal Premium -->
+    <div id="premiumModal" class="premium-modal">
+        <div class="premium-modal-content">
+            <button class="premium-modal-close" onclick="closePremiumModal()">×</button>
+
+            <div class="premium-modal-header">
+                <div class="premium-modal-icon">⭐</div>
+                <h2 class="premium-modal-title">Passez à Premium</h2>
+                <p class="premium-modal-subtitle">Accédez à toutes les périodes temporelles et bien plus</p>
+            </div>
+
+            <div class="premium-modal-price">
+                <div class="premium-modal-price-amount">3,99€</div>
+                <div class="premium-modal-price-period">par mois</div>
+                <div class="premium-modal-trial">3 jours d'essai gratuit</div>
+            </div>
+
+            <ul class="premium-modal-features">
+                <li>Accès à toutes les périodes temporelles (6m, 1an, MAX)</li>
+                <li>Graphiques et analyses avancées</li>
+                <li>Exports illimités</li>
+                <li>Support prioritaire</li>
+            </ul>
+
+            <button class="premium-modal-cta" onclick="startSubscription()">
+                Démarrer l'essai gratuit
+            </button>
+
+            <p class="premium-modal-note">
+                Aucun paiement pendant 3 jours • Annulation à tout moment
+            </p>
+        </div>
+    </div>
 </body>
 </html>

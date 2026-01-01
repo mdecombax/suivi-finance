@@ -1,0 +1,146 @@
+/**
+ * Styles spécifiques à la page des ordres
+ */
+
+.add-order-section {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+.orders-section {
+    animation: fadeInUp 0.8s ease-out 0.2s both;
+}
+
+.section-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.section-title::before {
+    content: '';
+    width: 4px;
+    height: 24px;
+    background: var(--gradient-primary);
+    border-radius: 2px;
+}
+
+.info-tip {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: rgba(130,196,255,0.1);
+    border: 1px solid rgba(130,196,255,0.2);
+    border-radius: var(--border-radius-lg);
+    font-size: 0.9rem;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: fadeInDown 0.4s ease-out 0.3s both;
+}
+
+.info-tip::before {
+    content: '💡';
+    font-size: 1.2rem;
+}
+
+.form-input:focus {
+    transform: scale(1.02);
+}
+
+.btn-primary {
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-primary::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(255,255,255,0.2);
+    border-radius: 50%;
+    transition: all var(--transition-normal);
+    transform: translate(-50%, -50%);
+}
+
+.btn-primary:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+.loading-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    border-top-color: currentColor;
+    animation: spin 1s ease-in-out infinite;
+}
+
+.table tbody tr:hover {
+    transform: scale(1.01);
+}
+
+/* Animation pour les actions de suppression */
+.btn-danger {
+    position: relative;
+    overflow: hidden;
+    transition: all var(--transition-fast);
+}
+
+.btn-danger::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(255,255,255,0.2);
+    border-radius: 50%;
+    transition: all var(--transition-normal);
+    transform: translate(-50%, -50%);
+}
+
+.btn-danger:hover::before {
+    width: 200px;
+    height: 200px;
+}
+
+.btn-danger:hover {
+    transform: translateY(-2px) scale(1.05);
+}
+
+/* Animation de confirmation pour les suppressions */
+.delete-confirm {
+    animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}
+
+/* Effet de succès pour les actions */
+.success-flash {
+    animation: successFlash 0.6s ease-out;
+}
+
+@keyframes successFlash {
+    0% { background-color: transparent; }
+    50% { background-color: rgba(76,175,80,0.2); }
+    100% { background-color: transparent; }
+}
+
+/* Responsive amélioré */
+@media (max-width: 768px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+}

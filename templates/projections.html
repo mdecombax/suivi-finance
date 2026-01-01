@@ -4,252 +4,29 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Suivi Finance — Projections</title>
+
+    <!-- CSS -->
     <link rel="stylesheet" href="/static/css/main.css">
     <link rel="stylesheet" href="/static/css/settings_modal.css">
+    <link rel="stylesheet" href="/static/css/projections.css">
+
+    <!-- Meta -->
     <link rel="icon" href="/static/images/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/static/images/favicon.ico" type="image/x-icon" sizes="any" />
+
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Firebase SDKs -->
+
+    <!-- Firebase SDK (compat pour cohérence avec toutes les pages) -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-    <style>
-        /* Styles spécifiques aux projections */
-        .projections-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            position: relative;
-            z-index: 1;
-        }
 
-        .parameters-section {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: var(--border-radius-xl);
-            padding: 32px;
-            margin-bottom: 32px;
-        }
-
-        .parameters-form {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 24px;
-            margin-bottom: 24px;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .form-group label {
-            font-weight: 600;
-            color: var(--text);
-            margin-bottom: 8px;
-            font-size: 0.9rem;
-        }
-
-        .form-group input {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: var(--border-radius);
-            padding: 12px 16px;
-            color: var(--text);
-            font-size: 1rem;
-            transition: all var(--transition-fast);
-        }
-
-        .form-group input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 2px rgba(130,196,255,0.2);
-        }
-
-        .calculate-btn {
-            background: var(--gradient-primary);
-            border: none;
-            border-radius: var(--border-radius);
-            padding: 14px 32px;
-            color: white;
-            font-weight: 600;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all var(--transition-fast);
-            justify-self: start;
-        }
-
-        .calculate-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .scenarios-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 24px;
-            margin-bottom: 32px;
-        }
-
-        .scenario-card {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: var(--border-radius-xl);
-            padding: 28px;
-            position: relative;
-            transition: all var(--transition-fast);
-        }
-
-        .scenario-card:hover {
-            transform: translateY(-4px);
-            border-color: rgba(255,255,255,0.15);
-        }
-
-        .scenario-card.pessimist {
-            border-left: 4px solid #ef4444;
-        }
-
-        .scenario-card.normal {
-            border-left: 4px solid #3b82f6;
-        }
-
-        .scenario-card.optimist {
-            border-left: 4px solid #10b981;
-        }
-
-        .scenario-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 8px;
-            color: var(--text);
-        }
-
-        .scenario-description {
-            color: var(--muted);
-            font-size: 0.9rem;
-            margin-bottom: 24px;
-            line-height: 1.5;
-        }
-
-        .scenario-metrics {
-            display: grid;
-            gap: 16px;
-        }
-
-        .metric-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-        }
-
-        .metric-row:last-child {
-            border-bottom: none;
-        }
-
-        .metric-label {
-            color: var(--muted);
-            font-size: 0.9rem;
-        }
-
-        .metric-value {
-            color: var(--text);
-            font-weight: 600;
-            font-size: 1rem;
-        }
-
-        .metric-value.positive {
-            color: var(--success);
-        }
-
-        .metric-value.negative {
-            color: var(--danger);
-        }
-
-        .chart-section {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: var(--border-radius-xl);
-            padding: 32px;
-            margin-bottom: 32px;
-        }
-
-        .chart-title {
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: var(--text);
-            margin-bottom: 24px;
-            text-align: center;
-        }
-
-        .chart-container {
-            position: relative;
-            height: 400px;
-            width: 100%;
-        }
-
-        .loading-spinner {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255,255,255,0.3);
-            border-radius: 50%;
-            border-top-color: var(--primary);
-            animation: spin 1s ease-in-out infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .error-message {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            border-radius: var(--border-radius);
-            padding: 16px;
-            color: #fca5a5;
-            margin-bottom: 24px;
-        }
-
-        /* Animation d'entrée */
-        .fade-in {
-            opacity: 0;
-            transform: translateY(20px);
-            animation: fadeIn 0.6s ease-out forwards;
-        }
-
-        @keyframes fadeIn {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .projections-container {
-                padding: 16px;
-            }
-
-            .parameters-form {
-                grid-template-columns: 1fr;
-            }
-
-            .scenarios-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .chart-container {
-                height: 300px;
-            }
-        }
-    </style>
-
-    <!-- Script centralisé pour le dropdown utilisateur -->
+    <!-- Modules partagés -->
+    <script src="/static/js/shared/firebase-config.js"></script>
+    <script src="/static/js/shared/auth.js"></script>
+    <script src="/static/js/shared/utils.js"></script>
     <script src="/static/js/user_dropdown.js"></script>
-
-    <!-- Script centralisé pour la modale des paramètres -->
     <script src="/static/js/settings_modal.js"></script>
 </head>
 <body>
@@ -282,10 +59,9 @@
                             <label for="timeHorizon">Horizon Temporel (années)</label>
                             <input type="number" id="timeHorizon" name="time_horizon_years" value="10" min="1" max="50" step="1">
                         </div>
-
                     </form>
 
-                    <button type="button" class="calculate-btn" onclick="calculateProjectionsWrapper()">
+                    <button type="button" class="calculate-btn" onclick="calculateProjections()">
                         <span id="calculateText">Calculer les Projections</span>
                         <span id="loadingSpinner" class="loading-spinner" style="display: none;"></span>
                     </button>
@@ -299,25 +75,19 @@
                     <div class="scenario-card pessimist fade-in">
                         <h3 class="scenario-title">Scénario Pessimiste</h3>
                         <p class="scenario-description">Crise prolongée, inflation élevée (3% de rendement annuel)</p>
-                        <div class="scenario-metrics" id="pessimistMetrics">
-                            <!-- Métriques générées dynamiquement -->
-                        </div>
+                        <div class="scenario-metrics" id="pessimistMetrics"></div>
                     </div>
 
                     <div class="scenario-card normal fade-in">
                         <h3 class="scenario-title">Scénario Normal</h3>
                         <p class="scenario-description">Basé sur les moyennes historiques (7% de rendement annuel)</p>
-                        <div class="scenario-metrics" id="normalMetrics">
-                            <!-- Métriques générées dynamiquement -->
-                        </div>
+                        <div class="scenario-metrics" id="normalMetrics"></div>
                     </div>
 
                     <div class="scenario-card optimist fade-in">
                         <h3 class="scenario-title">Scénario Optimiste</h3>
                         <p class="scenario-description">Forte croissance économique (11% de rendement annuel)</p>
-                        <div class="scenario-metrics" id="optimistMetrics">
-                            <!-- Métriques générées dynamiquement -->
-                        </div>
+                        <div class="scenario-metrics" id="optimistMetrics"></div>
                     </div>
                 </section>
 
@@ -337,102 +107,30 @@
 
     <script>
         let projectionChart = null;
-        let currentUser = null;
-        let authToken = null;
 
-        // Configuration Firebase (utiliser la même que les autres pages)
-        const firebaseConfig = {
-            "apiKey": "AIzaSyBFrk8tZVEuM0LeQ0D8kJ7N2Bt-KyuQv0I",
-            "authDomain": "suivi-financ.firebaseapp.com",
-            "projectId": "suivi-financ",
-            "storageBucket": "suivi-financ.firebasestorage.app",
-            "messagingSenderId": "959011615445",
-            "appId": "1:959011615445:web:993be6cee77fc6cedae85c",
-            "measurementId": "G-8QXCJ8J23S"
-        };
+        // Forcer le thème dark
+        document.documentElement.setAttribute('data-theme', 'dark');
 
-        // Initialiser Firebase
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
-
-        window.firebaseAuth = firebase.auth();
-        window.signOut = firebase.auth().signOut;
-
-        // Fonction pour charger la valeur actuelle du portefeuille
+        // Charger la valeur actuelle du portefeuille
         async function loadPortfolioValue() {
             try {
-
-                const response = await fetch('/api/portfolio?account_type=pea', {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    }
-                });
-
-                if (response.ok) {
-                    const result = await response.json();
-                    if (result.success && result.data) {
-                        const currentValue = result.data.current_value || 10000;
-
-                        // Pré-remplir le champ valeur actuelle
-                        document.getElementById('currentValue').value = Math.round(currentValue);
-
-                    }
-                } else {
-                    console.warn('Impossible de récupérer la valeur du portefeuille, utilisation de la valeur par défaut');
+                const result = await apiGet('/api/portfolio?account_type=pea');
+                if (result.success && result.data) {
+                    const currentValue = result.data.current_value || 10000;
+                    document.getElementById('currentValue').value = Math.round(currentValue);
                 }
             } catch (error) {
-                console.error('Erreur lors du chargement de la valeur du portefeuille:', error);
+                console.warn('Impossible de récupérer la valeur du portefeuille, utilisation de la valeur par défaut');
             }
         }
-
-        // Gestion de l'authentification
-        firebase.auth().onAuthStateChanged(async (user) => {
-            if (user) {
-                currentUser = user;
-                authToken = await user.getIdToken();
-
-                // Utiliser la fonction centralisée du module user_dropdown
-                if (typeof window.updateUserInterface === 'function') {
-                    window.updateUserInterface(user);
-                }
-
-                // Vérifier le statut premium avant de charger la page
-                const hasPremium = await checkPremiumAccess();
-                if (!hasPremium) {
-                    // Afficher le paywall ou rediriger
-                    showPremiumRequired();
-                    return;
-                }
-
-                // Récupérer la valeur actuelle du portefeuille
-                await loadPortfolioValue();
-
-                // Calculer les projections avec les vraies données
-                setTimeout(() => {
-                    calculateProjections();
-                }, 500);
-            } else {
-                // Utilisateur déconnecté, rediriger vers la page d'accueil
-                window.location.href = '/';
-            }
-        });
 
         // Vérifier l'accès premium
         async function checkPremiumAccess() {
             try {
-                const response = await fetch('/api/subscription', {
-                    headers: {
-                        'Authorization': `Bearer ${authToken}`
-                    }
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    window.userPlan = data.data;
-                    return data.data.is_premium === true;
+                const result = await apiGet('/api/subscription');
+                if (result.success) {
+                    window.userPlan = result.data;
+                    return result.data.is_premium === true;
                 }
                 return false;
             } catch (error) {
@@ -445,12 +143,10 @@
         function showPremiumRequired() {
             const container = document.querySelector('.projections-container');
             container.innerHTML = `
-                <div style="text-align: center; padding: 60px 20px;">
-                    <div style="font-size: 4rem; margin-bottom: 24px;">🔒</div>
-                    <h2 style="font-size: 1.8rem; font-weight: 700; color: var(--text); margin-bottom: 16px;">
-                        Fonctionnalité Premium
-                    </h2>
-                    <p style="color: var(--muted); font-size: 1.1rem; margin-bottom: 32px; max-width: 400px; margin-left: auto; margin-right: auto;">
+                <div class="premium-required-container">
+                    <div class="icon">🔒</div>
+                    <h2>Fonctionnalité Premium</h2>
+                    <p>
                         Les projections financières sont réservées aux utilisateurs Premium.
                         Accédez à des analyses avancées et des projections personnalisées.
                     </p>
@@ -460,26 +156,15 @@
                     <p style="color: var(--muted); font-size: 0.85rem;">
                         3 jours d'essai gratuit • Sans engagement
                     </p>
-                    <a href="/" style="color: var(--primary); text-decoration: none; display: inline-block; margin-top: 24px;">
-                        ← Retour au portefeuille
-                    </a>
+                    <a href="/" class="back-link">← Retour au portefeuille</a>
                 </div>
             `;
         }
 
-        // Fonction pour démarrer l'abonnement
+        // Démarrer l'abonnement
         async function startSubscription() {
             try {
-                const response = await fetch('/api/subscription/checkout', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${authToken}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                const result = await response.json();
-
+                const result = await apiPost('/api/subscription/checkout', {});
                 if (result.success && result.data && result.data.url) {
                     window.location.href = result.data.url;
                 } else {
@@ -491,148 +176,33 @@
             }
         }
 
-        // Fonction wrapper pour calculer les projections
-        function calculateProjectionsWrapper() {
-            calculateProjections();
-        }
-
-        // Fonction de calcul des projections par défaut (sans authentification)
-        function calculateProjectionsDefault() {
-
-            // Récupérer les paramètres du formulaire
-            const formData = new FormData(document.getElementById('projectionForm'));
-            const params = {
-                current_value: parseFloat(formData.get('current_value')),
-                monthly_contribution: parseFloat(formData.get('monthly_contribution')),
-                time_horizon_years: parseInt(formData.get('time_horizon_years')),
-                annual_fees_rate: 0.0075 // Frais fixe de 0.75%
-            };
-
-            // Calculer les projections côté client
-            const projections = calculateProjectionsClientSide(params);
-
-            // Afficher les résultats
-            displayProjections({projections});
-        }
-
-        // Calculs de projections côté client (simplifié)
-        function calculateProjectionsClientSide(params) {
-            const scenarios = {
-                pessimist: { annual_return: 0.03, name: "Pessimiste" },
-                normal: { annual_return: 0.07, name: "Normal" },
-                optimist: { annual_return: 0.11, name: "Optimiste" }
-            };
-
-            const results = {};
-
-            Object.keys(scenarios).forEach(key => {
-                const scenario = scenarios[key];
-                const months = params.time_horizon_years * 12;
-                const monthly_return = scenario.annual_return / 12;
-                const monthly_fees = params.annual_fees_rate / 12;
-
-                let current_value = params.current_value;
-                let total_contributions = 0;
-                let total_fees = 0;
-                const monthly_values = [];
-                const labels = [];
-
-                // Date de départ
-                const start_date = new Date();
-
-                for (let month = 0; month <= months; month++) {
-                    // Générer les labels (tous les 6 mois)
-                    if (month % 6 === 0) {
-                        const current_date = new Date(start_date);
-                        current_date.setMonth(current_date.getMonth() + month);
-                        labels.push(current_date.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }));
-                    } else {
-                        labels.push("");
-                    }
-
-                    monthly_values.push(Math.round(current_value * 100) / 100);
-
-                    if (month < months) {
-                        // Ajouter contribution mensuelle
-                        current_value += params.monthly_contribution;
-                        total_contributions += params.monthly_contribution;
-
-                        // Appliquer rendement
-                        current_value *= (1 + monthly_return);
-
-                        // Appliquer frais
-                        const fees = current_value * monthly_fees;
-                        current_value -= fees;
-                        total_fees += fees;
-                    }
-                }
-
-                const final_value = monthly_values[monthly_values.length - 1];
-                const total_gains = final_value - params.current_value - total_contributions;
-                const total_invested = params.current_value + total_contributions;
-                const annualized_return = total_invested > 0 ?
-                    Math.pow(final_value / total_invested, 1 / params.time_horizon_years) - 1 : 0;
-
-                results[key] = {
-                    scenario_name: scenario.name,
-                    final_value: final_value,
-                    total_contributions: total_contributions,
-                    total_gains: total_gains,
-                    total_fees: total_fees,
-                    annualized_return: annualized_return,
-                    monthly_values: monthly_values,
-                    labels: labels
-                };
-            });
-
-            return results;
-        }
-
-        // Fonction principale de calcul des projections
+        // Calcul des projections
         async function calculateProjections() {
             const button = document.querySelector('.calculate-btn');
             const buttonText = document.getElementById('calculateText');
             const loadingSpinner = document.getElementById('loadingSpinner');
             const errorMessage = document.getElementById('errorMessage');
 
-            // État de chargement
             button.disabled = true;
             buttonText.style.display = 'none';
             loadingSpinner.style.display = 'inline-block';
             errorMessage.style.display = 'none';
 
             try {
-                // Récupérer les paramètres du formulaire
                 const formData = new FormData(document.getElementById('projectionForm'));
                 const params = {
                     current_value: parseFloat(formData.get('current_value')),
                     monthly_contribution: parseFloat(formData.get('monthly_contribution')),
                     time_horizon_years: parseInt(formData.get('time_horizon_years')),
-                    annual_fees_rate: 0.0075 // Frais fixe de 0.75%
+                    annual_fees_rate: 0.0075
                 };
 
-                // Vérifier l'authentification
-                if (!authToken) {
-                    throw new Error('Utilisateur non connecté');
-                }
+                const result = await apiPost('/api/projections', params);
 
-                // Appel API
-                const response = await fetch('/api/projections', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    },
-                    body: JSON.stringify(params)
-                });
-
-                const result = await response.json();
-
-                if (!response.ok || !result.success) {
+                if (!result.success) {
                     throw new Error(result.error || 'Erreur lors du calcul des projections');
                 }
 
-                // Afficher les résultats
                 displayProjections(result.data);
 
             } catch (error) {
@@ -640,27 +210,23 @@
                 errorMessage.textContent = error.message;
                 errorMessage.style.display = 'block';
             } finally {
-                // Restaurer l'état du bouton
                 button.disabled = false;
                 buttonText.style.display = 'inline';
                 loadingSpinner.style.display = 'none';
             }
         }
 
-        // Afficher les résultats des projections
+        // Afficher les résultats
         function displayProjections(data) {
             const projections = data.projections;
 
-            // Afficher les métriques pour chaque scénario
             displayScenarioMetrics('pessimistMetrics', projections.pessimist);
             displayScenarioMetrics('normalMetrics', projections.normal);
             displayScenarioMetrics('optimistMetrics', projections.optimist);
 
-            // Afficher les sections
             document.getElementById('scenariosSection').style.display = 'grid';
             document.getElementById('chartSection').style.display = 'block';
 
-            // Créer le graphique
             createProjectionChart(projections);
         }
 
@@ -699,16 +265,14 @@
             `).join('');
         }
 
-        // Créer le graphique d'évolution
+        // Créer le graphique
         function createProjectionChart(projections) {
             const ctx = document.getElementById('projectionChart').getContext('2d');
 
-            // Détruire le graphique existant s'il y en a un
             if (projectionChart) {
                 projectionChart.destroy();
             }
 
-            // Préparer les données
             const labels = projections.normal.labels.filter(label => label !== '');
             const pessimistData = projections.pessimist.monthly_values.filter((_, index) =>
                 projections.pessimist.labels[index] !== ''
@@ -762,9 +326,7 @@
                             position: 'top',
                             labels: {
                                 color: '#e5e7eb',
-                                font: {
-                                    size: 12
-                                }
+                                font: { size: 12 }
                             }
                         },
                         tooltip: {
@@ -785,34 +347,18 @@
                     scales: {
                         x: {
                             display: true,
-                            title: {
-                                display: true,
-                                text: 'Période',
-                                color: '#9ca3af'
-                            },
-                            ticks: {
-                                color: '#9ca3af'
-                            },
-                            grid: {
-                                color: 'rgba(255, 255, 255, 0.1)'
-                            }
+                            title: { display: true, text: 'Période', color: '#9ca3af' },
+                            ticks: { color: '#9ca3af' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
                         },
                         y: {
                             display: true,
-                            title: {
-                                display: true,
-                                text: 'Valeur du Portefeuille (€)',
-                                color: '#9ca3af'
-                            },
+                            title: { display: true, text: 'Valeur du Portefeuille (€)', color: '#9ca3af' },
                             ticks: {
                                 color: '#9ca3af',
-                                callback: function(value) {
-                                    return formatCurrency(value);
-                                }
+                                callback: function(value) { return formatCurrency(value); }
                             },
-                            grid: {
-                                color: 'rgba(255, 255, 255, 0.1)'
-                            }
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
                         }
                     },
                     interaction: {
@@ -824,37 +370,41 @@
             });
         }
 
-        // Fonctions utilitaires de formatage
-        function formatCurrency(value) {
-            return new Intl.NumberFormat('fr-FR', {
-                style: 'currency',
-                currency: 'EUR',
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0
-            }).format(value);
+        // Recalculer avec debounce
+        const debouncedCalculate = debounce(() => calculateProjections(), 1000);
+        document.getElementById('projectionForm').addEventListener('input', debouncedCalculate);
+
+        // Initialisation
+        function init() {
+            // Initialiser Firebase
+            initializeFirebase();
+
+            // Initialiser l'authentification
+            initAuth({
+                requireAuth: true,
+                onAuthenticated: async (user, token) => {
+                    // Vérifier le statut premium
+                    const hasPremium = await checkPremiumAccess();
+                    if (!hasPremium) {
+                        showPremiumRequired();
+                        return;
+                    }
+
+                    // Charger la valeur du portefeuille
+                    await loadPortfolioValue();
+
+                    // Calculer les projections initiales
+                    setTimeout(() => calculateProjections(), 500);
+                }
+            });
         }
 
-        function formatPercentage(value) {
-            return new Intl.NumberFormat('fr-FR', {
-                style: 'percent',
-                minimumFractionDigits: 1,
-                maximumFractionDigits: 1
-            }).format(value);
-        }
+        // Démarrer
+        init();
 
-        // Charger les projections par défaut au chargement de la page se fait maintenant via l'authentification
-
-        // Recalculer automatiquement quand les paramètres changent
-        document.getElementById('projectionForm').addEventListener('input', function() {
-            // Debounce pour éviter trop d'appels API
-            clearTimeout(this.debounceTimer);
-            this.debounceTimer = setTimeout(() => {
-                calculateProjections();
-            }, 1000);
-        });
-
-        // Forcer le thème dark
-        document.documentElement.setAttribute('data-theme', 'dark');
+        // Exposer les fonctions globalement
+        window.startSubscription = startSubscription;
+        window.calculateProjections = calculateProjections;
     </script>
 </body>
 </html>
