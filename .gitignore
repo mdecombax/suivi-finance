@@ -78,6 +78,9 @@ secrets.json
 # Firebase credentials
 *firebase-adminsdk*.json
 
+# Firebase extensions secrets
+extensions/*.secret.local
+
 # Legacy files
 app_legacy.py
 
