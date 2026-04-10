@@ -24,12 +24,10 @@ from flask_cors import CORS
 # New consolidated imports
 from database import firebase_service, require_auth, get_current_user_id, get_current_user, require_premium, get_user_plan_info
 from payments import stripe_service
-from models import ProjectionParams
 
 # Service imports
 from services.price_service import PriceService
 from services.portfolio_service import PortfolioService
-from services.projection_service import ProjectionService
 from services.position_service import PositionService
 
 # Configure logging
@@ -62,8 +60,6 @@ portfolio_service = PortfolioService(
     debug_logger=debug_log
 )
 
-projection_service = ProjectionService(debug_logger=debug_log)
-
 position_service = PositionService(
     price_service=price_service,
     firebase_service=firebase_service,
@@ -95,10 +91,10 @@ def register_page():
     """Register page."""
     return render_template("register.html")
 
-@app.route("/projections")
-def projections_page():
-    """Financial projections page."""
-    return render_template("projections.html")
+@app.route("/objectif")
+def objectif_page():
+    """Financial objective tracking page."""
+    return render_template("objectif.html")
 
 @app.route("/subscription")
 def subscription_page():
@@ -273,85 +269,305 @@ def position_detail_api(isin):
         debug_log("Position detail API error", {"isin": isin, "error": str(e)})
         return jsonify({"error": str(e)}), 500
 
-@app.route("/api/projections", methods=["GET", "POST"])
+@app.route("/api/objectif", methods=["GET", "POST"])
 @require_auth
-@require_premium
-def projections_api():
-    """API endpoint for financial projections with scenario analysis (authentification requise)."""
+def objectif_api():
+    """API endpoint for financial objective: save, load, and compute progress."""
     try:
-                # Get current user and portfolio value
         user_id = get_current_user_id()
-        current_value = 0
 
-                # Get current portfolio value from user's data
-        try:
-            user_orders = firebase_service.get_user_orders(user_id)
-            if user_orders:
-                portfolio_summary = portfolio_service.get_portfolio_summary(user_orders)
-                current_value = portfolio_summary.get("current_value", 0)
-            else:
-                current_value = 10000  # Default if no orders
-        except Exception as e:
-            debug_log("Error getting portfolio value for projections", {"user_id": user_id, "error": str(e)})
-            current_value = 10000  # Default 10k EUR
+        # Fetch current portfolio data
+        user_orders = firebase_service.get_user_orders(user_id)
+        if user_orders:
+            portfolio_summary = portfolio_service.get_portfolio_summary(user_orders)
+        else:
+            portfolio_summary = {}
 
-        if request.method == "GET":
-                    # Return default projections
-            params = ProjectionParams(
-                current_value=current_value,
-                monthly_contribution=500,  # Default 500 EUR/month
-                time_horizon_years=10,     # Default 10 years
-                annual_fees_rate=0.0075    # Default 0.75% fees
-            )
+        current_value = float(portfolio_summary.get("current_value") or 0)
+        total_invested = float(portfolio_summary.get("total_invested") or 0)
+        pl_abs = float(portfolio_summary.get("profit_loss_absolute") or 0)
+        pl_pct_raw = portfolio_summary.get("profit_loss_percentage")
+        pl_pct = float(pl_pct_raw) if pl_pct_raw is not None else None
 
-            projections_summary = projection_service.get_projection_summary(params)
-            return jsonify({"success": True, "data": projections_summary})
+        # Extract XIRR safely (performance can be dict or PerformanceMetrics object)
+        performance = portfolio_summary.get("performance", {})
+        if hasattr(performance, 'to_dict'):
+            performance = performance.to_dict()
+        xirr_raw = performance.get("annual_return") if isinstance(performance, dict) else None
+        xirr = float(xirr_raw) if xirr_raw is not None else None
 
-        elif request.method == "POST":
-                    # Custom projections with user parameters
+        # Calculate average monthly investment from order history
+        avg_monthly_investment = None
+        if user_orders:
+            try:
+                dates = [datetime.strptime(o["date"], "%Y-%m-%d") for o in user_orders if o.get("date")]
+                if dates:
+                    first_date = min(dates)
+                    months_active = max(1, (datetime.now().year - first_date.year) * 12 + (datetime.now().month - first_date.month))
+                    avg_monthly_investment = round(float(total_invested) / months_active, 2)
+            except Exception:
+                pass
+
+        if request.method == "POST":
             data = request.get_json() or {}
+            target_amount = float(data.get("target_amount", 0))
+            target_year = int(data.get("target_year", datetime.now().year + 10))
+            monthly_contribution = float(data.get("monthly_contribution", 0))
 
-                    # Appliquer les limitations freemium si nécessaire
-            is_freemium = getattr(g, 'is_freemium', False)
+            objective = {
+                "target_amount": target_amount,
+                "target_year": target_year,
+                "monthly_contribution": monthly_contribution,
+            }
+            firebase_service.save_user_objective(user_id, objective)
+        else:
+            objective = firebase_service.get_user_objective(user_id)
 
-            if is_freemium:
-                        # Pour les utilisateurs freemium, forcer monthly_contribution à 0
-                data['monthly_contribution'] = 0
-                        # Ajouter un flag pour indiquer la limitation
-                freemium_limitation = True
+        progress = None
+        if objective:
+            target_amount = objective.get("target_amount", 0)
+            target_year = objective.get("target_year", datetime.now().year + 10)
+            monthly_contribution = objective.get("monthly_contribution", 0)
+            current_year = datetime.now().year
+            years_remaining = max(0, target_year - current_year)
+
+            # Use XIRR if available, otherwise default to 7%
+            rate = (xirr / 100) if xirr and xirr > 0 else 0.07
+            monthly_rate = rate / 12
+            n_months = years_remaining * 12
+
+            # Future value of current capital
+            fv_capital = current_value * ((1 + rate) ** years_remaining)
+
+            # Future value of monthly DCA contributions
+            if monthly_rate > 0 and n_months > 0:
+                fv_contributions = monthly_contribution * (((1 + monthly_rate) ** n_months - 1) / monthly_rate)
             else:
-                freemium_limitation = False
+                fv_contributions = monthly_contribution * n_months
 
-                    # Validate parameters
-            validation_error = projection_service.validate_projection_params(data)
-            if validation_error:
-                return jsonify({"error": validation_error}), 400
+            projected_value = fv_capital + fv_contributions
 
-                    # Extract parameters with fallbacks
-            monthly_contribution = 0 if is_freemium else float(data.get("monthly_contribution", 500))
+            # Required monthly contribution to reach the target
+            remaining_needed = target_amount - fv_capital
+            if remaining_needed <= 0:
+                required_monthly = 0.0
+            elif monthly_rate > 0 and n_months > 0:
+                required_monthly = remaining_needed * monthly_rate / (((1 + monthly_rate) ** n_months) - 1)
+            elif n_months > 0:
+                required_monthly = remaining_needed / n_months
+            else:
+                required_monthly = remaining_needed
 
-            params = ProjectionParams(
-                current_value=float(data.get("current_value", current_value)),
-                monthly_contribution=monthly_contribution,
-                time_horizon_years=int(data.get("time_horizon_years", 10)),
-                annual_fees_rate=float(data.get("annual_fees_rate", 0.0075))
-            )
+            progress_pct = min(100.0, (current_value / target_amount * 100)) if target_amount > 0 else 0.0
+            on_track = projected_value >= target_amount
 
-            projections_summary = projection_service.get_projection_summary(params)
+            # Monthly chart data (up to target date)
+            chart_labels = []
+            chart_invested = []   # capital réellement mis de poche
+            chart_interests = []  # gains générés (projeté - investi)
+            chart_target = []
+            step_months = max(1, int(n_months) // 24)
+            for m in range(0, int(n_months) + 1, step_months):
+                yr = current_year + m / 12
+                chart_labels.append(round(yr, 1))
+                # Capital investi cumulé = valeur actuelle + apports DCA futurs
+                invested_at_m = float(current_value) + float(monthly_contribution) * m
+                # Valeur projetée à ce mois
+                fvc = float(current_value) * ((1 + monthly_rate) ** m) if monthly_rate > 0 else float(current_value) * ((1 + rate) ** (m / 12))
+                if monthly_rate > 0 and m > 0:
+                    fvd = float(monthly_contribution) * (((1 + monthly_rate) ** m - 1) / monthly_rate)
+                else:
+                    fvd = float(monthly_contribution) * m
+                projected_at_m = fvc + fvd
+                interests_at_m = max(0.0, projected_at_m - invested_at_m)
+                chart_invested.append(round(invested_at_m, 2))
+                chart_interests.append(round(interests_at_m, 2))
+                chart_target.append(float(target_amount))
 
-                    # Ajouter les informations de limitation freemium
-            if freemium_limitation:
-                projections_summary['freemium_limitation'] = {
-                    'limited': True,
-                    'message': 'Projections avec contributions récurrentes disponibles en Premium',
-                    'feature': 'monthly_contributions'
+            # Annual crossover chart: intérêts générés/an vs DCA/an
+            annual_dca = float(monthly_contribution) * 12
+            crossover_labels = []
+            annual_interests_chart = []
+            annual_dca_chart = []
+            crossover_year = None
+            for y in range(0, int(years_remaining) + 1):
+                m = y * 12
+                fvc = float(current_value) * ((1 + monthly_rate) ** m) if monthly_rate > 0 else float(current_value) * ((1 + rate) ** y)
+                if monthly_rate > 0 and m > 0:
+                    fvd = float(monthly_contribution) * (((1 + monthly_rate) ** m - 1) / monthly_rate)
+                else:
+                    fvd = float(monthly_contribution) * m
+                portfolio_at_y = fvc + fvd
+                interests_this_year = round(portfolio_at_y * rate, 2)
+                crossover_labels.append(current_year + y)
+                annual_interests_chart.append(interests_this_year)
+                annual_dca_chart.append(round(annual_dca, 2))
+                if crossover_year is None and interests_this_year >= annual_dca and annual_dca > 0:
+                    crossover_year = current_year + y
+
+            progress = {
+                "target_amount": float(target_amount),
+                "target_year": int(target_year),
+                "monthly_contribution": float(monthly_contribution),
+                "current_value": float(current_value),
+                "xirr": float(xirr) if xirr is not None else None,
+                "rate_used": round(float(rate * 100), 2),
+                "years_remaining": int(years_remaining),
+                "fv_capital": round(float(fv_capital), 2),
+                "fv_contributions": round(float(fv_contributions), 2),
+                "projected_value": round(float(projected_value), 2),
+                "required_monthly": round(float(max(0, required_monthly)), 2),
+                "progress_pct": round(float(progress_pct), 1),
+                "on_track": bool(on_track),
+                "surplus_or_deficit": round(float(projected_value - target_amount), 2),
+                "chart": {
+                    "labels": chart_labels,
+                    "invested": chart_invested,
+                    "interests": chart_interests,
+                    "target": chart_target,
+                },
+                "crossover": {
+                    "labels": crossover_labels,
+                    "annual_interests": annual_interests_chart,
+                    "annual_dca": annual_dca_chart,
+                    "crossover_year": crossover_year,
                 }
+            }
 
-            return jsonify({"success": True, "data": projections_summary})
+        return jsonify({
+            "success": True,
+            "data": {
+                "objective": objective,
+                "portfolio": {
+                    "current_value": current_value,
+                    "xirr": xirr,
+                    "avg_monthly_investment": avg_monthly_investment,
+                },
+                "progress": progress,
+            }
+        })
 
     except Exception as e:
-        debug_log("Projections API error", {"error": str(e)})
+        debug_log("Objectif API error", {"error": str(e)})
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/revenu-passif", methods=["POST"])
+@require_auth
+def revenu_passif_api():
+    """Calcule quand l'utilisateur pourra atteindre un revenu mensuel net cible."""
+    try:
+        user_id = get_current_user_id()
+        data = request.get_json() or {}
+
+        target_monthly_net = float(data.get("target_monthly_net", 0))
+        monthly_contribution = float(data.get("monthly_contribution", 0))
+        account_type = data.get("account_type", "pea")
+
+        if target_monthly_net <= 0:
+            return jsonify({"success": False, "error": "Revenu cible invalide"}), 400
+
+        # Récupérer le portefeuille actuel
+        user_orders = firebase_service.get_user_orders(user_id)
+        portfolio_summary = portfolio_service.get_portfolio_summary(user_orders) if user_orders else {}
+
+        current_value = float(portfolio_summary.get("current_value") or 0)
+
+        performance = portfolio_summary.get("performance", {})
+        if hasattr(performance, 'to_dict'):
+            performance = performance.to_dict()
+        xirr_raw = performance.get("annual_return") if isinstance(performance, dict) else None
+        xirr = float(xirr_raw) if xirr_raw is not None else None
+
+        # Taux fiscal selon le régime
+        tax_rates = {"pea": 0.175, "cto": 0.30}
+        tax_rate = tax_rates.get(account_type, 0.175)
+
+        # Taux de rendement annuel
+        rate = (xirr / 100) if xirr and xirr > 0 else 0.07
+        monthly_rate = rate / 12
+
+        # Capital requis pour générer le revenu net mensuel cible
+        target_monthly_gross = target_monthly_net / (1 - tax_rate)
+        target_annual_gross = target_monthly_gross * 12
+        required_capital = target_annual_gross / rate
+
+        # Simuler mois par mois pour trouver quand on atteint le capital requis
+        months_to_reach = None
+        for m in range(1, 1201):  # max 100 ans
+            fv = current_value * ((1 + monthly_rate) ** m)
+            if monthly_rate > 0:
+                fv += monthly_contribution * (((1 + monthly_rate) ** m - 1) / monthly_rate)
+            else:
+                fv += monthly_contribution * m
+            if fv >= required_capital:
+                months_to_reach = m
+                break
+
+        # Calculs pour l'affichage
+        target_year = None
+        years_to_reach = None
+        if months_to_reach is not None:
+            years_to_reach = months_to_reach / 12
+            target_year = datetime.now().year + int(months_to_reach // 12)
+            remaining_months_in_year = months_to_reach % 12
+            if remaining_months_in_year > 6:
+                target_year += 1
+
+        progress_pct = min(100.0, (current_value / required_capital * 100)) if required_capital > 0 else 0.0
+        tax_per_month = round(target_monthly_gross - target_monthly_net, 2)
+
+        # Données graphique : progression vers le capital requis
+        horizon_months = months_to_reach if months_to_reach else min(360, 240)
+        chart_step = max(1, int(horizon_months) // 60)
+        current_year = datetime.now().year
+        chart_labels = []
+        chart_invested = []
+        chart_interests = []
+        chart_target = []
+
+        for m in range(0, int(horizon_months) + 1, chart_step):
+            yr = current_year + m / 12
+            chart_labels.append(round(yr, 1))
+            invested_at_m = current_value + monthly_contribution * m
+            fvc = current_value * ((1 + monthly_rate) ** m) if monthly_rate > 0 else current_value
+            fvd = monthly_contribution * (((1 + monthly_rate) ** m - 1) / monthly_rate) if monthly_rate > 0 and m > 0 else monthly_contribution * m
+            projected_at_m = fvc + fvd
+            interests_at_m = max(0.0, projected_at_m - invested_at_m)
+            chart_invested.append(round(invested_at_m, 2))
+            chart_interests.append(round(interests_at_m, 2))
+            chart_target.append(round(required_capital, 2))
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "target_monthly_net": round(target_monthly_net, 2),
+                "target_monthly_gross": round(target_monthly_gross, 2),
+                "tax_per_month": tax_per_month,
+                "tax_rate_pct": round(tax_rate * 100, 1),
+                "account_type": account_type,
+                "required_capital": round(required_capital, 2),
+                "current_value": round(current_value, 2),
+                "rate_used": round(rate * 100, 2),
+                "xirr": xirr,
+                "months_to_reach": months_to_reach,
+                "years_to_reach": round(years_to_reach, 1) if years_to_reach else None,
+                "target_year": target_year,
+                "progress_pct": round(progress_pct, 1),
+                "monthly_contribution": monthly_contribution,
+                "chart": {
+                    "labels": chart_labels,
+                    "invested": chart_invested,
+                    "interests": chart_interests,
+                    "target": chart_target,
+                },
+            }
+        })
+
+    except Exception as e:
+        debug_log("Revenu passif API error", {"error": str(e)})
+        return jsonify({"success": False, "error": str(e)}), 500
+
 
 @app.route("/api/portfolio/monthly-values", methods=["GET"])
 @require_auth
@@ -373,6 +589,9 @@ def monthly_portfolio_values_api():
         # Calculer les valeurs mensuelles du portefeuille
         monthly_values = portfolio_service.get_monthly_portfolio_values(user_orders)
 
+        # Calculer les métriques avancées (sur toutes les données)
+        advanced_metrics = portfolio_service.calculate_advanced_metrics(monthly_values)
+
         # Pour les utilisateurs freemium, limiter aux 3 derniers mois
         is_limited = False
         total_months_available = len(monthly_values)
@@ -384,6 +603,7 @@ def monthly_portfolio_values_api():
         result = {
             "success": True,
             "data": monthly_values,
+            "advanced_metrics": advanced_metrics.to_dict(),
             "user_id": user_id,
             "total_months": len(monthly_values),
             "is_premium": is_premium,

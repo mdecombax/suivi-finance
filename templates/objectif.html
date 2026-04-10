@@ -1,0 +1,1392 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Finolio — Mon Objectif</title>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/settings_modal.css">
+
+    <!-- Meta -->
+    <link rel="icon" href="/static/images/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/static/images/favicon.ico" type="image/x-icon" sizes="any" />
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+    <!-- Modules partagés -->
+    <script src="/static/js/shared/firebase-config.js"></script>
+    <script src="/static/js/shared/auth.js"></script>
+    <script src="/static/js/shared/utils.js"></script>
+    <script src="/static/js/user_dropdown.js"></script>
+    <script src="/static/js/settings_modal.js"></script>
+
+    <style>
+        .objectif-container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .page-header {
+            margin-bottom: 32px;
+        }
+
+        .page-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+
+        .page-subtitle {
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        /* Portfolio stats bar */
+        .portfolio-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: var(--border-radius-lg);
+            padding: 18px 20px;
+        }
+
+        .stat-label {
+            font-size: 0.78rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+        }
+
+        .stat-value {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .stat-value.positive { color: var(--success); }
+        .stat-value.negative { color: var(--danger); }
+        .stat-value.accent { color: var(--primary); }
+
+        /* Objective form */
+        .objective-section {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: var(--border-radius-xl);
+            padding: 28px 32px;
+            margin-bottom: 32px;
+        }
+
+        .section-title {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 20px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--muted);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .form-group input {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: var(--border-radius);
+            padding: 12px 16px;
+            color: var(--text);
+            font-size: 1rem;
+            transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--ring);
+        }
+
+        .form-hint {
+            font-size: 0.78rem;
+            color: var(--muted);
+            margin-top: 5px;
+        }
+
+        .calculate-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--gradient-primary);
+            color: #fff;
+            border: none;
+            border-radius: var(--border-radius-lg);
+            padding: 13px 28px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity var(--transition-fast), box-shadow var(--transition-fast);
+            box-shadow: var(--shadow-primary);
+        }
+
+        .calculate-btn:hover { opacity: 0.92; box-shadow: var(--shadow-primary-lg); }
+        .calculate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Results */
+        .results-section { display: none; }
+
+        /* On-track banner */
+        .track-banner {
+            border-radius: var(--border-radius-xl);
+            padding: 22px 28px;
+            margin-bottom: 28px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .track-banner.on-track {
+            background: rgba(76,175,80,0.12);
+            border: 1px solid rgba(76,175,80,0.3);
+        }
+
+        .track-banner.off-track {
+            background: rgba(255,167,38,0.1);
+            border: 1px solid rgba(255,167,38,0.3);
+        }
+
+        .track-icon { font-size: 2rem; }
+
+        .track-text h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 3px;
+        }
+
+        .track-text p {
+            font-size: 0.9rem;
+            color: var(--muted);
+            margin: 0;
+        }
+
+        .track-banner.on-track .track-text h3 { color: var(--success); }
+        .track-banner.off-track .track-text h3 { color: var(--warning); }
+
+        /* Progress bar */
+        .progress-section {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: var(--border-radius-xl);
+            padding: 24px 28px;
+            margin-bottom: 24px;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .progress-label { font-size: 0.85rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+        .progress-pct { font-size: 1.2rem; font-weight: 700; color: var(--primary); }
+
+        .progress-bar-track {
+            height: 10px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 99px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: var(--gradient-primary);
+            border-radius: 99px;
+            transition: width 1s ease;
+        }
+
+        .progress-amounts {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.82rem;
+            color: var(--muted);
+        }
+
+        /* Metrics grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .metric-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: var(--border-radius-xl);
+            padding: 20px 22px;
+        }
+
+        .metric-card.highlight {
+            border-color: rgba(110,168,254,0.3);
+            background: rgba(110,168,254,0.06);
+        }
+
+        .metric-label {
+            font-size: 0.78rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+
+        .metric-value.positive { color: var(--success); }
+        .metric-value.negative { color: var(--danger); }
+        .metric-value.accent { color: var(--primary); }
+
+        .metric-sub {
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+
+        /* Chart */
+        .chart-section {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: var(--border-radius-xl);
+            padding: 24px 28px;
+        }
+
+        .chart-section h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 20px;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 320px;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--muted);
+        }
+
+        .empty-state-icon { font-size: 3rem; margin-bottom: 16px; }
+        .empty-state h3 { color: var(--text); margin-bottom: 8px; }
+
+        /* Rate badge */
+        .rate-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: rgba(110,168,254,0.1);
+            border: 1px solid rgba(110,168,254,0.2);
+            border-radius: 99px;
+            padding: 4px 10px;
+            font-size: 0.78rem;
+            color: var(--primary);
+            margin-left: 10px;
+        }
+
+        .crossover-badge {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(76,175,80,0.15);
+            border: 1px solid rgba(76,175,80,0.35);
+            color: var(--success);
+            border-radius: 99px;
+            padding: 3px 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+
+        .loading-spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Onglets */
+        .tab-nav {
+            display: flex;
+            gap: 4px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: var(--border-radius-lg);
+            padding: 4px;
+            margin-bottom: 28px;
+            width: fit-content;
+        }
+
+        .tab-btn {
+            padding: 9px 20px;
+            border-radius: calc(var(--border-radius-lg) - 2px);
+            border: none;
+            background: transparent;
+            color: var(--muted);
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background var(--transition-fast), color var(--transition-fast);
+        }
+
+        .tab-btn:hover { color: var(--text); }
+
+        .tab-btn.active {
+            background: rgba(110,168,254,0.15);
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* Revenu passif */
+        .revenu-results { display: none; }
+
+        .revenu-highlight {
+            background: rgba(110,168,254,0.06);
+            border: 1px solid rgba(110,168,254,0.3);
+            border-radius: var(--border-radius-xl);
+            padding: 28px 32px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 28px;
+        }
+
+        .revenu-main-value {
+            text-align: center;
+            min-width: 160px;
+        }
+
+        .revenu-main-value .amount {
+            font-size: 2.4rem;
+            font-weight: 800;
+            color: var(--primary);
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+
+        .revenu-main-value .label {
+            font-size: 0.8rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .revenu-divider {
+            width: 1px;
+            height: 60px;
+            background: rgba(255,255,255,0.1);
+        }
+
+        .revenu-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 16px;
+            flex: 1;
+        }
+
+        .revenu-detail-item .d-label {
+            font-size: 0.75rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 4px;
+        }
+
+        .revenu-detail-item .d-value {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .revenu-detail-item .d-value.accent { color: var(--primary); }
+        .revenu-detail-item .d-value.success { color: var(--success); }
+        .revenu-detail-item .d-value.warning { color: var(--warning); }
+
+        .date-banner {
+            background: rgba(76,175,80,0.1);
+            border: 1px solid rgba(76,175,80,0.3);
+            border-radius: var(--border-radius-xl);
+            padding: 20px 28px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .date-banner.unreachable {
+            background: rgba(255,167,38,0.08);
+            border-color: rgba(255,167,38,0.3);
+        }
+
+        .date-banner .date-icon { font-size: 1.8rem; }
+
+        .date-banner .date-text h3 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--success);
+            margin-bottom: 2px;
+        }
+
+        .date-banner.unreachable .date-text h3 { color: var(--warning); }
+
+        .date-banner .date-text p {
+            font-size: 0.88rem;
+            color: var(--muted);
+            margin: 0;
+        }
+
+        @media (max-width: 600px) {
+            .revenu-highlight { flex-direction: column; gap: 16px; }
+            .revenu-divider { width: 80%; height: 1px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        {% set active_page = 'objectif' %}
+        {% include 'components/header.html' %}
+
+        <main class="main-content">
+            <div class="objectif-container">
+
+                <header class="page-header">
+                    <h1 class="page-title">Mon Objectif</h1>
+                    <p class="page-subtitle">Définissez votre cible et suivez si votre DCA vous met sur la bonne voie</p>
+                </header>
+
+                <!-- Stats portefeuille actuel -->
+                <div class="portfolio-stats" id="portfolioStats">
+                    <div class="stat-card">
+                        <div class="stat-label">Valeur actuelle</div>
+                        <div class="stat-value accent" id="statCurrentValue">—</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Investi / mois en moyenne</div>
+                        <div class="stat-value" id="statAvgMonthly">—</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Rendement annuel (XIRR)</div>
+                        <div class="stat-value" id="statXIRR">—</div>
+                    </div>
+                </div>
+
+                <!-- Onglets -->
+                <div class="tab-nav">
+                    <button class="tab-btn active" id="tabBtnRevenu" onclick="switchTab('revenu')">Revenu passif</button>
+                    <button class="tab-btn" id="tabBtnCapital" onclick="switchTab('capital')">Objectif en capital</button>
+                </div>
+
+                <!-- ONGLET 1 : Objectif en capital -->
+                <div class="tab-panel" id="tabCapital">
+
+                    <!-- Formulaire objectif -->
+                    <div class="objective-section">
+                        <div class="section-title">Définir mon objectif</div>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="targetAmount">Montant cible</label>
+                                <input type="number" id="targetAmount" placeholder="ex: 100000" min="1" step="1000">
+                                <span class="form-hint">Combien voulez-vous atteindre ?</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="targetYear">Année cible</label>
+                                <input type="number" id="targetYear" placeholder="ex: 2040" min="2026" max="2075" step="1">
+                                <span class="form-hint">Dans combien de temps ?</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="monthlyContribution">Contribution DCA mensuelle (€)</label>
+                                <input type="number" id="monthlyContribution" placeholder="ex: 300" min="0" step="50" value="0">
+                                <span class="form-hint">Montant que vous investissez chaque mois</span>
+                            </div>
+                        </div>
+                        <button class="calculate-btn" id="calculateBtn" onclick="calculateObjective()">
+                            <span id="btnText">Calculer</span>
+                            <span id="btnSpinner" class="loading-spinner" style="display:none;"></span>
+                        </button>
+                    </div>
+
+                    <!-- Résultats -->
+                    <div class="results-section" id="resultsSection">
+
+                        <!-- Bannière on-track / off-track -->
+                        <div class="track-banner" id="trackBanner">
+                            <div class="track-icon" id="trackIcon"></div>
+                            <div class="track-text">
+                                <h3 id="trackTitle"></h3>
+                                <p id="trackSubtitle"></p>
+                            </div>
+                        </div>
+
+                        <!-- Barre de progression -->
+                        <div class="progress-section">
+                            <div class="progress-header">
+                                <span class="progress-label">Progression vers l'objectif</span>
+                                <span class="progress-pct" id="progressPct">0%</span>
+                            </div>
+                            <div class="progress-bar-track">
+                                <div class="progress-bar-fill" id="progressBarFill" style="width: 0%"></div>
+                            </div>
+                            <div class="progress-amounts">
+                                <span id="progressCurrent"></span>
+                                <span id="progressTarget"></span>
+                            </div>
+                        </div>
+
+                        <!-- Métriques -->
+                        <div class="metrics-grid">
+                            <div class="metric-card highlight">
+                                <div class="metric-label">Valeur projetée</div>
+                                <div class="metric-value" id="metricProjected"></div>
+                                <div class="metric-sub" id="metricProjectedSub"></div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">Objectif</div>
+                                <div class="metric-value" id="metricTarget"></div>
+                                <div class="metric-sub" id="metricTargetSub"></div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">Écart à l'objectif</div>
+                                <div class="metric-value" id="metricGap"></div>
+                                <div class="metric-sub" id="metricGapSub"></div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">DCA requis pour atteindre l'objectif</div>
+                                <div class="metric-value accent" id="metricRequired"></div>
+                                <div class="metric-sub" id="metricRequiredSub"></div>
+                            </div>
+                        </div>
+
+                        <!-- Graphique trajectoire -->
+                        <div class="chart-section">
+                            <h3>Trajectoire du portefeuille</h3>
+                            <div class="chart-wrapper">
+                                <canvas id="objectifChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Graphique point de bascule -->
+                        <div class="chart-section" style="margin-top: 16px;">
+                            <h3>Point de bascule <span class="crossover-badge" id="crossoverBadge" style="display:none;"></span></h3>
+                            <p style="font-size:0.85rem; color:var(--muted); margin-bottom:20px; margin-top:-12px;">
+                                À quel moment les intérêts générés chaque année dépassent votre investissement annuel
+                            </p>
+                            <div class="chart-wrapper">
+                                <canvas id="crossoverChart"></canvas>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Empty state (si pas d'objectif défini) -->
+                    <div class="empty-state" id="emptyState" style="display:none;">
+                        <div class="empty-state-icon">🎯</div>
+                        <h3>Définissez votre premier objectif</h3>
+                        <p>Indiquez un montant cible et une date pour savoir si votre stratégie DCA vous met sur la bonne voie.</p>
+                    </div>
+
+                </div>
+
+                <!-- ONGLET 2 : Revenu passif -->
+                <div class="tab-panel active" id="tabRevenu">
+
+                    <!-- Formulaire revenu passif -->
+                    <div class="objective-section">
+                        <div class="section-title">Calculer mon revenu passif cible</div>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="targetMonthlyNet">Revenu mensuel net souhaité (€)</label>
+                                <input type="number" id="targetMonthlyNet" placeholder="ex: 2000" min="1" step="100">
+                                <span class="form-hint">Ce que vous voulez toucher après impôts chaque mois</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="revenuMonthlyContribution">Contribution DCA mensuelle (€)</label>
+                                <input type="number" id="revenuMonthlyContribution" placeholder="ex: 300" min="0" step="50" value="0">
+                                <span class="form-hint">Montant que vous investissez chaque mois</span>
+                            </div>
+                        </div>
+                        <div style="margin-bottom:20px; display:flex; align-items:center; gap:10px; font-size:0.85rem; color:var(--muted);">
+                            <span>Régime fiscal détecté :</span>
+                            <span id="revenuRegimeBadge" style="font-weight:600; color:var(--text);">—</span>
+                        </div>
+                        <button class="calculate-btn" id="revenuCalculateBtn" onclick="calculateRevenu()">
+                            <span id="revenuBtnText">Calculer</span>
+                            <span id="revenuBtnSpinner" class="loading-spinner" style="display:none;"></span>
+                        </button>
+                    </div>
+
+                    <!-- Résultats revenu passif -->
+                    <div class="revenu-results" id="revenuResults">
+
+                        <!-- Bannière date d'atteinte -->
+                        <div class="date-banner" id="dateBanner">
+                            <div class="date-icon" id="dateIcon"></div>
+                            <div class="date-text">
+                                <h3 id="dateTitle"></h3>
+                                <p id="dateSubtitle"></p>
+                            </div>
+                        </div>
+
+                        <!-- Bloc principal : revenu net + détails -->
+                        <div class="revenu-highlight">
+                            <div class="revenu-main-value">
+                                <div class="amount" id="revenuNetAmount">—</div>
+                                <div class="label">Net / mois</div>
+                            </div>
+                            <div class="revenu-divider"></div>
+                            <div class="revenu-details">
+                                <div class="revenu-detail-item">
+                                    <div class="d-label">Brut / mois</div>
+                                    <div class="d-value" id="revenuGrossAmount">—</div>
+                                </div>
+                                <div class="revenu-detail-item">
+                                    <div class="d-label">Impôts / mois</div>
+                                    <div class="d-value warning" id="revenuTaxAmount">—</div>
+                                </div>
+                                <div class="revenu-detail-item">
+                                    <div class="d-label">Capital requis</div>
+                                    <div class="d-value accent" id="revenuCapitalRequired">—</div>
+                                </div>
+                                <div class="revenu-detail-item">
+                                    <div class="d-label">Rendement utilisé</div>
+                                    <div class="d-value success" id="revenuRateUsed">—</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Barre de progression vers le capital requis -->
+                        <div class="progress-section">
+                            <div class="progress-header">
+                                <span class="progress-label">Progression vers le capital requis</span>
+                                <span class="progress-pct" id="revenuProgressPct">0%</span>
+                            </div>
+                            <div class="progress-bar-track">
+                                <div class="progress-bar-fill" id="revenuProgressFill" style="width: 0%"></div>
+                            </div>
+                            <div class="progress-amounts">
+                                <span id="revenuProgressCurrent"></span>
+                                <span id="revenuProgressTarget"></span>
+                            </div>
+                        </div>
+
+                        <!-- Graphique trajectoire vers le capital requis -->
+                        <div class="chart-section">
+                            <h3>Trajectoire vers le capital requis</h3>
+                            <div class="chart-wrapper">
+                                <canvas id="revenuChart"></canvas>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Empty state revenu -->
+                    <div class="empty-state" id="revenuEmptyState">
+                        <div class="empty-state-icon">💰</div>
+                        <h3>Calculez votre indépendance financière</h3>
+                        <p>Indiquez le revenu mensuel net que vous souhaitez générer depuis votre portefeuille.</p>
+                    </div>
+
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    {% include 'components/settings_modal.html' %}
+
+    <script>
+        document.documentElement.setAttribute('data-theme', 'dark');
+
+        let objectifChart = null;
+        let crossoverChart = null;
+        let revenuChart = null;
+        let currentData = null;
+
+        // --- Gestion des onglets ---
+        function switchTab(tab) {
+            document.getElementById('tabCapital').classList.toggle('active', tab === 'capital');
+            document.getElementById('tabRevenu').classList.toggle('active', tab === 'revenu');
+            document.getElementById('tabBtnCapital').classList.toggle('active', tab === 'capital');
+            document.getElementById('tabBtnRevenu').classList.toggle('active', tab === 'revenu');
+
+            if (tab === 'revenu') {
+                // Pré-remplir le DCA depuis l'onglet capital
+                const capitalDca = document.getElementById('monthlyContribution').value;
+                if (capitalDca && !document.getElementById('revenuMonthlyContribution').value) {
+                    document.getElementById('revenuMonthlyContribution').value = capitalDca;
+                }
+                // Afficher le régime fiscal détecté
+                updateRegimeBadge();
+            }
+        }
+
+        function updateRegimeBadge() {
+            const accountType = localStorage.getItem('accountType') || 'pea';
+            const badge = document.getElementById('revenuRegimeBadge');
+            if (accountType === 'pea') {
+                badge.textContent = 'PEA — 17,5% de prélèvements sociaux';
+                badge.style.color = 'var(--success)';
+            } else {
+                badge.textContent = 'CTO — Flat tax 30%';
+                badge.style.color = 'var(--primary)';
+            }
+        }
+
+        // Formater en euros
+        function fmt(v) {
+            if (v === null || v === undefined) return '—';
+            return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(v);
+        }
+
+        function fmtPct(v) {
+            if (v === null || v === undefined) return '—';
+            return (v > 0 ? '+' : '') + v.toFixed(1) + '%';
+        }
+
+        // Charger les données au démarrage
+        async function init() {
+            try {
+                const result = await apiGet('/api/objectif');
+                if (!result.success) return;
+
+                const d = result.data;
+
+                // Remplir les stats portefeuille
+                const portfolio = d.portfolio;
+                if (portfolio) {
+                    document.getElementById('statCurrentValue').textContent = fmt(portfolio.current_value);
+
+                    const avgEl = document.getElementById('statAvgMonthly');
+                    if (portfolio.avg_monthly_investment !== null && portfolio.avg_monthly_investment !== undefined) {
+                        avgEl.textContent = fmt(portfolio.avg_monthly_investment);
+                    } else {
+                        avgEl.textContent = 'N/A';
+                    }
+
+                    const xirrEl = document.getElementById('statXIRR');
+                    if (portfolio.xirr !== null && portfolio.xirr !== undefined) {
+                        xirrEl.textContent = fmtPct(portfolio.xirr);
+                        xirrEl.className = 'stat-value ' + (portfolio.xirr >= 0 ? 'positive' : 'negative');
+                    } else {
+                        xirrEl.textContent = 'N/A';
+                    }
+                }
+
+                // Pré-remplir le formulaire si objectif existant
+                const obj = d.objective;
+                if (obj) {
+                    if (obj.target_amount) document.getElementById('targetAmount').value = obj.target_amount;
+                    if (obj.target_year) document.getElementById('targetYear').value = obj.target_year;
+                    if (obj.monthly_contribution !== undefined) document.getElementById('monthlyContribution').value = obj.monthly_contribution;
+                }
+
+                // Afficher les résultats si déjà un objectif
+                if (d.progress) {
+                    displayResults(d.progress);
+                } else {
+                    document.getElementById('emptyState').style.display = 'block';
+                }
+
+            } catch (e) {
+                console.error('Erreur init objectif:', e);
+                document.getElementById('emptyState').style.display = 'block';
+            }
+        }
+
+        // Calculer et sauvegarder l'objectif
+        async function calculateObjective() {
+            const targetAmount = parseFloat(document.getElementById('targetAmount').value);
+            const targetYear = parseInt(document.getElementById('targetYear').value);
+            const monthlyContribution = parseFloat(document.getElementById('monthlyContribution').value) || 0;
+
+            if (!targetAmount || targetAmount <= 0) {
+                showMessage('Veuillez saisir un montant cible valide.', 'error');
+                return;
+            }
+            if (!targetYear || targetYear < 2026) {
+                showMessage('Veuillez saisir une année cible valide (≥ 2026).', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('calculateBtn');
+            const btnText = document.getElementById('btnText');
+            const btnSpinner = document.getElementById('btnSpinner');
+
+            btn.disabled = true;
+            btnText.style.display = 'none';
+            btnSpinner.style.display = 'inline-block';
+
+            try {
+                const result = await apiPost('/api/objectif', {
+                    target_amount: targetAmount,
+                    target_year: targetYear,
+                    monthly_contribution: monthlyContribution,
+                });
+
+                if (!result.success) throw new Error(result.error || 'Erreur serveur');
+
+                document.getElementById('emptyState').style.display = 'none';
+                displayResults(result.data.progress);
+
+            } catch (e) {
+                console.error('Erreur calcul objectif:', e);
+                showMessage('Une erreur est survenue : ' + e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btnText.style.display = 'inline';
+                btnSpinner.style.display = 'none';
+            }
+        }
+
+        function displayResults(p) {
+            if (!p) return;
+            currentData = p;
+
+            const section = document.getElementById('resultsSection');
+            section.style.display = 'block';
+
+            // Bannière on-track / off-track
+            const banner = document.getElementById('trackBanner');
+            const icon = document.getElementById('trackIcon');
+            const title = document.getElementById('trackTitle');
+            const subtitle = document.getElementById('trackSubtitle');
+
+            if (p.on_track) {
+                banner.className = 'track-banner on-track';
+                icon.textContent = '✅';
+                title.textContent = 'Vous êtes sur la bonne voie !';
+                subtitle.textContent = `À ce rythme, vous projetez ${fmt(p.projected_value)} en ${p.target_year}, soit ${fmt(p.surplus_or_deficit)} de plus que votre objectif.`;
+            } else {
+                banner.className = 'track-banner off-track';
+                icon.textContent = '⚠️';
+                title.textContent = 'Il manque un peu d\'élan';
+                const deficit = Math.abs(p.surplus_or_deficit);
+                subtitle.textContent = `Vous projetez ${fmt(p.projected_value)} en ${p.target_year}, soit ${fmt(deficit)} de moins que votre objectif.`;
+            }
+
+            // Barre de progression
+            document.getElementById('progressPct').textContent = p.progress_pct + '%';
+            document.getElementById('progressBarFill').style.width = Math.min(100, p.progress_pct) + '%';
+            document.getElementById('progressCurrent').textContent = fmt(p.current_value) + ' investi aujourd\'hui';
+            document.getElementById('progressTarget').textContent = 'Objectif : ' + fmt(p.target_amount);
+
+            // Métriques
+            document.getElementById('metricProjected').textContent = fmt(p.projected_value);
+            document.getElementById('metricProjected').className = 'metric-value ' + (p.on_track ? 'positive' : '');
+            document.getElementById('metricProjectedSub').textContent = `En ${p.target_year} avec ${p.rate_used}% de rendement/an`;
+
+            document.getElementById('metricTarget').textContent = fmt(p.target_amount);
+            document.getElementById('metricTargetSub').textContent = `Horizon : ${p.years_remaining} an${p.years_remaining > 1 ? 's' : ''}`;
+
+            const gapEl = document.getElementById('metricGap');
+            const gap = p.surplus_or_deficit;
+            gapEl.textContent = (gap >= 0 ? '+' : '') + fmt(gap);
+            gapEl.className = 'metric-value ' + (gap >= 0 ? 'positive' : 'negative');
+            document.getElementById('metricGapSub').textContent = gap >= 0 ? 'Surplus par rapport à l\'objectif' : 'Déficit par rapport à l\'objectif';
+
+            const reqEl = document.getElementById('metricRequired');
+            if (p.on_track && p.monthly_contribution >= p.required_monthly) {
+                reqEl.textContent = fmt(p.monthly_contribution);
+                document.getElementById('metricRequiredSub').textContent = 'Votre DCA actuel suffit';
+            } else {
+                reqEl.textContent = fmt(p.required_monthly);
+                document.getElementById('metricRequiredSub').textContent = `vs ${fmt(p.monthly_contribution)} actuellement`;
+            }
+
+            // Graphique
+            renderChart(p);
+
+            // Graphique point de bascule
+            renderCrossoverChart(p);
+
+            // Scroll vers les résultats
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function renderChart(p) {
+            const ctx = document.getElementById('objectifChart').getContext('2d');
+
+            if (objectifChart) {
+                objectifChart.destroy();
+            }
+
+            const labels = p.chart.labels.map(y => String(Math.floor(y)));
+
+            objectifChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Capital investi',
+                            data: p.chart.invested,
+                            backgroundColor: 'rgba(110,168,254,0.75)',
+                            borderColor: 'rgba(110,168,254,0)',
+                            borderWidth: 0,
+                            stack: 'portfolio',
+                            order: 2,
+                        },
+                        {
+                            label: 'Intérêts / plus-values',
+                            data: p.chart.interests,
+                            backgroundColor: 'rgba(76,175,80,0.75)',
+                            borderColor: 'rgba(76,175,80,0)',
+                            borderWidth: 0,
+                            stack: 'portfolio',
+                            order: 2,
+                        },
+                        {
+                            label: 'Objectif',
+                            data: p.chart.target,
+                            type: 'line',
+                            borderColor: '#ffa726',
+                            borderWidth: 2,
+                            borderDash: [6, 3],
+                            backgroundColor: 'transparent',
+                            fill: false,
+                            pointRadius: 0,
+                            pointHoverRadius: 0,
+                            order: 1,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { intersect: false, mode: 'index' },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: '#9aa4bf',
+                                font: { size: 12 },
+                                usePointStyle: true,
+                                padding: 16,
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#111729',
+                            borderColor: 'rgba(255,255,255,0.1)',
+                            borderWidth: 1,
+                            titleColor: '#e6eaf2',
+                            bodyColor: '#9aa4bf',
+                            callbacks: {
+                                label: function(ctx) {
+                                    return ` ${ctx.dataset.label}: ${fmt(ctx.raw)}`;
+                                },
+                                footer: function(items) {
+                                    const invested = items.find(i => i.dataset.label === 'Capital investi');
+                                    const interests = items.find(i => i.dataset.label === 'Intérêts / plus-values');
+                                    if (invested && interests) {
+                                        const total = (invested.raw || 0) + (interests.raw || 0);
+                                        return `Total : ${fmt(total)}`;
+                                    }
+                                    return '';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            stacked: true,
+                            grid: { color: 'rgba(255,255,255,0.04)' },
+                            ticks: { color: '#9aa4bf', font: { size: 11 }, maxTicksLimit: 10 }
+                        },
+                        y: {
+                            stacked: true,
+                            grid: { color: 'rgba(255,255,255,0.04)' },
+                            ticks: {
+                                color: '#9aa4bf',
+                                font: { size: 11 },
+                                callback: function(v) {
+                                    if (v >= 1000000) return (v/1000000).toFixed(1) + 'M€';
+                                    if (v >= 1000) return (v/1000).toFixed(0) + 'k€';
+                                    return v + '€';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderCrossoverChart(p) {
+            const c = p.crossover;
+            const badge = document.getElementById('crossoverBadge');
+
+            if (c.crossover_year) {
+                badge.textContent = `Bascule en ${c.crossover_year}`;
+                badge.style.display = 'inline-flex';
+            } else {
+                badge.style.display = 'none';
+            }
+
+            const ctx = document.getElementById('crossoverChart').getContext('2d');
+            if (crossoverChart) crossoverChart.destroy();
+
+            // Trouver l'index du point de bascule pour colorer la zone
+            const crossoverIdx = c.crossover_year ? c.labels.indexOf(c.crossover_year) : null;
+
+            crossoverChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: c.labels,
+                    datasets: [
+                        {
+                            label: 'Intérêts générés / an',
+                            data: c.annual_interests,
+                            borderColor: '#4caf50',
+                            backgroundColor: 'rgba(76,175,80,0.1)',
+                            borderWidth: 2.5,
+                            fill: false,
+                            tension: 0.4,
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                        },
+                        {
+                            label: 'Investi / an (DCA)',
+                            data: c.annual_dca,
+                            borderColor: '#6ea8fe',
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            borderDash: [5, 4],
+                            fill: false,
+                            tension: 0,
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { intersect: false, mode: 'index' },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: { color: '#9aa4bf', font: { size: 12 }, usePointStyle: true, padding: 16 }
+                        },
+                        tooltip: {
+                            backgroundColor: '#111729',
+                            borderColor: 'rgba(255,255,255,0.1)',
+                            borderWidth: 1,
+                            titleColor: '#e6eaf2',
+                            bodyColor: '#9aa4bf',
+                            callbacks: {
+                                label: function(ctx) {
+                                    return ` ${ctx.dataset.label}: ${fmt(ctx.raw)}`;
+                                },
+                                footer: function(items) {
+                                    const interests = items.find(i => i.dataset.label === 'Intérêts générés / an');
+                                    const dca = items.find(i => i.dataset.label === 'Investi / an (DCA)');
+                                    if (interests && dca) {
+                                        const diff = interests.raw - dca.raw;
+                                        if (diff >= 0) return `✅ Surplus : +${fmt(diff)}/an`;
+                                        return `Manque : ${fmt(diff)}/an`;
+                                    }
+                                    return '';
+                                }
+                            }
+                        },
+                        annotation: crossoverIdx !== null ? {
+                            annotations: {
+                                crossoverLine: {
+                                    type: 'line',
+                                    xMin: crossoverIdx,
+                                    xMax: crossoverIdx,
+                                    borderColor: 'rgba(255,167,38,0.6)',
+                                    borderWidth: 1.5,
+                                    borderDash: [4, 3],
+                                    label: {
+                                        display: true,
+                                        content: `Bascule ${c.crossover_year}`,
+                                        color: '#ffa726',
+                                        backgroundColor: 'rgba(255,167,38,0.1)',
+                                        font: { size: 11 }
+                                    }
+                                }
+                            }
+                        } : {}
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255,255,255,0.04)' },
+                            ticks: { color: '#9aa4bf', font: { size: 11 } }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255,255,255,0.04)' },
+                            ticks: {
+                                color: '#9aa4bf',
+                                font: { size: 11 },
+                                callback: function(v) {
+                                    if (v >= 1000000) return (v/1000000).toFixed(1) + 'M€';
+                                    if (v >= 1000) return (v/1000).toFixed(0) + 'k€';
+                                    return v + '€';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- Revenu passif ---
+        async function calculateRevenu() {
+            const targetMonthlyNet = parseFloat(document.getElementById('targetMonthlyNet').value);
+            const monthlyContribution = parseFloat(document.getElementById('revenuMonthlyContribution').value) || 0;
+
+            if (!targetMonthlyNet || targetMonthlyNet <= 0) {
+                showMessage('Veuillez saisir un revenu mensuel cible valide.', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('revenuCalculateBtn');
+            const btnText = document.getElementById('revenuBtnText');
+            const btnSpinner = document.getElementById('revenuBtnSpinner');
+            btn.disabled = true;
+            btnText.style.display = 'none';
+            btnSpinner.style.display = 'inline-block';
+
+            try {
+                const accountType = localStorage.getItem('accountType') || 'pea';
+                const result = await apiPost('/api/revenu-passif', {
+                    target_monthly_net: targetMonthlyNet,
+                    monthly_contribution: monthlyContribution,
+                    account_type: accountType,
+                });
+
+                if (!result.success) throw new Error(result.error || 'Erreur serveur');
+
+                document.getElementById('revenuEmptyState').style.display = 'none';
+                displayRevenuResults(result.data);
+
+            } catch (e) {
+                console.error('Erreur calcul revenu passif:', e);
+                showMessage('Une erreur est survenue : ' + e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btnText.style.display = 'inline';
+                btnSpinner.style.display = 'none';
+            }
+        }
+
+        function displayRevenuResults(d) {
+            const section = document.getElementById('revenuResults');
+            section.style.display = 'block';
+
+            // Bannière date
+            const banner = document.getElementById('dateBanner');
+            const icon = document.getElementById('dateIcon');
+            const title = document.getElementById('dateTitle');
+            const subtitle = document.getElementById('dateSubtitle');
+
+            if (d.target_year) {
+                banner.className = 'date-banner';
+                icon.textContent = '🎯';
+                const yearsLeft = d.years_to_reach ? Math.ceil(d.years_to_reach) : '?';
+                title.textContent = `Objectif atteignable en ${d.target_year}`;
+                subtitle.textContent = `Dans ${yearsLeft} an${yearsLeft > 1 ? 's' : ''} — en continuant votre DCA de ${fmt(d.monthly_contribution)}/mois avec un rendement de ${d.rate_used}%/an`;
+            } else {
+                banner.className = 'date-banner unreachable';
+                icon.textContent = '⚠️';
+                title.textContent = 'Capital requis très élevé';
+                subtitle.textContent = `Avec un DCA de ${fmt(d.monthly_contribution)}/mois, l'objectif dépasse 100 ans. Augmentez votre DCA ou revoyez votre cible.`;
+            }
+
+            // Montants principaux
+            document.getElementById('revenuNetAmount').textContent = fmt(d.target_monthly_net) + '/mois';
+            document.getElementById('revenuGrossAmount').textContent = fmt(d.target_monthly_gross) + '/mois';
+            document.getElementById('revenuTaxAmount').textContent = '−' + fmt(d.tax_per_month) + '/mois';
+            document.getElementById('revenuCapitalRequired').textContent = fmt(d.required_capital);
+            document.getElementById('revenuRateUsed').textContent = d.rate_used + '%/an (XIRR)';
+
+            // Barre de progression
+            document.getElementById('revenuProgressPct').textContent = d.progress_pct + '%';
+            document.getElementById('revenuProgressFill').style.width = Math.min(100, d.progress_pct) + '%';
+            document.getElementById('revenuProgressCurrent').textContent = fmt(d.current_value) + ' portefeuille actuel';
+            document.getElementById('revenuProgressTarget').textContent = 'Capital requis : ' + fmt(d.required_capital);
+
+            // Graphique
+            renderRevenuChart(d);
+
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function renderRevenuChart(d) {
+            const ctx = document.getElementById('revenuChart').getContext('2d');
+            if (revenuChart) revenuChart.destroy();
+
+            const labels = d.chart.labels.map(y => String(Math.floor(y)));
+
+            revenuChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Capital investi',
+                            data: d.chart.invested,
+                            backgroundColor: 'rgba(110,168,254,0.75)',
+                            borderWidth: 0,
+                            stack: 'portfolio',
+                            order: 2,
+                        },
+                        {
+                            label: 'Intérêts / plus-values',
+                            data: d.chart.interests,
+                            backgroundColor: 'rgba(76,175,80,0.75)',
+                            borderWidth: 0,
+                            stack: 'portfolio',
+                            order: 2,
+                        },
+                        {
+                            label: 'Capital requis',
+                            data: d.chart.target,
+                            type: 'line',
+                            borderColor: '#ffa726',
+                            borderWidth: 2,
+                            borderDash: [6, 3],
+                            backgroundColor: 'transparent',
+                            fill: false,
+                            pointRadius: 0,
+                            pointHoverRadius: 0,
+                            order: 1,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { intersect: false, mode: 'index' },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: { color: '#9aa4bf', font: { size: 12 }, usePointStyle: true, padding: 16 }
+                        },
+                        tooltip: {
+                            backgroundColor: '#111729',
+                            borderColor: 'rgba(255,255,255,0.1)',
+                            borderWidth: 1,
+                            titleColor: '#e6eaf2',
+                            bodyColor: '#9aa4bf',
+                            callbacks: {
+                                label: function(ctx) {
+                                    return ` ${ctx.dataset.label}: ${fmt(ctx.raw)}`;
+                                },
+                                footer: function(items) {
+                                    const invested = items.find(i => i.dataset.label === 'Capital investi');
+                                    const interests = items.find(i => i.dataset.label === 'Intérêts / plus-values');
+                                    if (invested && interests) {
+                                        return `Total : ${fmt((invested.raw || 0) + (interests.raw || 0))}`;
+                                    }
+                                    return '';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            stacked: true,
+                            grid: { color: 'rgba(255,255,255,0.04)' },
+                            ticks: { color: '#9aa4bf', font: { size: 11 }, maxTicksLimit: 10 }
+                        },
+                        y: {
+                            stacked: true,
+                            grid: { color: 'rgba(255,255,255,0.04)' },
+                            ticks: {
+                                color: '#9aa4bf',
+                                font: { size: 11 },
+                                callback: function(v) {
+                                    if (v >= 1000000) return (v/1000000).toFixed(1) + 'M€';
+                                    if (v >= 1000) return (v/1000).toFixed(0) + 'k€';
+                                    return v + '€';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Lancer au chargement
+        function startApp() {
+            initializeFirebase();
+            initAuth({
+                requireAuth: true,
+                onAuthenticated: async (user, token) => {
+                    await init();
+                },
+                onUnauthenticated: () => {
+                    window.location.href = '/login';
+                }
+            });
+        }
+
+        startApp();
+
+        window.calculateObjective = calculateObjective;
+        window.calculateRevenu = calculateRevenu;
+        window.switchTab = switchTab;
+
+        // Afficher le régime dès le chargement (onglet revenu actif par défaut)
+        updateRegimeBadge();
+    </script>
+</body>
+</html>
