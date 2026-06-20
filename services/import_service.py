@@ -14,15 +14,26 @@ modification de code nécessaire pour les fournisseurs compatibles OpenAI).
 """
 
 import os
+import re
 import json
+import math
 import base64
 import logging
+import unicodedata
+from functools import lru_cache
 from dataclasses import dataclass
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+
+# Fichier de correspondance nom de fonds -> code ISIN (produit par un scraper
+# externe). Formats acceptés : {"nom": "ISIN", ...} ou [{"name": ..., "isin": ...}].
+ISIN_MAP_PATH = os.environ.get(
+    "ISIN_MAP_PATH",
+    os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "isin_map.json"),
+)
 
 # Limites de garde
 MAX_FILE_SIZE = 10 * 1024 * 1024      # 10 Mo
@@ -299,12 +310,17 @@ def _build_parts(filename: str, content: bytes, mime_type: str, spec: ModelSpec)
 SYSTEM_PROMPT = (
     "Tu es un assistant d'extraction de transactions financières. À partir du "
     "document fourni (export CSV, capture d'écran d'un portefeuille de courtier, "
-    "ou PDF de relevé), extrais CHAQUE transaction/ordre d'investissement.\n\n"
+    "ou PDF de relevé), extrais UNIQUEMENT les ordres d'ACHAT de titres "
+    "(ETF, actions, fonds).\n\n"
+    "EXCLUS impérativement (ne les renvoie pas) : virements, dépôts d'espèces, "
+    "retraits, ventes, dividendes, coupons, intérêts, frais, taxes, et toute "
+    "ligne qui n'est pas l'achat d'un instrument financier.\n\n"
     "Règles :\n"
     "- Normalise les dates au format ISO AAAA-MM-JJ.\n"
     "- N'INVENTE JAMAIS d'ISIN : si l'ISIN n'est pas lisible, laisse-le à null.\n"
-    "- `name` = nom du fonds/ETF tel qu'affiché.\n"
-    "- `side` = \"buy\" (achat) ou \"sell\" (vente) si déterminable, sinon null.\n"
+    "- `name` = nom du fonds/ETF/action tel qu'affiché (important : il sert à "
+    "retrouver l'ISIN s'il manque).\n"
+    "- `side` = \"buy\" pour chaque ligne renvoyée.\n"
     "- `unit_price_eur` et `total_eur` : montants en euros si disponibles, sinon null.\n"
     "- `confidence` entre 0 et 1 pour signaler les lignes douteuses.\n"
     "- Si un total global du portefeuille/relevé est visible, reporte-le dans "
@@ -424,8 +440,205 @@ def _extract_openai_compatible(spec: ModelSpec, parts: List[ContentPart]) -> Imp
 
 
 # ============================================================================
+# Post-traitement : ne garder que les achats + résolution ISIN par nom
+# ============================================================================
+
+ISIN_RE = re.compile(r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$")
+
+# Côtés/types qui ne sont PAS des achats → exclus
+NON_BUY_SIDES = {
+    "sell", "vente", "sale", "withdrawal", "retrait", "transfer", "virement",
+    "deposit", "depot", "dépôt", "dividend", "dividende", "fee", "frais",
+    "interest", "interet", "intérêt", "tax", "taxe", "impot", "impôt",
+}
+
+
+def _is_buy(order: ParsedOrder) -> bool:
+    """Vrai si la ligne est un achat (ou côté indéterminé = supposé achat)."""
+    side = (order.side or "").strip().lower()
+    return side not in NON_BUY_SIDES
+
+
+def _normalize_name(name: str) -> str:
+    """Normalise un nom de fonds pour la correspondance (sans accents, minuscules)."""
+    if not name:
+        return ""
+    s = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
+    s = s.lower()
+    s = re.sub(r"[^a-z0-9 ]", " ", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+# Canonicalisation des variantes d'écriture d'un même concept, pour que par ex.
+# « Distributing », « Dist », « (D) » comptent comme le même token. On NE
+# fusionne PAS acc/dist entre eux (ce sont des ISIN différents) : on unifie
+# seulement les notations d'une même classe de part.
+_TOKEN_SYNONYMS = {
+    "accumulating": "acc", "accumulation": "acc", "capi": "acc",
+    "capitalisation": "acc", "capitalising": "acc", "cap": "acc", "c": "acc",
+    "distributing": "dist", "distribution": "dist", "distrib": "dist",
+    "d": "dist",
+    "hdg": "hedged", "hgd": "hedged",
+}
+
+# Tokens trop génériques pour discriminer (présents dans presque toutes les
+# lignes) : on les ignore pour ne pas gonfler artificiellement les scores.
+_STOP_TOKENS = {"ucits", "etf", "etc", "the", "fund", "index", "ii", "i"}
+
+
+def _tokenize(name: str) -> Tuple[str, ...]:
+    """Découpe un nom normalisé en tokens canoniques (synonymes unifiés)."""
+    norm = _normalize_name(name)
+    if not norm:
+        return tuple()
+    toks = [_TOKEN_SYNONYMS.get(t, t) for t in norm.split()]
+    toks = [t for t in toks if t not in _STOP_TOKENS]
+    return tuple(toks)
+
+
+@lru_cache(maxsize=1)
+def _load_isin_map() -> Tuple[Tuple[str, str, Tuple[str, ...]], ...]:
+    """Charge le fichier de correspondance nom→ISIN (mis en cache).
+
+    Renvoie un tuple de (nom_normalisé, ISIN, tokens). Tolère un dict ou une liste.
+    """
+    path = ISIN_MAP_PATH
+    if not os.path.exists(path):
+        return tuple()
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Lecture du fichier ISIN échouée (%s): %s", path, e)
+        return tuple()
+
+    if isinstance(raw, dict):
+        items = raw.items()
+    elif isinstance(raw, list):
+        items = [(d.get("name"), d.get("isin")) for d in raw if isinstance(d, dict)]
+    else:
+        items = []
+
+    entries: List[Tuple[str, str, Tuple[str, ...]]] = []
+    for name, isin in items:
+        norm = _normalize_name(name or "")
+        isin = (isin or "").strip().upper()
+        if norm and ISIN_RE.match(isin):
+            entries.append((norm, isin, _tokenize(name or "")))
+    return tuple(entries)
+
+
+@lru_cache(maxsize=1)
+def _idf() -> Dict[str, float]:
+    """Poids IDF de chaque token sur le corpus (un mot rare discrimine plus)."""
+    entries = _load_isin_map()
+    n = len(entries) or 1
+    df: Dict[str, int] = {}
+    for _, _, toks in entries:
+        for t in set(toks):
+            df[t] = df.get(t, 0) + 1
+    return {t: math.log((n + 1) / (c + 0.5)) + 1.0 for t, c in df.items()}
+
+
+# Seuil de similarité cosinus en dessous duquel on refuse de deviner un ISIN
+# (mieux vaut laisser l'ISIN vide qu'attribuer le mauvais fonds).
+_MATCH_THRESHOLD = 0.45
+
+
+def _idf_w(token: str, idf: Dict[str, float]) -> float:
+    """Poids d'un token ; un token inconnu du corpus reste discriminant."""
+    return idf.get(token, max(idf.values()) if idf else 1.0)
+
+
+def _resolve_isin(name: str) -> Optional[str]:
+    """Trouve l'ISIN correspondant à un nom via le fichier de correspondance.
+
+    Stratégie permissive :
+      1) correspondance exacte (nom normalisé) ;
+      2) sinon similarité cosinus pondérée IDF entre les tokens lus et ceux de
+         chaque entrée — la meilleure au-dessus du seuil gagne. Les notations de
+         classe de part sont unifiées (Dist/(D), Acc/(C)…) et les mots
+         génériques (UCITS, ETF…) ignorés, ce qui tolère ordre des mots,
+         devise, tickers parasites et suffixes manquants.
+    """
+    entries = _load_isin_map()
+    if not entries or not name:
+        return None
+
+    target_norm = _normalize_name(name)
+    if not target_norm:
+        return None
+
+    # 1) exact (normalisé)
+    for norm, isin, _ in entries:
+        if norm == target_norm:
+            return isin
+
+    # 2) cosinus IDF sur les tokens
+    q_tokens = set(_tokenize(name))
+    if not q_tokens:
+        return None
+    idf = _idf()
+    q_norm = math.sqrt(sum(_idf_w(t, idf) ** 2 for t in q_tokens))
+    if q_norm == 0:
+        return None
+
+    best_isin, best_score = None, 0.0
+    for _, isin, toks in entries:
+        d_tokens = set(toks)
+        if not d_tokens:
+            continue
+        inter = q_tokens & d_tokens
+        if not inter:
+            continue
+        num = sum(_idf_w(t, idf) ** 2 for t in inter)
+        d_norm = math.sqrt(sum(_idf_w(t, idf) ** 2 for t in d_tokens))
+        score = num / (q_norm * d_norm)
+        if score > best_score:
+            best_isin, best_score = isin, score
+
+    return best_isin if best_score >= _MATCH_THRESHOLD else None
+
+
+def _postprocess(result: ImportResult) -> ImportResult:
+    """Garde uniquement les achats et complète les ISIN manquants via le nom."""
+    kept: List[ParsedOrder] = []
+    for o in result.orders:
+        if not _is_buy(o):
+            continue
+        # Un achat débite le compte : le document peut afficher les montants en
+        # négatif (« -59,60 € »). On ne garde que des magnitudes positives.
+        if o.quantity is not None:
+            o.quantity = abs(o.quantity)
+        if o.unit_price_eur is not None:
+            o.unit_price_eur = abs(o.unit_price_eur)
+        if o.total_eur is not None:
+            o.total_eur = abs(o.total_eur)
+        isin = (o.isin or "").strip().upper()
+        if not isin or not ISIN_RE.match(isin):
+            resolved = _resolve_isin(o.name or "")
+            if resolved:
+                o.isin = resolved
+            else:
+                o.isin = isin or None
+        else:
+            o.isin = isin
+        kept.append(o)
+    result.orders = kept
+    return result
+
+
+# ============================================================================
 # Point d'entrée
 # ============================================================================
+
+def _extract_one(spec: ModelSpec, filename: str, content: bytes, mime_type: str) -> ImportResult:
+    """Extraction brute d'un fichier (sans post-traitement)."""
+    parts = _build_parts(filename, content, mime_type, spec)
+    if spec.provider == "anthropic":
+        return _extract_anthropic(spec, parts)
+    return _extract_openai_compatible(spec, parts)
+
 
 def parse_orders_from_file(
     filename: str,
@@ -433,22 +646,61 @@ def parse_orders_from_file(
     mime_type: str,
     model_key: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Extrait les ordres d'un fichier et renvoie un dict sérialisable.
+    """Extrait les ordres d'UN fichier (achats uniquement, ISIN complétés).
 
     Renvoie : { orders, declared_total_eur, currency_warning, model }
     Lève ImportError_ pour les erreurs fonctionnelles (message utilisateur).
     """
     spec = resolve_model(model_key)
-    parts = _build_parts(filename, content, mime_type, spec)
-
-    if spec.provider == "anthropic":
-        result = _extract_anthropic(spec, parts)
-    else:
-        result = _extract_openai_compatible(spec, parts)
-
+    result = _postprocess(_extract_one(spec, filename, content, mime_type))
     return {
         "orders": [o.model_dump() for o in result.orders],
         "declared_total_eur": result.declared_total_eur,
         "currency_warning": result.currency_warning,
         "model": {"key": spec.key, "label": spec.label},
+    }
+
+
+def parse_orders_from_files(
+    files: List[Tuple[str, bytes, str]],
+    model_key: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Extrait et fusionne les ordres de PLUSIEURS fichiers.
+
+    `files` = liste de tuples (filename, content, mime_type).
+    Renvoie : { orders, declared_total_eur, currency_warning, model, file_errors }
+    Une erreur sur un fichier n'interrompt pas les autres (collectée dans
+    `file_errors`).
+    """
+    spec = resolve_model(model_key)
+
+    all_orders: List[ParsedOrder] = []
+    declared_totals: List[float] = []
+    warnings: List[str] = []
+    file_errors: List[Dict[str, str]] = []
+
+    for filename, content, mime_type in files:
+        try:
+            result = _postprocess(_extract_one(spec, filename, content, mime_type))
+            all_orders.extend(result.orders)
+            if result.declared_total_eur is not None:
+                declared_totals.append(result.declared_total_eur)
+            if result.currency_warning:
+                warnings.append(f"{filename} : {result.currency_warning}")
+        except ImportError_ as fe:
+            file_errors.append({"file": filename, "error": str(fe)})
+        except Exception as e:  # noqa: BLE001
+            logger.exception("Extraction échouée pour %s", filename)
+            file_errors.append({"file": filename, "error": str(e)})
+
+    if not all_orders and file_errors and len(file_errors) == len(files):
+        # Tous les fichiers ont échoué → remonter la première erreur
+        raise ImportError_(file_errors[0]["error"])
+
+    return {
+        "orders": [o.model_dump() for o in all_orders],
+        "declared_total_eur": round(sum(declared_totals), 2) if declared_totals else None,
+        "currency_warning": " · ".join(warnings) if warnings else None,
+        "model": {"key": spec.key, "label": spec.label},
+        "file_errors": file_errors,
     }

@@ -1,0 +1,193 @@
+/* ============================================================================
+   Import d'ordres assisté par IA
+   ============================================================================ */
+
+.import-panel { margin-bottom: 20px; }
+
+.import-hint,
+.import-privacy {
+    color: var(--muted);
+    font-size: 0.88rem;
+    line-height: 1.5;
+    margin: 8px 0 16px;
+}
+.import-privacy { margin-top: 16px; margin-bottom: 18px; }
+
+/* --- Fil d'étapes --- */
+.import-steps {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+}
+.import-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: var(--border-radius-lg);
+    background: var(--card);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+.import-step span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.import-step.active {
+    color: var(--text);
+    border-color: var(--primary);
+    box-shadow: var(--shadow-primary);
+}
+.import-step.active span { background: var(--gradient-primary); color: #06101f; }
+.import-step.done { color: var(--success); }
+.import-step.done span { background: var(--success); color: #06101f; }
+
+/* --- Sélecteur de modèle --- */
+.import-model-note {
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin-top: 6px;
+}
+
+/* --- Dropzone --- */
+.dropzone {
+    border: 2px dashed rgba(130, 196, 255, 0.35);
+    border-radius: var(--border-radius-lg);
+    padding: 38px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    background: rgba(130, 196, 255, 0.04);
+}
+.dropzone:hover,
+.dropzone.dragover {
+    border-color: var(--primary);
+    background: rgba(130, 196, 255, 0.1);
+}
+.dropzone-icon { font-size: 2.2rem; margin-bottom: 8px; }
+.dropzone-text { color: var(--text); font-weight: 600; }
+.dropzone-sub { color: var(--muted); font-size: 0.82rem; margin-top: 4px; }
+.import-file-chosen {
+    margin-top: 12px;
+    color: var(--primary-accent);
+    font-size: 0.9rem;
+}
+.import-file-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+}
+.import-file-item span { color: var(--muted); font-size: 0.82rem; }
+.import-file-remove {
+    background: transparent;
+    border: none;
+    color: var(--danger);
+    cursor: pointer;
+    font-size: 0.9rem;
+    line-height: 1;
+    padding: 2px 6px;
+}
+.import-file-remove:hover { color: #ff8a80; }
+
+/* --- Bandeau métriques --- */
+.import-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+}
+.import-metric {
+    background: var(--card);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--border-radius-md);
+    padding: 14px 16px;
+}
+.import-metric-label { color: var(--muted); font-size: 0.78rem; }
+.import-metric-value {
+    color: var(--text);
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-top: 4px;
+}
+.import-metric-sub { color: var(--muted); font-size: 0.74rem; margin-top: 4px; }
+.import-currency-warn {
+    grid-column: 1 / -1;
+    color: var(--warning);
+    font-size: 0.85rem;
+    margin-top: 4px;
+}
+
+/* --- Tableau éditable --- */
+.import-table th { white-space: nowrap; }
+.import-cell {
+    width: 100%;
+    min-width: 70px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--border-radius-sm);
+    color: var(--text);
+    padding: 6px 8px;
+    font-size: 0.85rem;
+}
+.import-cell:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--ring);
+}
+.import-table tr.row-warn .import-cell[data-field="isin"] {
+    border-color: var(--danger);
+    background: rgba(255, 107, 107, 0.08);
+}
+.import-table tr.row-lowconf { background: rgba(255, 167, 38, 0.06); }
+.import-del {
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    line-height: 1;
+}
+
+/* --- Actions --- */
+.import-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+.import-actions-right { display: flex; gap: 10px; }
+
+/* --- Confirmation --- */
+.import-done-main {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--success);
+    margin-bottom: 12px;
+}
+.import-done-block {
+    background: var(--card);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--border-radius-md);
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    font-size: 0.88rem;
+    color: var(--muted);
+}
+.import-done-block ul { margin: 6px 0 0; padding-left: 18px; }
+.import-done-err { border-color: rgba(255, 107, 107, 0.3); }
+
+/* btn-secondary fallback si non défini ailleurs */
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.btn-secondary:hover { background: rgba(255, 255, 255, 0.12); }

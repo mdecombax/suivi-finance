@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Suivi Finance — Importer des ordres</title>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/settings_modal.css">
+    <link rel="stylesheet" href="/static/css/orders.css">
+    <link rel="stylesheet" href="/static/css/import.css">
+
+    <!-- Meta -->
+    <meta name="robots" content="noindex" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="/static/images/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/static/images/favicon.ico" type="image/x-icon" sizes="any" />
+    <meta name="description" content="Import d'ordres assisté par IA" />
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+    <!-- Modules partagés -->
+    <script src="/static/js/shared/firebase-config.js"></script>
+    <script src="/static/js/shared/auth.js"></script>
+    <script src="/static/js/shared/utils.js"></script>
+    <script src="/static/js/user_dropdown.js"></script>
+    <script src="/static/js/settings_modal.js"></script>
+</head>
+<body>
+    <div class="shell">
+        {% set active_page = 'import' %}
+        {% include 'components/header.html' %}
+
+        <main>
+            <div id="loadingState" class="loading">
+                <div class="loading-spinner animate-spin"></div>
+                <span class="loading-text">Chargement…</span>
+            </div>
+
+            <div id="importContent" style="display: none;">
+                <div id="messageContainer"></div>
+
+                <!-- Fil d'étapes -->
+                <div class="import-steps">
+                    <div class="import-step active" data-step="1"><span>1</span> Dépôt</div>
+                    <div class="import-step" data-step="2"><span>2</span> Prévisualisation</div>
+                    <div class="import-step" data-step="3"><span>3</span> Confirmation</div>
+                </div>
+
+                <!-- ÉTAPE 1 : Dépôt -->
+                <section id="stepUpload" class="card import-panel">
+                    <div class="section-title">Déposer un document</div>
+                    <p class="import-hint">
+                        Export CSV, capture d'écran de portefeuille (PNG/JPEG/WebP) ou PDF de relevé.
+                        L'IA extrait les ordres, vous vérifiez et corrigez avant d'importer.
+                    </p>
+
+                    <div class="form-group" style="max-width: 520px;">
+                        <label class="form-label" for="modelSelect">Modèle d'extraction</label>
+                        <select class="form-input" id="modelSelect"></select>
+                        <div class="import-model-note" id="modelNote"></div>
+                    </div>
+
+                    <div id="dropzone" class="dropzone">
+                        <div class="dropzone-icon">📄</div>
+                        <div class="dropzone-text">Glissez un ou plusieurs fichiers ici, ou cliquez pour parcourir</div>
+                        <div class="dropzone-sub">CSV · PNG · JPEG · WebP · PDF — max 10 Mo par fichier</div>
+                        <input type="file" id="fileInput" accept=".csv,.txt,.tsv,.png,.jpg,.jpeg,.webp,.gif,.pdf,image/*,application/pdf,text/csv" multiple hidden>
+                    </div>
+                    <div id="fileChosen" class="import-file-chosen" style="display:none;"></div>
+
+                    <p class="import-privacy">
+                        🔒 Le fichier déposé est transmis au fournisseur du modèle choisi pour l'extraction.
+                        Vous restez maître du document que vous déposez.
+                    </p>
+
+                    <button id="parseBtn" class="btn btn-primary" disabled>
+                        <span id="parseBtnText">Extraire les ordres</span>
+                        <span id="parseBtnLoading" class="loading-spinner" style="display:none;"></span>
+                    </button>
+                </section>
+
+                <!-- ÉTAPE 2 : Prévisualisation éditable -->
+                <section id="stepPreview" class="card import-panel" style="display:none;">
+                    <div class="section-title">Vérifier et corriger</div>
+
+                    <!-- Bandeau métriques -->
+                    <div class="import-metrics" id="metricsBar"></div>
+
+                    <div class="table-container" style="margin-top:16px;">
+                        <table class="table import-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>ISIN</th>
+                                    <th>Nom</th>
+                                    <th>Quantité</th>
+                                    <th>Prix Unitaire</th>
+                                    <th>Total</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="previewBody"></tbody>
+                        </table>
+                    </div>
+
+                    <div class="import-actions">
+                        <button id="addRowBtn" class="btn btn-secondary">+ Ajouter une ligne</button>
+                        <div class="import-actions-right">
+                            <button id="backBtn" class="btn btn-secondary">Recommencer</button>
+                            <button id="confirmBtn" class="btn btn-primary">
+                                <span id="confirmBtnText">Importer les ordres</span>
+                                <span id="confirmBtnLoading" class="loading-spinner" style="display:none;"></span>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ÉTAPE 3 : Confirmation -->
+                <section id="stepDone" class="card import-panel" style="display:none;">
+                    <div class="section-title">Import terminé</div>
+                    <div id="doneSummary" class="import-done"></div>
+                    <div class="import-actions-right" style="margin-top:16px;">
+                        <a href="/orders" class="btn btn-secondary">Voir les ordres</a>
+                        <a href="/" class="btn btn-primary">Voir le portefeuille</a>
+                    </div>
+                    <button id="restartBtn" class="btn btn-secondary" style="margin-top:12px;">Importer un autre document</button>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    {% include 'components/settings_modal.html' %}
+
+    <script>
+        document.documentElement.setAttribute('data-theme', 'dark');
+        function init() {
+            initializeFirebase();
+            initAuth({
+                requireAuth: true,
+                onAuthenticated: async () => {
+                    hideElement('loadingState');
+                    showElement('importContent');
+                    document.getElementById('importContent').style.display = 'block';
+                    await ImportPage.init();
+                }
+            });
+        }
+        init();
+    </script>
+    <script src="/static/js/import.js"></script>
+</body>
+</html>

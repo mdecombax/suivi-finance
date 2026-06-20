@@ -1,0 +1,5 @@
+{
+  "_comment": "Fichier de correspondance nom de fonds -> code ISIN, utilisé pour compléter les ISIN manquants à l'import. Deux formats acceptés : (1) un objet {nom: ISIN}, ou (2) une liste [{\"name\": ..., \"isin\": ...}]. La correspondance est insensible à la casse/aux accents et tolère les inclusions partielles. Remplace data/isin_map.json par la sortie de ton scraper. Surcharge possible du chemin via la variable d'env ISIN_MAP_PATH.",
+  "iShares Core MSCI World UCITS ETF": "IE00B4L5Y983",
+  "Amundi MSCI World UCITS ETF": "LU1681043599"
+}
