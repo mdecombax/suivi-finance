@@ -10,6 +10,8 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
+import json
+import base64
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
 from flask import request, jsonify, g
@@ -34,14 +36,16 @@ class FirebaseService:
                 self.db = firestore.client()
                 return
 
-            # Path to service account key file
-            service_account_path = Path(__file__).parent / "suivi-financ-firebase-adminsdk-fbsvc-6f17b62499.json"
-
-            if not service_account_path.exists():
-                raise FileNotFoundError(f"Service account key not found: {service_account_path}")
-
-            # Initialize Firebase Admin SDK
-            cred = credentials.Certificate(str(service_account_path))
+            # Load credentials from env var (Cloud Run) or local file (dev)
+            firebase_creds_json = os.environ.get("FIREBASE_CREDENTIALS_JSON")
+            if firebase_creds_json:
+                creds_dict = json.loads(base64.b64decode(firebase_creds_json).decode("utf-8"))
+                cred = credentials.Certificate(creds_dict)
+            else:
+                service_account_path = Path(__file__).parent / "suivi-financ-firebase-adminsdk-fbsvc-6f17b62499.json"
+                if not service_account_path.exists():
+                    raise FileNotFoundError(f"Service account key not found: {service_account_path}")
+                cred = credentials.Certificate(str(service_account_path))
             firebase_admin.initialize_app(cred)
 
             # Get Firestore reference
@@ -289,6 +293,32 @@ class FirebaseService:
             logging.error(f"Error starting trial for user {user_id}: {e}")
             return False
 
+    # ========== OBJECTIVE MANAGEMENT ==========
+
+    def get_user_objective(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve the financial objective for a user from customers/{user_id}/objectives/main."""
+        try:
+            obj_ref = self.db.collection('customers').document(user_id).collection('objectives').document('main')
+            doc = obj_ref.get()
+            if doc.exists:
+                return doc.to_dict()
+            return None
+        except Exception as e:
+            logging.error(f"Error fetching objective for user {user_id}: {e}")
+            return None
+
+    def save_user_objective(self, user_id: str, objective_data: Dict[str, Any]) -> bool:
+        """Save or update the financial objective for a user."""
+        try:
+            objective_data['updatedAt'] = datetime.utcnow()
+            obj_ref = self.db.collection('customers').document(user_id).collection('objectives').document('main')
+            obj_ref.set(objective_data, merge=True)
+            logging.info(f"Objective saved for user {user_id}")
+            return True
+        except Exception as e:
+            logging.error(f"Error saving objective for user {user_id}: {e}")
+            return False
+
 
 # Global instance
 firebase_service = FirebaseService()
@@ -313,8 +343,8 @@ def verify_firebase_token(token: str) -> Optional[Dict[str, Any]]:
         if token.startswith('Bearer '):
             token = token[7:]
 
-        # Verify token with Firebase Admin SDK
-        decoded_token = auth.verify_id_token(token)
+        # Verify token with Firebase Admin SDK (clock_skew_seconds tolère un léger décalage d'horloge)
+        decoded_token = auth.verify_id_token(token, clock_skew_seconds=10)
 
         return {
             'uid': decoded_token['uid'],
@@ -323,11 +353,11 @@ def verify_firebase_token(token: str) -> Optional[Dict[str, Any]]:
             'firebase_claims': decoded_token
         }
 
-    except firebase_admin.auth.InvalidIdTokenError:
-        logging.warning("Invalid Firebase token")
+    except firebase_admin.auth.InvalidIdTokenError as e:
+        logging.warning(f"Invalid Firebase token: {e}")
         return None
-    except firebase_admin.auth.ExpiredIdTokenError:
-        logging.warning("Expired Firebase token")
+    except firebase_admin.auth.ExpiredIdTokenError as e:
+        logging.warning(f"Expired Firebase token: {e}")
         return None
     except firebase_admin.auth.RevokedIdTokenError:
         logging.warning("Revoked Firebase token")
