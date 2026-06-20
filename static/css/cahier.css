@@ -1,0 +1,419 @@
+/* =====================================================================
+   Refonte graphique « Cahier d'école »
+   Thème papier quadrillé, écriture manuscrite, traits crayonnés.
+   Chargée APRÈS main.css + le <style> inline => prime sur le thème sombre.
+   Pensée pour rester très lisible (chiffres compris) et ergonomique.
+   ===================================================================== */
+
+:root {
+    /* ---- Palette encre & papier ---- */
+    --paper:        #fcfbf2;   /* fond cahier crème */
+    --paper-note:   #fffdf4;   /* feuillet / carte */
+    --paper-line:   #cdd9ee;   /* lignes du quadrillage (bleu pâle) */
+    --paper-margin: #e8a7ad;   /* marge rouge */
+    --highlighter:  rgba(255, 234, 138, 0.55); /* surligneur jaune */
+
+    --ink:        #2a2f3a;     /* encre noire/grise (texte courant) */
+    --ink-strong: #1d2330;     /* encre appuyée (titres) */
+    --ink-blue:   #27408b;     /* stylo bleu */
+    --ink-muted:  #6b7280;     /* crayon gris (légendes) */
+    --ink-red:    #c0392b;     /* stylo rouge (pertes / accents) */
+    --ink-green:  #2e7d32;     /* stylo vert (gains) */
+
+    /* On réécrit les variables du design system existant : tout le site
+       qui consomme var(--bg)/var(--card)/var(--text)... bascule d'un coup. */
+    --bg: var(--paper);
+    --card: var(--paper-note);
+    --text: var(--ink);
+    --muted: var(--ink-muted);
+    --primary: var(--ink-blue);
+    --primary-accent: var(--ink-blue);
+    --danger: var(--ink-red);
+    --success: var(--ink-green);
+    --ring: rgba(39, 64, 139, 0.25);
+
+    --gradient-primary: linear-gradient(135deg, var(--ink-blue), #3a59b0);
+    --gradient-bg: var(--paper);
+
+    --shadow-sm: 1px 1px 0 rgba(29, 35, 48, 0.10);
+    --shadow-md: 2px 2px 0 rgba(29, 35, 48, 0.10);
+    --shadow-lg: 3px 4px 0 rgba(29, 35, 48, 0.12);
+    --shadow-xl: 4px 6px 0 rgba(29, 35, 48, 0.14);
+    --shadow-primary: 2px 3px 0 rgba(39, 64, 139, 0.18);
+    --shadow-primary-lg: 3px 5px 0 rgba(39, 64, 139, 0.22);
+
+    /* Polices manuscrites — Patrick Hand reste très lisible pour les chiffres,
+       Caveat sert aux gros titres et valeurs. */
+    --font-hand:  'Patrick Hand', 'Comic Sans MS', ui-rounded, cursive;
+    --font-title: 'Caveat', 'Patrick Hand', cursive;
+
+    /* Bordure « tracée à la main » réutilisable */
+    --doodle-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+    --doodle-radius-alt: 15px 225px 15px 255px / 225px 15px 255px 15px;
+}
+
+/* ----------------------------------------------------------------------
+   Fond papier quadrillé (petits carreaux) + marge rouge, fixés à l'écran
+   ---------------------------------------------------------------------- */
+html, body {
+    background: var(--paper) !important;
+    color: var(--ink);
+}
+
+body {
+    font-family: var(--font-hand) !important;
+    font-size: 1.05rem;
+    line-height: 1.55;
+    background-color: var(--paper) !important;
+    background-image:
+        /* marge rouge verticale (couche non répétée) */
+        linear-gradient(90deg,
+            transparent 0, transparent 46px,
+            var(--paper-margin) 46px, var(--paper-margin) 48px,
+            transparent 48px),
+        /* lignes horizontales */
+        linear-gradient(var(--paper-line) 1px, transparent 1px),
+        /* lignes verticales */
+        linear-gradient(90deg, var(--paper-line) 1px, transparent 1px) !important;
+    background-size:
+        100% 100%,
+        26px 26px,
+        26px 26px !important;
+    background-attachment: fixed !important;
+    background-position: 0 0, 0 0, 0 0 !important;
+}
+
+@media (max-width: 768px) {
+    body { background-size: 100% 100%, 22px 22px, 22px 22px !important; }
+}
+
+/* Typographie générale manuscrite */
+h1, h2, h3, h4, h5, h6,
+.logo-text, .table-title, .main-kpi-value, .kpi-value,
+.section-title {
+    font-family: var(--font-title) !important;
+    color: var(--ink-strong) !important;
+    letter-spacing: 0.5px;
+}
+
+/* Les chiffres restent en Patrick Hand : manuscrit mais net */
+.number, .main-kpi-value.number, .kpi-value.number,
+input, select, textarea, button {
+    font-family: var(--font-hand) !important;
+}
+
+/* ----------------------------------------------------------------------
+   En-tête / navigation
+   ---------------------------------------------------------------------- */
+header {
+    background: rgba(252, 251, 242, 0.85) !important;
+    backdrop-filter: blur(2px) !important;
+    border-bottom: 2px dashed rgba(39, 64, 139, 0.35) !important;
+    padding-top: 24px !important;
+}
+
+.logo-text {
+    -webkit-text-fill-color: var(--ink-blue) !important;
+    background: none !important;
+    color: var(--ink-blue) !important;
+    font-size: 2.2rem !important;
+    font-weight: 700;
+    transform: rotate(-2deg);
+}
+
+.nav-link {
+    font-family: var(--font-hand) !important;
+    color: var(--ink-muted) !important;
+    font-size: 1.15rem !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.nav-link::before { display: none !important; }
+
+.nav-link:hover {
+    color: var(--ink-strong) !important;
+    background: transparent !important;
+    transform: none !important;
+    text-decoration: underline wavy var(--ink-blue) 1.5px;
+    text-underline-offset: 5px;
+}
+
+/* L'onglet actif est « entouré » au stylo */
+.nav-link.active {
+    color: var(--ink-strong) !important;
+    background: transparent !important;
+    border: 2.5px solid var(--ink-blue) !important;
+    border-radius: var(--doodle-radius) !important;
+    box-shadow: none !important;
+    transform: rotate(-1.5deg);
+    padding: 8px 18px !important;
+}
+
+/* ----------------------------------------------------------------------
+   Cartes KPI principales — feuillets épinglés sur le cahier
+   ---------------------------------------------------------------------- */
+.main-kpi-card {
+    background: var(--paper-note) !important;
+    border: 2.5px solid var(--ink-strong) !important;
+    border-radius: var(--doodle-radius) !important;
+    box-shadow: var(--shadow-lg) !important;
+    transform: rotate(-0.6deg);
+}
+.main-kpi-card:nth-child(2) { transform: rotate(0.7deg); }
+
+.main-kpi-card::before { display: none !important; }
+
+.main-kpi-card:hover {
+    transform: translateY(-4px) rotate(-0.6deg) !important;
+    border-color: var(--ink-blue) !important;
+    box-shadow: var(--shadow-xl), var(--shadow-primary) !important;
+}
+
+/* Le feuillet « valeur nette » est surligné au stabilo */
+.main-kpi-card.primary {
+    background:
+        linear-gradient(var(--highlighter), var(--highlighter)) 0 60% / 100% 48% no-repeat,
+        var(--paper-note) !important;
+    border-color: var(--ink-blue) !important;
+}
+
+.main-kpi-label {
+    font-family: var(--font-hand) !important;
+    color: var(--ink-muted) !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    font-size: 1.05rem !important;
+}
+
+.main-kpi-value {
+    -webkit-text-fill-color: var(--ink-strong) !important;
+    background: none !important;
+    color: var(--ink-strong) !important;
+    font-family: var(--font-title) !important;
+    font-size: 3rem !important;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.main-kpi-card.primary .main-kpi-value {
+    -webkit-text-fill-color: var(--ink-blue) !important;
+    background: none !important;
+    color: var(--ink-blue) !important;
+    font-size: 3.6rem !important;
+}
+
+.main-kpi-subtitle {
+    font-family: var(--font-hand) !important;
+    color: var(--ink-muted) !important;
+    font-size: 1rem !important;
+}
+
+/* ----------------------------------------------------------------------
+   KPI détaillés (section dépliable)
+   ---------------------------------------------------------------------- */
+.details-toggle {
+    background: var(--paper-note) !important;
+    border: 2px dashed var(--ink-muted) !important;
+    border-radius: var(--doodle-radius-alt) !important;
+    color: var(--ink-strong) !important;
+    font-family: var(--font-hand) !important;
+    font-size: 1.1rem !important;
+}
+.details-toggle:hover {
+    background: var(--highlighter) !important;
+    border-color: var(--ink-blue) !important;
+}
+
+.kpi-card,
+.detailed-kpis .kpi-card {
+    background: var(--paper-note) !important;
+    border: 2px solid var(--ink-strong) !important;
+    border-radius: var(--doodle-radius) !important;
+    box-shadow: var(--shadow-md) !important;
+}
+.detailed-kpis .kpi-card:nth-child(even) { transform: rotate(0.6deg); }
+.detailed-kpis .kpi-card:nth-child(odd)  { transform: rotate(-0.6deg); }
+
+.kpi-label,
+.detailed-kpis .kpi-label {
+    font-family: var(--font-hand) !important;
+    color: var(--ink-muted) !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    font-size: 1rem !important;
+}
+
+.kpi-value {
+    -webkit-text-fill-color: var(--ink-strong) !important;
+    background: none !important;
+    color: var(--ink-strong) !important;
+    font-family: var(--font-title) !important;
+    font-size: 1.9rem !important;
+    font-weight: 700;
+}
+
+/* ----------------------------------------------------------------------
+   Graphique — cadre tracé à la main, posé sur le papier quadrillé
+   ---------------------------------------------------------------------- */
+.chart-container { margin-top: 2.5rem; }
+
+.chart-paper {
+    background: transparent !important;     /* on voit le quadrillage derrière */
+    border: 2.5px solid var(--ink-blue) !important;
+    border-radius: var(--doodle-radius) !important;
+    box-shadow: var(--shadow-lg) !important;
+}
+
+.chart-period-selector {
+    background: var(--paper-note) !important;
+    border: 2px solid var(--ink-strong) !important;
+    border-radius: 14px 18px 14px 18px / 18px 14px 18px 14px !important;
+    padding: 4px 6px !important;
+}
+
+.period-btn {
+    color: var(--ink-muted) !important;
+    font-family: var(--font-hand) !important;
+    font-size: 1rem !important;
+    background: transparent !important;
+}
+.period-btn:hover { color: var(--ink-strong) !important; background: var(--highlighter) !important; }
+.period-btn.active {
+    color: var(--ink-strong) !important;
+    background: transparent !important;
+    border: 2px solid var(--ink-blue) !important;
+    border-radius: var(--doodle-radius-alt) !important;
+    box-shadow: none !important;
+}
+
+/* ----------------------------------------------------------------------
+   Tableau des positions — page de cahier réglée
+   ---------------------------------------------------------------------- */
+.table-container,
+.positions-table.table-container {
+    background: var(--paper-note) !important;
+    border: 2.5px solid var(--ink-strong) !important;
+    border-radius: var(--doodle-radius) !important;
+    box-shadow: var(--shadow-lg) !important;
+    backdrop-filter: none !important;
+}
+
+.table-header {
+    background: linear-gradient(var(--highlighter), var(--highlighter)) !important;
+    border-bottom: 2px dashed var(--ink-muted) !important;
+}
+
+.table-title {
+    -webkit-text-fill-color: var(--ink-strong) !important;
+    background: none !important;
+    color: var(--ink-strong) !important;
+    font-family: var(--font-title) !important;
+    font-size: 1.7rem !important;
+    position: relative;
+    display: inline-block;
+}
+
+.table-subtitle {
+    font-family: var(--font-hand) !important;
+    color: var(--ink-muted) !important;
+    font-size: 1rem !important;
+}
+
+.table th {
+    background: transparent !important;
+    color: var(--ink-muted) !important;
+    font-family: var(--font-hand) !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    font-size: 1rem !important;
+    border-bottom: 2px solid var(--ink-strong) !important;
+}
+
+.table td {
+    color: var(--ink) !important;
+    font-family: var(--font-hand) !important;
+    font-size: 1.05rem !important;
+    /* lignes réglées du cahier */
+    border-bottom: 1.5px dashed var(--paper-line) !important;
+}
+
+.table tbody tr:hover {
+    background: var(--highlighter) !important;
+    transform: none !important;
+}
+
+/* ----------------------------------------------------------------------
+   Boutons d'action / petits éléments
+   ---------------------------------------------------------------------- */
+.calc-info-btn {
+    background: var(--paper-note) !important;
+    border: 1.5px solid var(--ink-blue) !important;
+    color: var(--ink-blue) !important;
+    font-family: var(--font-hand) !important;
+    border-radius: 50% !important;
+}
+
+.floating-action-button {
+    background: var(--highlighter) !important;
+    border: 3px solid var(--ink-strong) !important;
+    color: var(--ink-strong) !important;
+    box-shadow: var(--shadow-lg) !important;
+}
+.floating-action-button:hover { transform: rotate(-6deg) scale(1.05) !important; }
+
+.floating-menu {
+    background: var(--paper-note) !important;
+    border: 2.5px solid var(--ink-strong) !important;
+    border-radius: var(--doodle-radius) !important;
+    box-shadow: var(--shadow-xl) !important;
+}
+.floating-menu-item {
+    font-family: var(--font-hand) !important;
+    color: var(--ink) !important;
+    font-size: 1.05rem !important;
+}
+.floating-menu-item:hover { background: var(--highlighter) !important; }
+
+/* Loader */
+.loading-text { font-family: var(--font-hand) !important; color: var(--ink-muted) !important; font-size: 1.2rem; }
+.loading-spinner { border-color: rgba(39,64,139,0.2) !important; border-top-color: var(--ink-blue) !important; }
+
+/* ----------------------------------------------------------------------
+   Animations « écriture »
+   ---------------------------------------------------------------------- */
+/* Soulignement au stylo qui se trace sous les titres de section */
+.table-title::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -6px;
+    height: 3px;
+    width: 100%;
+    background: var(--ink-blue);
+    border-radius: 2px;
+    transform: scaleX(0);
+    transform-origin: left center;
+    animation: cahier-underline 0.9s cubic-bezier(0.65, 0, 0.35, 1) 0.4s forwards;
+}
+
+@keyframes cahier-underline {
+    to { transform: scaleX(1); }
+}
+
+/* Les feuillets « s'écrivent » à l'apparition */
+.main-kpi-card, .kpi-card {
+    transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+                border-color var(--transition-fast), box-shadow var(--transition-fast) !important;
+}
+
+/* Respect des préférences d'accessibilité : on coupe rotations & anims */
+@media (prefers-reduced-motion: reduce) {
+    .main-kpi-card, .main-kpi-card:nth-child(2),
+    .detailed-kpis .kpi-card:nth-child(even),
+    .detailed-kpis .kpi-card:nth-child(odd),
+    .logo-text, .nav-link.active {
+        transform: none !important;
+    }
+    .table-title::after { animation: none; transform: scaleX(1); }
+}
