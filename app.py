@@ -193,23 +193,23 @@ def import_models_api():
 def import_parse_api():
     """Extrait les ordres d'un fichier déposé et calcule des métriques de contrôle."""
     try:
-        if "file" not in request.files:
+        uploaded_files = request.files.getlist("file")
+        uploaded_files = [f for f in uploaded_files if f and f.filename]
+        if not uploaded_files:
             return jsonify({"error": "Aucun fichier reçu."}), 400
 
-        uploaded = request.files["file"]
-        content = uploaded.read()
-        if not content:
-            return jsonify({"error": "Fichier vide."}), 400
+        files = []
+        for f in uploaded_files:
+            content = f.read()
+            if content:
+                files.append((f.filename or "document", content, f.mimetype or ""))
+        if not files:
+            return jsonify({"error": "Fichier(s) vide(s)."}), 400
 
         model_key = request.form.get("model") or None
 
         try:
-            extraction = import_service.parse_orders_from_file(
-                filename=uploaded.filename or "document",
-                content=content,
-                mime_type=uploaded.mimetype or "",
-                model_key=model_key,
-            )
+            extraction = import_service.parse_orders_from_files(files, model_key=model_key)
         except import_service.ImportError_ as fe:
             return jsonify({"error": str(fe)}), 400
 
@@ -221,6 +221,7 @@ def import_parse_api():
             "declared_total_eur": extraction["declared_total_eur"],
             "currency_warning": extraction["currency_warning"],
             "model": extraction["model"],
+            "file_errors": extraction.get("file_errors", []),
             "metrics": metrics,
         })
     except Exception as e:
@@ -266,11 +267,20 @@ def import_confirm_api():
                 "quantity": float(quantity),
                 "date": order_date,
             }
-            # Prix unitaire fourni par l'extraction/édition (sinon récupéré par le helper)
-            if raw.get("unit_price_eur") not in (None, ""):
-                order_data["unitPrice"] = float(raw["unit_price_eur"])
-            elif raw.get("unitPrice") not in (None, ""):
-                order_data["unitPrice"] = float(raw["unitPrice"])
+            # Prix unitaire fourni par l'extraction/édition (clé canonique unitPriceEUR) ;
+            # sinon on transmet le total pour que le helper en dérive le prix unitaire ;
+            # sinon le helper récupère le prix historique.
+            unit_in = raw.get("unitPriceEUR")
+            if unit_in in (None, ""):
+                unit_in = raw.get("unit_price_eur")
+            total_in = raw.get("totalPriceEUR")
+            if total_in in (None, ""):
+                total_in = raw.get("total_eur")
+
+            if unit_in not in (None, ""):
+                order_data["unitPrice"] = float(unit_in)
+            elif total_in not in (None, ""):
+                order_data["totalPriceEUR"] = float(total_in)
 
             try:
                 order_data = _build_order_with_price(order_data)
@@ -1260,24 +1270,45 @@ def _build_order_with_price(order_data: Dict[str, Any]) -> Dict[str, Any]:
     date de l'ordre, avec repli sur le prix courant. Lève ValueError si le prix
     reste introuvable. Partagé par la création unitaire et l'import en masse.
     """
-    def _missing(key):
-        return key not in order_data or order_data.get(key) in (None, "")
+    def _positive(value):
+        # Un prix/total à 0 (ou vide) est considéré comme absent : il faut le
+        # calculer, pas le conserver tel quel.
+        try:
+            return value not in (None, "") and float(value) > 0
+        except (TypeError, ValueError):
+            return False
 
-    if _missing('unitPrice') or _missing('totalPriceEUR'):
-        unit = order_data.get('unitPrice')
-        if unit in (None, ""):
-            order_date = datetime.strptime(order_data['date'], '%Y-%m-%d').date()
-            price_quote = price_service.get_historical_price(order_data['isin'], order_date)
-            if not price_quote.is_valid:
-                price_quote = price_service.get_current_price(order_data['isin'])
-            if not price_quote.is_valid:
-                raise ValueError(f"Prix introuvable pour l'ISIN {order_data['isin']}")
-            unit = price_quote.price
+    quantity = float(order_data['quantity'])
+    # Clé canonique du prix unitaire = 'unitPrice' (lue par portfolio/position
+    # services, l'API /api/orders et la page Ordres). On tolère 'unitPriceEUR'
+    # en entrée pour compatibilité.
+    unit = order_data.get('unitPrice')
+    if unit in (None, ""):
+        unit = order_data.get('unitPriceEUR')
+    total = order_data.get('totalPriceEUR')
 
+    # Prix unitaire : valeur fournie si valable, sinon dérivée du total fourni,
+    # sinon récupérée à la date de l'ordre (repli sur le prix courant).
+    if _positive(unit):
         unit = float(unit)
-        order_data['unitPrice'] = unit
-        order_data['totalPriceEUR'] = unit * float(order_data['quantity'])
+    elif _positive(total) and quantity:
+        unit = float(total) / quantity
+    else:
+        order_date = datetime.strptime(order_data['date'], '%Y-%m-%d').date()
+        price_quote = price_service.get_historical_price(order_data['isin'], order_date)
+        if not price_quote.is_valid:
+            price_quote = price_service.get_current_price(order_data['isin'])
+        if not price_quote.is_valid:
+            raise ValueError(f"Prix introuvable pour l'ISIN {order_data['isin']}")
+        unit = price_quote.price
 
+    # Total : valeur fournie si valable (frais éventuels inclus), sinon dérivée.
+    total = float(total) if _positive(total) else unit * quantity
+
+    # Format canonique identique à la page Ordres / orders.json
+    order_data['unitPrice'] = unit
+    order_data['totalPriceEUR'] = total
+    order_data.pop('unitPriceEUR', None)  # évite une clé fantôme jamais relue
     return order_data
 
 
