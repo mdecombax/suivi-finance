@@ -1,39 +1,33 @@
 steps:
-  # Build the container image
+  # Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/suivi-finance:$COMMIT_SHA', '.']
+    args:
+      - build
+      - -t
+      - europe-west1-docker.pkg.dev/suivi-finance-472610/suivi-finance/app:$COMMIT_SHA
+      - -t
+      - europe-west1-docker.pkg.dev/suivi-finance-472610/suivi-finance/app:latest
+      - .
 
-  # Push the container image to Container Registry
+  # Push both tags
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/suivi-finance:$COMMIT_SHA']
+    args: ['push', '--all-tags', 'europe-west1-docker.pkg.dev/suivi-finance-472610/suivi-finance/app']
 
-  # Deploy container image to Cloud Run
+  # Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
-      - 'run'
-      - 'deploy'
-      - 'suivi-finance'
-      - '--image'
-      - 'gcr.io/$PROJECT_ID/suivi-finance:$COMMIT_SHA'
-      - '--region'
-      - 'europe-west1'
-      - '--platform'
-      - 'managed'
-      - '--allow-unauthenticated'
-      - '--min-instances'
-      - '0'
-      - '--max-instances'
-      - '10'
-      - '--memory'
-      - '512Mi'
-      - '--cpu'
-      - '1'
-      - '--port'
-      - '8080'
+      - run
+      - deploy
+      - suivi-finance
+      - --image=europe-west1-docker.pkg.dev/suivi-finance-472610/suivi-finance/app:latest
+      - --region=europe-west1
+      - --platform=managed
+      - --project=suivi-finance-472610
 
 images:
-  - 'gcr.io/$PROJECT_ID/suivi-finance:$COMMIT_SHA'
+  - 'europe-west1-docker.pkg.dev/suivi-finance-472610/suivi-finance/app:$COMMIT_SHA'
+  - 'europe-west1-docker.pkg.dev/suivi-finance-472610/suivi-finance/app:latest'
 
 options:
   logging: CLOUD_LOGGING_ONLY
