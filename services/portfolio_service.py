@@ -11,7 +11,7 @@ from scipy.optimize import fsolve
 import yfinance as yf
 
 from models import (
-    InvestmentOrder, PositionSummary, PerformanceMetrics, FiscalScenario
+    InvestmentOrder, PositionSummary, PerformanceMetrics, FiscalScenario, AdvancedMetrics
 )
 from services.price_service import PriceService
 
@@ -732,3 +732,250 @@ class PortfolioService:
             else:
                 # If no price available, return just the invested capital as value (no gain/loss)
                 return total_invested, total_invested
+
+    def calculate_advanced_metrics(
+        self,
+        monthly_values: List[Dict[str, Any]],
+        annual_return_percentage: Optional[float] = None,
+        risk_free_rate: float = 0.03
+    ) -> AdvancedMetrics:
+        """Calculate advanced portfolio metrics: TWR, Volatility, Sharpe, Sortino, Max Drawdown, Score."""
+
+        if not monthly_values or len(monthly_values) < 3:
+            return AdvancedMetrics(
+                error_message="Insufficient data (minimum 3 months required)",
+                risk_free_rate=risk_free_rate
+            )
+
+        try:
+            # Filter out first month (value=0) and extract portfolio values
+            valid_values = [
+                mv for mv in monthly_values
+                if mv.get('portfolio_value', 0) > 0 and not mv.get('is_first_month', False)
+            ]
+
+            if len(valid_values) < 2:
+                return AdvancedMetrics(
+                    error_message="Insufficient data points with positive values",
+                    risk_free_rate=risk_free_rate
+                )
+
+            portfolio_values = [mv['portfolio_value'] for mv in valid_values]
+            invested_capitals = [mv.get('invested_capital', 0) for mv in valid_values]
+            dates = [mv.get('date', '') for mv in valid_values]
+
+            # 1. Calculate Monthly Returns
+            monthly_returns = []
+            for i in range(1, len(portfolio_values)):
+                prev_value = portfolio_values[i-1]
+                curr_value = portfolio_values[i]
+
+                # Ajuster pour les apports (TWR)
+                prev_invested = invested_capitals[i-1]
+                curr_invested = invested_capitals[i]
+                contribution = curr_invested - prev_invested
+
+                # Rendement ajuste des flux
+                if prev_value > 0:
+                    adjusted_return = (curr_value - prev_value - contribution) / prev_value
+                    monthly_returns.append(adjusted_return)
+
+            if len(monthly_returns) < 2:
+                return AdvancedMetrics(
+                    error_message="Insufficient return data",
+                    risk_free_rate=risk_free_rate
+                )
+
+            # 2. TWR (Time-Weighted Return) - produit geometrique des (1 + r)
+            twr_factor = 1.0
+            for r in monthly_returns:
+                twr_factor *= (1 + r)
+
+            # Annualiser le TWR
+            months_count = len(monthly_returns)
+            if months_count > 0:
+                twr_annualized = (twr_factor ** (12 / months_count) - 1) * 100
+            else:
+                twr_annualized = None
+
+            # 3. Volatilite (ecart-type annualise des rendements mensuels)
+            returns_array = np.array(monthly_returns)
+            monthly_volatility = np.std(returns_array, ddof=1)  # Sample std dev
+            annualized_volatility = monthly_volatility * np.sqrt(12) * 100
+
+            # 4. Sharpe Ratio = (Return - Rf) / Volatility
+            # Utiliser le TWR annualise ou le return fourni
+            return_for_sharpe = twr_annualized if twr_annualized is not None else annual_return_percentage
+            if return_for_sharpe is not None and annualized_volatility > 0:
+                sharpe_ratio = (return_for_sharpe - (risk_free_rate * 100)) / annualized_volatility
+            else:
+                sharpe_ratio = None
+
+            # 5. Sortino Ratio (utilise seulement la volatilite negative)
+            negative_returns = [r for r in monthly_returns if r < 0]
+            if negative_returns and len(negative_returns) >= 2:
+                downside_volatility = np.std(negative_returns, ddof=1) * np.sqrt(12) * 100
+                if downside_volatility > 0 and return_for_sharpe is not None:
+                    sortino_ratio = (return_for_sharpe - (risk_free_rate * 100)) / downside_volatility
+                else:
+                    sortino_ratio = None
+            else:
+                # Pas de rendements negatifs = excellent
+                sortino_ratio = None if return_for_sharpe is None else 3.0  # Valeur elevee par defaut
+
+            # 6. Max Drawdown
+            max_drawdown = 0.0
+            max_drawdown_start = None
+            max_drawdown_end = None
+            peak = portfolio_values[0]
+            peak_idx = 0
+
+            for i, value in enumerate(portfolio_values):
+                if value > peak:
+                    peak = value
+                    peak_idx = i
+
+                drawdown = (peak - value) / peak if peak > 0 else 0
+                if drawdown > max_drawdown:
+                    max_drawdown = drawdown
+                    max_drawdown_start = dates[peak_idx] if peak_idx < len(dates) else None
+                    max_drawdown_end = dates[i] if i < len(dates) else None
+
+            max_drawdown_pct = max_drawdown * 100
+
+            # 7. Portfolio Score (note /100)
+            score, score_breakdown = self._calculate_portfolio_score(
+                twr=twr_annualized,
+                volatility=annualized_volatility,
+                sharpe=sharpe_ratio,
+                sortino=sortino_ratio,
+                max_drawdown=max_drawdown_pct,
+                months=months_count
+            )
+
+            return AdvancedMetrics(
+                twr_percentage=round(twr_annualized, 2) if twr_annualized is not None else None,
+                volatility_percentage=round(annualized_volatility, 2),
+                sharpe_ratio=round(sharpe_ratio, 2) if sharpe_ratio is not None else None,
+                sortino_ratio=round(sortino_ratio, 2) if sortino_ratio is not None else None,
+                max_drawdown_percentage=round(max_drawdown_pct, 2),
+                max_drawdown_start_date=max_drawdown_start,
+                max_drawdown_end_date=max_drawdown_end,
+                portfolio_score=score,
+                score_breakdown=score_breakdown,
+                calculation_period_months=months_count,
+                risk_free_rate=risk_free_rate,
+                error_message=None
+            )
+
+        except Exception as e:
+            self._log("Error calculating advanced metrics", {"error": str(e)})
+            return AdvancedMetrics(
+                error_message=f"Calculation error: {str(e)}",
+                risk_free_rate=risk_free_rate
+            )
+
+    def _calculate_portfolio_score(
+        self,
+        twr: Optional[float],
+        volatility: Optional[float],
+        sharpe: Optional[float],
+        sortino: Optional[float],
+        max_drawdown: Optional[float],
+        months: int
+    ) -> tuple[Optional[int], Optional[Dict[str, Any]]]:
+        """Calculate a portfolio score from 0 to 100 based on multiple metrics."""
+
+        if twr is None or volatility is None:
+            return None, None
+
+        scores = {}
+        weights = {}
+
+        # 1. Performance Score (25 points max)
+        # Bareme plus genereux : 10%+ = 25pts, 7-10% = 22pts, 5-7% = 18pts, 0-5% = 12pts, <0 = 0-10pts
+        if twr >= 10:
+            scores['performance'] = 25
+        elif twr >= 7:
+            scores['performance'] = 22 + (twr - 7) * 1  # 22-25
+        elif twr >= 5:
+            scores['performance'] = 18 + (twr - 5) * 2  # 18-22
+        elif twr >= 0:
+            scores['performance'] = 12 + twr * 1.2  # 12-18
+        else:
+            scores['performance'] = max(0, 10 + twr * 0.5)  # 0-10
+        weights['performance'] = 25
+
+        # 2. Risk Score - Volatility (20 points max)
+        # <10% = 20pts, 10-15% = 15pts, 15-20% = 10pts, >20% = 5pts
+        if volatility < 10:
+            scores['volatility'] = 20
+        elif volatility < 15:
+            scores['volatility'] = 20 - (volatility - 10) * 1
+        elif volatility < 20:
+            scores['volatility'] = 15 - (volatility - 15) * 1
+        else:
+            scores['volatility'] = max(0, 10 - (volatility - 20) * 0.5)
+        weights['volatility'] = 20
+
+        # 3. Sharpe Ratio Score (20 points max)
+        # >1.5 = 20pts, 1-1.5 = 15pts, 0.5-1 = 10pts, 0-0.5 = 5pts, <0 = 0pts
+        if sharpe is not None:
+            if sharpe >= 1.5:
+                scores['sharpe'] = 20
+            elif sharpe >= 1.0:
+                scores['sharpe'] = 15 + (sharpe - 1) * 10
+            elif sharpe >= 0.5:
+                scores['sharpe'] = 10 + (sharpe - 0.5) * 10
+            elif sharpe >= 0:
+                scores['sharpe'] = sharpe * 10
+            else:
+                scores['sharpe'] = 0
+        else:
+            scores['sharpe'] = 10  # Neutral
+        weights['sharpe'] = 20
+
+        # 4. Sortino Ratio Score (15 points max)
+        if sortino is not None:
+            if sortino >= 2.0:
+                scores['sortino'] = 15
+            elif sortino >= 1.5:
+                scores['sortino'] = 12 + (sortino - 1.5) * 6
+            elif sortino >= 1.0:
+                scores['sortino'] = 9 + (sortino - 1) * 6
+            elif sortino >= 0:
+                scores['sortino'] = sortino * 9
+            else:
+                scores['sortino'] = 0
+        else:
+            scores['sortino'] = 7.5  # Neutral
+        weights['sortino'] = 15
+
+        # 5. Max Drawdown Score (20 points max)
+        # <5% = 20pts, 5-10% = 15pts, 10-20% = 10pts, >20% = 0-5pts
+        if max_drawdown is not None:
+            if max_drawdown < 5:
+                scores['max_drawdown'] = 20
+            elif max_drawdown < 10:
+                scores['max_drawdown'] = 20 - (max_drawdown - 5) * 1
+            elif max_drawdown < 20:
+                scores['max_drawdown'] = 15 - (max_drawdown - 10) * 0.5
+            else:
+                scores['max_drawdown'] = max(0, 10 - (max_drawdown - 20) * 0.5)
+        else:
+            scores['max_drawdown'] = 10  # Neutral
+        weights['max_drawdown'] = 20
+
+        # Calculate total score
+        total_score = sum(scores.values())
+        total_score = min(100, max(0, int(round(total_score))))
+
+        breakdown = {
+            'performance': {'score': round(scores['performance'], 1), 'max': weights['performance'], 'value': twr},
+            'volatility': {'score': round(scores['volatility'], 1), 'max': weights['volatility'], 'value': volatility},
+            'sharpe': {'score': round(scores['sharpe'], 1), 'max': weights['sharpe'], 'value': sharpe},
+            'sortino': {'score': round(scores['sortino'], 1), 'max': weights['sortino'], 'value': sortino},
+            'max_drawdown': {'score': round(scores['max_drawdown'], 1), 'max': weights['max_drawdown'], 'value': max_drawdown}
+        }
+
+        return total_score, breakdown

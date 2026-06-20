@@ -115,6 +115,54 @@ class PerformanceMetrics:
 
 
 @dataclass
+class AdvancedMetrics:
+    """Advanced portfolio metrics for risk analysis."""
+
+    # Time-Weighted Return (TWR) - performance sans impact des flux
+    twr_percentage: Optional[float] = None
+
+    # Volatilite annualisee (ecart-type des rendements)
+    volatility_percentage: Optional[float] = None
+
+    # Sharpe Ratio = (Return - Risk-free rate) / Volatility
+    sharpe_ratio: Optional[float] = None
+
+    # Sortino Ratio = (Return - Risk-free rate) / Downside Volatility
+    sortino_ratio: Optional[float] = None
+
+    # Max Drawdown = pire chute depuis un plus haut
+    max_drawdown_percentage: Optional[float] = None
+    max_drawdown_start_date: Optional[str] = None
+    max_drawdown_end_date: Optional[str] = None
+
+    # Score global du portefeuille (note /100)
+    portfolio_score: Optional[int] = None
+    score_breakdown: Optional[Dict[str, Any]] = None
+
+    # Metadata
+    calculation_period_months: Optional[int] = None
+    risk_free_rate: float = 0.03  # 3% par defaut (Livret A)
+    error_message: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert AdvancedMetrics to dictionary for API responses."""
+        return {
+            'twr': self.twr_percentage,
+            'volatility': self.volatility_percentage,
+            'sharpe_ratio': self.sharpe_ratio,
+            'sortino_ratio': self.sortino_ratio,
+            'max_drawdown': self.max_drawdown_percentage,
+            'max_drawdown_start': self.max_drawdown_start_date,
+            'max_drawdown_end': self.max_drawdown_end_date,
+            'portfolio_score': self.portfolio_score,
+            'score_breakdown': self.score_breakdown,
+            'calculation_period_months': self.calculation_period_months,
+            'risk_free_rate': self.risk_free_rate,
+            'error': self.error_message,
+        }
+
+
+@dataclass
 class FiscalScenario:
     """Tax scenario calculation for different account types."""
 

@@ -494,6 +494,143 @@
             .revenu-highlight { flex-direction: column; gap: 16px; }
             .revenu-divider { width: 80%; height: 1px; }
         }
+
+        /* ===== Monte Carlo ===== */
+        .mc-probability-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: var(--border-radius-xl);
+            padding: 36px 32px 28px;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .mc-prob-value {
+            font-size: 4.5rem;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 10px;
+            letter-spacing: -0.02em;
+        }
+
+        .mc-prob-value.high { color: var(--success); }
+        .mc-prob-value.medium { color: var(--warning); }
+        .mc-prob-value.low { color: var(--danger); }
+
+        .mc-prob-label {
+            font-size: 1.05rem;
+            color: var(--text);
+            font-weight: 500;
+            margin-bottom: 18px;
+        }
+
+        .mc-prob-bar {
+            height: 8px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 99px;
+            overflow: hidden;
+            max-width: 360px;
+            margin: 0 auto 14px;
+        }
+
+        .mc-prob-bar-fill {
+            height: 100%;
+            border-radius: 99px;
+            transition: width 1.2s ease;
+        }
+
+        .mc-prob-bar-fill.high { background: var(--success); }
+        .mc-prob-bar-fill.medium { background: var(--warning); }
+        .mc-prob-bar-fill.low { background: var(--danger); }
+
+        .mc-prob-context {
+            font-size: 0.82rem;
+            color: var(--muted);
+        }
+
+        .mc-scenarios-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .mc-scenario {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: var(--border-radius-xl);
+            padding: 22px 20px;
+            text-align: center;
+        }
+
+        .mc-scenario.pessimiste { border-color: rgba(244,67,54,0.2); }
+        .mc-scenario.median { border-color: rgba(110,168,254,0.3); background: rgba(110,168,254,0.05); }
+        .mc-scenario.optimiste { border-color: rgba(76,175,80,0.2); }
+
+        .mc-scenario-label {
+            font-size: 0.75rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 10px;
+        }
+
+        .mc-scenario-value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .mc-scenario.pessimiste .mc-scenario-value { color: var(--danger); }
+        .mc-scenario.median .mc-scenario-value { color: var(--primary); }
+        .mc-scenario.optimiste .mc-scenario-value { color: var(--success); }
+
+        .mc-scenario-sub {
+            font-size: 0.78rem;
+            color: var(--muted);
+        }
+
+        .volatility-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-top: 4px;
+        }
+
+        .volatility-row input[type="range"] {
+            flex: 1;
+            accent-color: var(--primary);
+            cursor: pointer;
+            height: 4px;
+        }
+
+        .volatility-value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary);
+            min-width: 44px;
+            text-align: right;
+        }
+
+        .xirr-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(76,175,80,0.1);
+            border: 1px solid rgba(76,175,80,0.25);
+            border-radius: 99px;
+            padding: 2px 9px;
+            font-size: 0.75rem;
+            color: var(--success);
+            margin-left: 8px;
+            vertical-align: middle;
+            font-weight: 500;
+        }
+
+        @media (max-width: 600px) {
+            .mc-scenarios-grid { grid-template-columns: 1fr; }
+            .mc-prob-value { font-size: 3rem; }
+        }
     </style>
 </head>
 <body>
@@ -529,6 +666,7 @@
                 <div class="tab-nav">
                     <button class="tab-btn active" id="tabBtnRevenu" onclick="switchTab('revenu')">Revenu passif</button>
                     <button class="tab-btn" id="tabBtnCapital" onclick="switchTab('capital')">Objectif en capital</button>
+                    <button class="tab-btn" id="tabBtnMonteCarlo" onclick="switchTab('montecarlo')">Monte Carlo</button>
                 </div>
 
                 <!-- ONGLET 1 : Objectif en capital -->
@@ -742,6 +880,109 @@
 
                 </div>
 
+                <!-- ONGLET 3 : Monte Carlo -->
+                <div class="tab-panel" id="tabMonteCarlo">
+
+                    <div class="objective-section">
+                        <div class="section-title">Simulation Monte Carlo</div>
+                        <p style="font-size:0.88rem; color:var(--muted); margin-bottom:20px; margin-top:-12px;">
+                            5 000 scénarios avec des années qui montent et qui descendent aléatoirement — bien plus réaliste qu'une courbe linéaire.
+                        </p>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="mcTargetAmount">Montant cible</label>
+                                <input type="number" id="mcTargetAmount" placeholder="ex: 100000" min="1" step="1000">
+                                <span class="form-hint">Hérite de l'onglet Capital</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="mcTargetYear">Année cible</label>
+                                <input type="number" id="mcTargetYear" placeholder="ex: 2040" min="2026" max="2075" step="1">
+                                <span class="form-hint">Hérite de l'onglet Capital</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="mcMonthlyContribution">DCA mensuel (€)</label>
+                                <input type="number" id="mcMonthlyContribution" placeholder="ex: 300" min="0" step="50" value="0">
+                                <span class="form-hint">Hérite de l'onglet Capital</span>
+                            </div>
+                        </div>
+                        <div class="form-grid" style="margin-top:0;">
+                            <div class="form-group">
+                                <label for="mcMeanReturn">
+                                    Rendement annuel moyen (%)
+                                    <span class="xirr-badge" id="mcXirrBadge" style="display:none;">Votre XIRR</span>
+                                </label>
+                                <input type="number" id="mcMeanReturn" placeholder="ex: 7" min="-20" max="50" step="0.1">
+                                <span class="form-hint">Pré-rempli avec votre XIRR réel</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="mcVolatility">Volatilité annuelle</label>
+                                <div class="volatility-row">
+                                    <input type="range" id="mcVolatility" min="5" max="50" value="17" step="1" oninput="updateVolatilityDisplay(this.value)">
+                                    <span class="volatility-value" id="mcVolatilityDisplay">17%</span>
+                                </div>
+                                <span class="form-hint">Variabilité des rendements — S&P 500 historique ≈ 17%</span>
+                            </div>
+                        </div>
+                        <button class="calculate-btn" id="mcSimBtn" onclick="runMCSimulation()">
+                            <span id="mcBtnText">Simuler 5 000 scénarios</span>
+                            <span id="mcBtnSpinner" class="loading-spinner" style="display:none;"></span>
+                        </button>
+                    </div>
+
+                    <!-- Résultats Monte Carlo -->
+                    <div id="mcResults" style="display:none;">
+
+                        <!-- Carte probabilité -->
+                        <div class="mc-probability-card">
+                            <div class="mc-prob-value" id="mcProbValue">—</div>
+                            <div class="mc-prob-label">de chances d'atteindre votre objectif</div>
+                            <div class="mc-prob-bar">
+                                <div class="mc-prob-bar-fill" id="mcProbBarFill" style="width:0%"></div>
+                            </div>
+                            <div class="mc-prob-context" id="mcProbContext"></div>
+                        </div>
+
+                        <!-- 3 scénarios à l'horizon -->
+                        <div class="mc-scenarios-grid">
+                            <div class="mc-scenario pessimiste">
+                                <div class="mc-scenario-label">Pessimiste — 10% des cas</div>
+                                <div class="mc-scenario-value" id="mcP10Value">—</div>
+                                <div class="mc-scenario-sub">Valeur à l'horizon</div>
+                            </div>
+                            <div class="mc-scenario median">
+                                <div class="mc-scenario-label">Médiane — 50% des cas</div>
+                                <div class="mc-scenario-value" id="mcP50Value">—</div>
+                                <div class="mc-scenario-sub">Valeur à l'horizon</div>
+                            </div>
+                            <div class="mc-scenario optimiste">
+                                <div class="mc-scenario-label">Optimiste — 90% des cas</div>
+                                <div class="mc-scenario-value" id="mcP90Value">—</div>
+                                <div class="mc-scenario-sub">Valeur à l'horizon</div>
+                            </div>
+                        </div>
+
+                        <!-- Fan chart -->
+                        <div class="chart-section">
+                            <h3>Trajectoires possibles du portefeuille</h3>
+                            <p style="font-size:0.85rem; color:var(--muted); margin-bottom:20px; margin-top:-12px;">
+                                Chaque bande représente l'intervalle de confiance des 5 000 simulations. La zone sombre contient 50% des cas, la zone claire 80%.
+                            </p>
+                            <div class="chart-wrapper" style="height: 400px;">
+                                <canvas id="mcFanChart"></canvas>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Empty state MC -->
+                    <div class="empty-state" id="mcEmptyState">
+                        <div class="empty-state-icon">🎲</div>
+                        <h3>Simulez l'incertitude des marchés</h3>
+                        <p>Contrairement à une projection linéaire, Monte Carlo simule des années qui montent et qui descendent de façon réaliste — et calcule la probabilité d'atteindre votre objectif.</p>
+                    </div>
+
+                </div>
+
             </div>
         </main>
     </div>
@@ -754,23 +995,48 @@
         let objectifChart = null;
         let crossoverChart = null;
         let revenuChart = null;
+        let mcChart = null;
         let currentData = null;
+        let portfolioXIRR = null;
+        let portfolioCurrentValue = 0;
 
         // --- Gestion des onglets ---
         function switchTab(tab) {
             document.getElementById('tabCapital').classList.toggle('active', tab === 'capital');
             document.getElementById('tabRevenu').classList.toggle('active', tab === 'revenu');
+            document.getElementById('tabMonteCarlo').classList.toggle('active', tab === 'montecarlo');
             document.getElementById('tabBtnCapital').classList.toggle('active', tab === 'capital');
             document.getElementById('tabBtnRevenu').classList.toggle('active', tab === 'revenu');
+            document.getElementById('tabBtnMonteCarlo').classList.toggle('active', tab === 'montecarlo');
 
             if (tab === 'revenu') {
-                // Pré-remplir le DCA depuis l'onglet capital
                 const capitalDca = document.getElementById('monthlyContribution').value;
                 if (capitalDca && !document.getElementById('revenuMonthlyContribution').value) {
                     document.getElementById('revenuMonthlyContribution').value = capitalDca;
                 }
-                // Afficher le régime fiscal détecté
                 updateRegimeBadge();
+            }
+
+            if (tab === 'montecarlo') {
+                // Hériter des valeurs de l'onglet Capital
+                const capitalTarget = document.getElementById('targetAmount').value;
+                const capitalYear = document.getElementById('targetYear').value;
+                const capitalDca = document.getElementById('monthlyContribution').value;
+
+                if (capitalTarget && !document.getElementById('mcTargetAmount').value) {
+                    document.getElementById('mcTargetAmount').value = capitalTarget;
+                }
+                if (capitalYear && !document.getElementById('mcTargetYear').value) {
+                    document.getElementById('mcTargetYear').value = capitalYear;
+                }
+                if (capitalDca && !document.getElementById('mcMonthlyContribution').value) {
+                    document.getElementById('mcMonthlyContribution').value = capitalDca;
+                }
+                // Pré-remplir le XIRR
+                if (portfolioXIRR !== null && !document.getElementById('mcMeanReturn').value) {
+                    document.getElementById('mcMeanReturn').value = portfolioXIRR.toFixed(1);
+                    document.getElementById('mcXirrBadge').style.display = 'inline-flex';
+                }
             }
         }
 
@@ -819,11 +1085,13 @@
 
                     const xirrEl = document.getElementById('statXIRR');
                     if (portfolio.xirr !== null && portfolio.xirr !== undefined) {
+                        portfolioXIRR = portfolio.xirr;
                         xirrEl.textContent = fmtPct(portfolio.xirr);
                         xirrEl.className = 'stat-value ' + (portfolio.xirr >= 0 ? 'positive' : 'negative');
                     } else {
                         xirrEl.textContent = 'N/A';
                     }
+                    portfolioCurrentValue = portfolio.current_value || 0;
                 }
 
                 // Pré-remplir le formulaire si objectif existant
@@ -1365,6 +1633,262 @@
             });
         }
 
+        // ===== MONTE CARLO =====
+
+        function gaussianRandom(mean, std) {
+            let u1;
+            do { u1 = Math.random(); } while (u1 === 0);
+            const u2 = Math.random();
+            const z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+            return mean + std * z;
+        }
+
+        function computePercentile(sortedArr, p) {
+            if (sortedArr.length === 0) return 0;
+            const idx = (p / 100) * (sortedArr.length - 1);
+            const lo = Math.floor(idx), hi = Math.ceil(idx);
+            if (lo === hi) return sortedArr[lo];
+            return sortedArr[lo] * (hi - idx) + sortedArr[hi] * (idx - lo);
+        }
+
+        function updateVolatilityDisplay(val) {
+            document.getElementById('mcVolatilityDisplay').textContent = val + '%';
+        }
+
+        function runMCSimulation() {
+            const targetAmount = parseFloat(document.getElementById('mcTargetAmount').value);
+            const targetYear = parseInt(document.getElementById('mcTargetYear').value);
+            const monthlyContribution = parseFloat(document.getElementById('mcMonthlyContribution').value) || 0;
+            const meanReturn = parseFloat(document.getElementById('mcMeanReturn').value);
+            const volatility = parseFloat(document.getElementById('mcVolatility').value);
+
+            if (!targetAmount || targetAmount <= 0) { showMessage('Veuillez saisir un montant cible.', 'error'); return; }
+            if (!targetYear || targetYear <= new Date().getFullYear()) { showMessage('Veuillez saisir une année cible future.', 'error'); return; }
+            if (isNaN(meanReturn)) { showMessage('Veuillez saisir un rendement annuel moyen.', 'error'); return; }
+
+            const btn = document.getElementById('mcSimBtn');
+            const btnText = document.getElementById('mcBtnText');
+            const btnSpinner = document.getElementById('mcBtnSpinner');
+            btn.disabled = true;
+            btnText.style.display = 'none';
+            btnSpinner.style.display = 'inline-block';
+
+            // setTimeout pour laisser l'UI se mettre à jour avant le calcul intensif
+            setTimeout(() => {
+                try {
+                    const result = runMonteCarloCore(
+                        portfolioCurrentValue, monthlyContribution, targetAmount, targetYear, meanReturn, volatility, 5000
+                    );
+                    document.getElementById('mcEmptyState').style.display = 'none';
+                    displayMCResults(result, targetAmount, targetYear, meanReturn, volatility);
+                } catch (e) {
+                    console.error('Erreur MC:', e);
+                    showMessage('Erreur lors de la simulation : ' + e.message, 'error');
+                } finally {
+                    btn.disabled = false;
+                    btnText.style.display = 'inline';
+                    btnSpinner.style.display = 'none';
+                }
+            }, 50);
+        }
+
+        function runMonteCarloCore(currentValue, monthlyContribution, targetAmount, targetYear, meanReturnPct, volatilityPct, numSims) {
+            const currentYear = new Date().getFullYear();
+            const years = targetYear - currentYear;
+            if (years <= 0) throw new Error('Année cible dans le passé');
+
+            const mean = meanReturnPct / 100;
+            const vol = volatilityPct / 100;
+
+            const labels = [];
+            for (let y = currentYear; y <= targetYear; y++) labels.push(y);
+
+            // yearlyValues[annee][simulation] — évite de garder toutes les trajectoires en mémoire
+            const yearlyValues = Array.from({ length: years + 1 }, () => new Float64Array(numSims));
+
+            let successCount = 0;
+
+            for (let s = 0; s < numSims; s++) {
+                let v = currentValue;
+                yearlyValues[0][s] = v;
+
+                for (let y = 0; y < years; y++) {
+                    v += monthlyContribution * 12;
+                    v = v * (1 + gaussianRandom(mean, vol));
+                    if (v < 0) v = 0;
+                    yearlyValues[y + 1][s] = v;
+                }
+
+                if (v >= targetAmount) successCount++;
+            }
+
+            // Percentiles à chaque année
+            const pData = { p10: [], p25: [], p50: [], p75: [], p90: [] };
+            for (let yi = 0; yi <= years; yi++) {
+                const sorted = Array.from(yearlyValues[yi]).sort((a, b) => a - b);
+                pData.p10.push(Math.round(computePercentile(sorted, 10)));
+                pData.p25.push(Math.round(computePercentile(sorted, 25)));
+                pData.p50.push(Math.round(computePercentile(sorted, 50)));
+                pData.p75.push(Math.round(computePercentile(sorted, 75)));
+                pData.p90.push(Math.round(computePercentile(sorted, 90)));
+            }
+
+            return { labels, pData, probability: (successCount / numSims) * 100, numSims };
+        }
+
+        function displayMCResults(result, targetAmount, targetYear, meanReturn, volatility) {
+            const { labels, pData, probability, numSims } = result;
+
+            const probPct = Math.round(probability);
+            const colorClass = probPct >= 60 ? 'high' : probPct >= 35 ? 'medium' : 'low';
+
+            const probEl = document.getElementById('mcProbValue');
+            probEl.textContent = probPct + '%';
+            probEl.className = 'mc-prob-value ' + colorClass;
+
+            const barFill = document.getElementById('mcProbBarFill');
+            barFill.className = 'mc-prob-bar-fill ' + colorClass;
+            barFill.style.width = Math.min(100, probPct) + '%';
+
+            document.getElementById('mcProbContext').textContent =
+                `Basé sur ${numSims.toLocaleString('fr-FR')} simulations · Objectif : ${fmt(targetAmount)} en ${targetYear} · Rendement moy. ${meanReturn}% · Volatilité ${volatility}%`;
+
+            const lastIdx = pData.p10.length - 1;
+            document.getElementById('mcP10Value').textContent = fmt(pData.p10[lastIdx]);
+            document.getElementById('mcP50Value').textContent = fmt(pData.p50[lastIdx]);
+            document.getElementById('mcP90Value').textContent = fmt(pData.p90[lastIdx]);
+
+            renderMCFanChart(labels, pData, targetAmount);
+
+            const resultDiv = document.getElementById('mcResults');
+            resultDiv.style.display = 'block';
+            resultDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function renderMCFanChart(labels, pData, targetAmount) {
+            const ctx = document.getElementById('mcFanChart').getContext('2d');
+            if (mcChart) mcChart.destroy();
+
+            const strLabels = labels.map(y => String(y));
+            const targetLine = labels.map(() => targetAmount);
+
+            // Ordre des datasets : p10 → p90 (fill vers p10) → p25 → p75 (fill vers p25) → p50 → objectif
+            mcChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: strLabels,
+                    datasets: [
+                        {
+                            label: '_p10',
+                            data: pData.p10,
+                            borderColor: 'rgba(110,168,254,0.2)',
+                            borderWidth: 1,
+                            pointRadius: 0,
+                            fill: false,
+                            tension: 0.35,
+                        },
+                        {
+                            label: 'Zone 10%–90%',
+                            data: pData.p90,
+                            borderColor: 'rgba(110,168,254,0.2)',
+                            borderWidth: 1,
+                            backgroundColor: 'rgba(110,168,254,0.07)',
+                            fill: '-1',
+                            pointRadius: 0,
+                            tension: 0.35,
+                        },
+                        {
+                            label: '_p25',
+                            data: pData.p25,
+                            borderColor: 'rgba(110,168,254,0.45)',
+                            borderWidth: 1,
+                            pointRadius: 0,
+                            fill: false,
+                            tension: 0.35,
+                        },
+                        {
+                            label: 'Zone 25%–75%',
+                            data: pData.p75,
+                            borderColor: 'rgba(110,168,254,0.45)',
+                            borderWidth: 1,
+                            backgroundColor: 'rgba(110,168,254,0.14)',
+                            fill: '-1',
+                            pointRadius: 0,
+                            tension: 0.35,
+                        },
+                        {
+                            label: 'Médiane (50%)',
+                            data: pData.p50,
+                            borderColor: '#6ea8fe',
+                            borderWidth: 2.5,
+                            fill: false,
+                            pointRadius: 0,
+                            tension: 0.35,
+                        },
+                        {
+                            label: 'Objectif',
+                            data: targetLine,
+                            borderColor: '#ffa726',
+                            borderWidth: 2,
+                            borderDash: [6, 3],
+                            fill: false,
+                            pointRadius: 0,
+                            tension: 0,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { intersect: false, mode: 'index' },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: '#9aa4bf',
+                                font: { size: 12 },
+                                usePointStyle: true,
+                                padding: 16,
+                                filter: (item) => !item.text.startsWith('_')
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#111729',
+                            borderColor: 'rgba(255,255,255,0.1)',
+                            borderWidth: 1,
+                            titleColor: '#e6eaf2',
+                            bodyColor: '#9aa4bf',
+                            filter: (item) => !item.dataset.label.startsWith('_'),
+                            callbacks: {
+                                label: function(ctx) {
+                                    return ` ${ctx.dataset.label}: ${fmt(ctx.raw)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255,255,255,0.04)' },
+                            ticks: { color: '#9aa4bf', font: { size: 11 }, maxTicksLimit: 12 }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255,255,255,0.04)' },
+                            ticks: {
+                                color: '#9aa4bf',
+                                font: { size: 11 },
+                                callback: function(v) {
+                                    if (v >= 1000000) return (v / 1000000).toFixed(1) + 'M€';
+                                    if (v >= 1000) return (v / 1000).toFixed(0) + 'k€';
+                                    return v + '€';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
         // Lancer au chargement
         function startApp() {
             initializeFirebase();
@@ -1384,6 +1908,8 @@
         window.calculateObjective = calculateObjective;
         window.calculateRevenu = calculateRevenu;
         window.switchTab = switchTab;
+        window.runMCSimulation = runMCSimulation;
+        window.updateVolatilityDisplay = updateVolatilityDisplay;
 
         // Afficher le régime dès le chargement (onglet revenu actif par défaut)
         updateRegimeBadge();

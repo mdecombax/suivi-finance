@@ -29,6 +29,7 @@ from payments import stripe_service
 from services.price_service import PriceService
 from services.portfolio_service import PortfolioService
 from services.position_service import PositionService
+from services import import_service
 
 # Configure logging
 logging.basicConfig(
@@ -80,6 +81,11 @@ def home_page():
 def orders_management_page():
     """Orders management page."""
     return render_template("orders.html")
+
+@app.route("/import")
+def import_orders_page():
+    """Page d'import d'ordres assisté par IA (CSV / screenshot / PDF)."""
+    return render_template("import.html")
 
 @app.route("/login")
 def login_page():
@@ -169,6 +175,171 @@ def orders_api():
     except Exception as e:
         debug_log("Orders API error", {"error": str(e)})
         return jsonify({"error": str(e)}), 500
+
+
+# ============================================================================
+# IMPORT D'ORDRES ASSISTÉ PAR IA
+# ============================================================================
+
+@app.route("/api/import/models")
+@require_auth
+def import_models_api():
+    """Registre des modèles disponibles pour l'extraction (pour le sélecteur UI)."""
+    return jsonify(import_service.get_registry_public())
+
+
+@app.route("/api/orders/import/parse", methods=["POST"])
+@require_auth
+def import_parse_api():
+    """Extrait les ordres d'un fichier déposé et calcule des métriques de contrôle."""
+    try:
+        if "file" not in request.files:
+            return jsonify({"error": "Aucun fichier reçu."}), 400
+
+        uploaded = request.files["file"]
+        content = uploaded.read()
+        if not content:
+            return jsonify({"error": "Fichier vide."}), 400
+
+        model_key = request.form.get("model") or None
+
+        try:
+            extraction = import_service.parse_orders_from_file(
+                filename=uploaded.filename or "document",
+                content=content,
+                mime_type=uploaded.mimetype or "",
+                model_key=model_key,
+            )
+        except import_service.ImportError_ as fe:
+            return jsonify({"error": str(fe)}), 400
+
+        metrics = _compute_import_metrics(extraction["orders"])
+
+        return jsonify({
+            "success": True,
+            "orders": extraction["orders"],
+            "declared_total_eur": extraction["declared_total_eur"],
+            "currency_warning": extraction["currency_warning"],
+            "model": extraction["model"],
+            "metrics": metrics,
+        })
+    except Exception as e:
+        debug_log("Import parse error", {"error": str(e)})
+        return jsonify({"error": f"Échec de l'extraction : {str(e)}"}), 500
+
+
+@app.route("/api/orders/import/confirm", methods=["POST"])
+@require_auth
+def import_confirm_api():
+    """Persiste en masse les ordres édités/validés par l'utilisateur."""
+    try:
+        user_id = get_current_user_id()
+        payload = request.get_json(silent=True) or {}
+        orders = payload.get("orders", [])
+        if not isinstance(orders, list) or not orders:
+            return jsonify({"error": "Aucun ordre à importer."}), 400
+
+        created, skipped, errors = 0, [], []
+
+        for idx, raw in enumerate(orders):
+            isin = (raw.get("isin") or "").strip().upper()
+            quantity = raw.get("quantity")
+            order_date = (raw.get("date") or "").strip()
+
+            # Validation minimale
+            if not isin or not price_service.is_valid_isin(isin):
+                skipped.append({"line": idx + 1, "reason": f"ISIN invalide ou manquant ({isin or '∅'})"})
+                continue
+            if not order_date:
+                skipped.append({"line": idx + 1, "reason": "Date manquante"})
+                continue
+            try:
+                if quantity is None or float(quantity) <= 0:
+                    skipped.append({"line": idx + 1, "reason": "Quantité invalide"})
+                    continue
+            except (TypeError, ValueError):
+                skipped.append({"line": idx + 1, "reason": "Quantité invalide"})
+                continue
+
+            order_data = {
+                "isin": isin,
+                "quantity": float(quantity),
+                "date": order_date,
+            }
+            # Prix unitaire fourni par l'extraction/édition (sinon récupéré par le helper)
+            if raw.get("unit_price_eur") not in (None, ""):
+                order_data["unitPrice"] = float(raw["unit_price_eur"])
+            elif raw.get("unitPrice") not in (None, ""):
+                order_data["unitPrice"] = float(raw["unitPrice"])
+
+            try:
+                order_data = _build_order_with_price(order_data)
+                firebase_service.add_order(user_id, order_data)
+                created += 1
+            except ValueError as price_err:
+                errors.append({"line": idx + 1, "isin": isin, "reason": str(price_err)})
+            except Exception as add_err:  # noqa: BLE001
+                errors.append({"line": idx + 1, "isin": isin, "reason": str(add_err)})
+
+        return jsonify({"success": True, "created": created, "skipped": skipped, "errors": errors})
+    except Exception as e:
+        debug_log("Import confirm error", {"error": str(e)})
+        return jsonify({"error": f"Échec de l'import : {str(e)}"}), 500
+
+
+def _compute_import_metrics(orders: list) -> Dict[str, Any]:
+    """Métriques de vérification à partir des ordres extraits.
+
+    - total investi (Σ total_eur, sinon unit_price × quantité)
+    - valeur actuelle estimée (prix courant × quantité agrégée par ISIN)
+    - nombre de positions distinctes
+    """
+    total_invested = 0.0
+    quantities_by_isin: Dict[str, float] = {}
+
+    for o in orders:
+        qty = o.get("quantity") or 0
+        try:
+            qty = float(qty)
+        except (TypeError, ValueError):
+            qty = 0.0
+
+        total = o.get("total_eur")
+        unit = o.get("unit_price_eur")
+        if total not in (None, ""):
+            try:
+                total_invested += float(total)
+            except (TypeError, ValueError):
+                pass
+        elif unit not in (None, "") and qty:
+            try:
+                total_invested += float(unit) * qty
+            except (TypeError, ValueError):
+                pass
+
+        isin = (o.get("isin") or "").strip().upper()
+        if isin and qty:
+            quantities_by_isin[isin] = quantities_by_isin.get(isin, 0.0) + qty
+
+    estimated_value = 0.0
+    valued_positions = 0
+    for isin, qty in quantities_by_isin.items():
+        try:
+            quote = price_service.get_current_price(isin)
+            if quote.is_valid:
+                estimated_value += quote.price * qty
+                valued_positions += 1
+        except Exception:  # noqa: BLE001
+            continue
+
+    return {
+        "total_invested_eur": round(total_invested, 2),
+        "estimated_value_eur": round(estimated_value, 2) if valued_positions else None,
+        "positions_count": len(quantities_by_isin),
+        "valued_positions": valued_positions,
+        "orders_count": len(orders),
+    }
+
 
 @app.route("/api/price/<ticker_or_isin>")
 def current_price_api(ticker_or_isin: str):
@@ -1082,6 +1253,34 @@ def _handle_get_orders(user_id: str) -> Dict[str, Any]:
     })
 
 
+def _build_order_with_price(order_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Enrichit un ordre avec le prix unitaire et le total EUR si absents.
+
+    Utilise le prix fourni s'il existe ; sinon récupère le prix historique à la
+    date de l'ordre, avec repli sur le prix courant. Lève ValueError si le prix
+    reste introuvable. Partagé par la création unitaire et l'import en masse.
+    """
+    def _missing(key):
+        return key not in order_data or order_data.get(key) in (None, "")
+
+    if _missing('unitPrice') or _missing('totalPriceEUR'):
+        unit = order_data.get('unitPrice')
+        if unit in (None, ""):
+            order_date = datetime.strptime(order_data['date'], '%Y-%m-%d').date()
+            price_quote = price_service.get_historical_price(order_data['isin'], order_date)
+            if not price_quote.is_valid:
+                price_quote = price_service.get_current_price(order_data['isin'])
+            if not price_quote.is_valid:
+                raise ValueError(f"Prix introuvable pour l'ISIN {order_data['isin']}")
+            unit = price_quote.price
+
+        unit = float(unit)
+        order_data['unitPrice'] = unit
+        order_data['totalPriceEUR'] = unit * float(order_data['quantity'])
+
+    return order_data
+
+
 def _handle_create_order(user_id: str) -> Dict[str, Any]:
     """Handle POST request to create a new order (par utilisateur)."""
     order_data = request.get_json()
@@ -1093,26 +1292,11 @@ def _handle_create_order(user_id: str) -> Dict[str, Any]:
             return jsonify({"error": f"Missing field: {field}"}), 400
 
     try:
-        # If unitPrice or totalPriceEUR are missing, fetch price automatically
-        if 'unitPrice' not in order_data or 'totalPriceEUR' not in order_data:
-            from datetime import datetime
-
-            # Parse the date
-            order_date = datetime.strptime(order_data['date'], '%Y-%m-%d').date()
-
-            # Fetch price for the given date
-            price_quote = price_service.get_historical_price(order_data['isin'], order_date)
-
-            if not price_quote.is_valid:
-                # Try current price as fallback
-                price_quote = price_service.get_current_price(order_data['isin'])
-
-            if not price_quote.is_valid:
-                return jsonify({"error": f"Unable to fetch price for ISIN {order_data['isin']}"}), 400
-
-            # Calculate missing fields
-            order_data['unitPrice'] = price_quote.price
-            order_data['totalPriceEUR'] = price_quote.price * float(order_data['quantity'])
+        # Enrichissement prix + calcul du total (helper partagé)
+        try:
+            order_data = _build_order_with_price(order_data)
+        except ValueError as price_err:
+            return jsonify({"error": str(price_err)}), 400
 
         # Ajouter l'ordre à Firebase pour cet utilisateur
         order_id = firebase_service.add_order(user_id, order_data)

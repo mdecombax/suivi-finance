@@ -24,6 +24,16 @@ steps:
       - --region=europe-west1
       - --platform=managed
       - --project=suivi-finance-472610
+      # Clés API d'import injectées depuis Secret Manager (--update-secrets
+      # n'écrase pas les autres variables, ex. FIREBASE_CREDENTIALS_JSON).
+      # ⚠️ Chaque secret référencé ici DOIT exister dans Secret Manager avant
+      # le prochain push, sinon l'étape de déploiement échoue.
+      # Défaut = Qwen → DASHSCOPE_API_KEY est le minimum requis.
+      # Ajoute les autres fournisseurs en complétant la liste séparée par des virgules.
+      # ⚠️ Désactivé : le secret DASHSCOPE_API_KEY n'existe pas encore dans Secret
+      # Manager. Réactiver cette ligne UNIQUEMENT après l'avoir créé, sinon le deploy échoue.
+      # - --update-secrets=DASHSCOPE_API_KEY=DASHSCOPE_API_KEY:latest
+      # ,ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,DEEPSEEK_API_KEY=DEEPSEEK_API_KEY:latest,MINIMAX_API_KEY=MINIMAX_API_KEY:latest
 
 images:
   - 'europe-west1-docker.pkg.dev/suivi-finance-472610/suivi-finance/app:$COMMIT_SHA'
