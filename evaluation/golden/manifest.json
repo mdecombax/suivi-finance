@@ -1,0 +1,127 @@
+[
+  {
+    "id": "c01_csv_isin",
+    "difficulty": "facile",
+    "file": "c01_csv_isin.csv",
+    "mime": "text/csv",
+    "expected_orders": [
+      {
+        "name": "iShares Core MSCI World UCITS ETF",
+        "isin": "IE00B4L5Y983",
+        "quantity": 3,
+        "unit_price_eur": 89.5,
+        "total_eur": 268.5,
+        "side": "buy"
+      },
+      {
+        "name": "Vanguard FTSE All-World UCITS ETF",
+        "isin": "IE00BK5BQT80",
+        "quantity": 2,
+        "unit_price_eur": 105.2,
+        "total_eur": 210.4,
+        "side": "buy"
+      }
+    ],
+    "declared_total_eur": 478.9
+  },
+  {
+    "id": "c02_csv_names",
+    "difficulty": "moyen",
+    "file": "c02_csv_names.csv",
+    "mime": "text/csv",
+    "expected_orders": [
+      {
+        "name": "Amundi Index MSCI World UCITS ETF DR (C)",
+        "isin": "LU1437016972",
+        "quantity": 5,
+        "unit_price_eur": 23.1,
+        "total_eur": 115.5,
+        "side": "buy"
+      },
+      {
+        "name": "Amundi Core S&P 500 Swap UCITS ETF EUR Dist",
+        "isin": "LU0496786574",
+        "quantity": 4,
+        "unit_price_eur": 41.8,
+        "total_eur": 167.2,
+        "side": "buy"
+      }
+    ],
+    "declared_total_eur": null
+  },
+  {
+    "id": "c03_csv_fuzzy",
+    "difficulty": "difficile",
+    "file": "c03_csv_fuzzy.csv",
+    "mime": "text/csv",
+    "expected_orders": [
+      {
+        "name": "Amundi Index MSCI World UCITS ETF DR (C)",
+        "isin": "LU1437016972",
+        "quantity": 7,
+        "unit_price_eur": 23.05,
+        "total_eur": 161.35,
+        "side": "buy"
+      },
+      {
+        "name": "Amundi Core Nasdaq-100 Swap UCITS ETF Acc",
+        "isin": "LU1829221024",
+        "quantity": 1,
+        "unit_price_eur": 510.0,
+        "total_eur": 510.0,
+        "side": "buy"
+      }
+    ],
+    "declared_total_eur": null
+  },
+  {
+    "id": "c04_pdf_isin",
+    "difficulty": "facile",
+    "file": "c04_pdf_isin.pdf",
+    "mime": "application/pdf",
+    "expected_orders": [
+      {
+        "name": "Amundi MSCI All Country World UCITS ETF EUR Acc",
+        "isin": "LU1829220216",
+        "quantity": 6,
+        "unit_price_eur": 28.4,
+        "total_eur": 170.4,
+        "side": "buy"
+      },
+      {
+        "name": "Amundi CAC 40 UCITS ETF Dist",
+        "isin": "FR0007052782",
+        "quantity": 10,
+        "unit_price_eur": 19.95,
+        "total_eur": 199.5,
+        "side": "buy"
+      }
+    ],
+    "declared_total_eur": 369.9
+  },
+  {
+    "id": "c05_pdf_fuzzy",
+    "difficulty": "difficile",
+    "file": "c05_pdf_fuzzy.pdf",
+    "mime": "application/pdf",
+    "expected_orders": [
+      {
+        "name": "Amundi Core Stoxx Europe 600 UCITS ETF Acc",
+        "isin": "LU0908500753",
+        "quantity": 3,
+        "unit_price_eur": 215.3,
+        "total_eur": 645.9,
+        "side": "buy"
+      },
+      {
+        "name": "Amundi MSCI All Country World UCITS ETF EUR Acc",
+        "isin": "LU1829220216",
+        "quantity": 8,
+        "unit_price_eur": 28.5,
+        "total_eur": 228.0,
+        "side": "buy"
+      }
+    ],
+    "declared_total_eur": null
+  }
+]

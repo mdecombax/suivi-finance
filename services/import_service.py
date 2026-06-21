@@ -3,6 +3,8 @@ Import service - Extraction d'ordres d'investissement depuis n'importe quel
 document (CSV, capture d'écran, PDF) à l'aide d'un LLM.
 
 Architecture multi-fournisseur :
+- Gemini sur **Vertex AI** (citoyen de première classe) : auth par ADC/IAM
+  (sans clé), génération contrôlée via response_schema Pydantic.
 - Un seul client *compatible OpenAI* (paramétré par base_url + clé) sert
   OpenAI, Qwen (Alibaba Model Studio), DeepSeek et MiniMax.
 - Claude utilise le SDK Anthropic natif.
@@ -77,7 +79,7 @@ class ImportResult(BaseModel):
 class ModelSpec:
     key: str               # identifiant interne (utilisé par l'UI)
     label: str             # libellé affiché
-    provider: str          # 'anthropic' | 'openai_compatible'
+    provider: str          # 'anthropic' | 'openai_compatible' | 'vertex'
     model_id: str          # identifiant côté API du fournisseur
     price_in: float        # $ / 1M tokens (indicatif)
     price_out: float       # $ / 1M tokens (indicatif)
@@ -86,6 +88,7 @@ class ModelSpec:
     base_url_env: Optional[str] = None   # variable d'env de surcharge du endpoint
     default_base_url: Optional[str] = None
     note: str = ""
+    native_pdf: bool = False   # le modèle ingère le PDF brut (pas de rasterisation)
 
     def resolve_base_url(self) -> Optional[str]:
         if self.base_url_env and os.environ.get(self.base_url_env):
@@ -93,11 +96,52 @@ class ModelSpec:
         return self.default_base_url
 
     def has_credentials(self) -> bool:
+        # Vertex AI s'authentifie par ADC (compte de service / gcloud), pas par
+        # clé API : « disponible » dès qu'un projet GCP est résolu.
+        if self.provider == "vertex":
+            return bool(_vertex_project())
         return bool(os.environ.get(self.api_key_env))
+
+
+# Configuration Vertex AI (lue à l'exécution pour rester testable).
+# Aucune clé API : l'auth passe par ADC (gcloud auth application-default login
+# en local ; compte de service avec roles/aiplatform.user sur Cloud Run).
+def _vertex_project() -> Optional[str]:
+    return (
+        os.environ.get("VERTEX_PROJECT")
+        or os.environ.get("GOOGLE_CLOUD_PROJECT")
+        or os.environ.get("GCLOUD_PROJECT")
+    )
+
+
+def _vertex_location() -> str:
+    return (
+        os.environ.get("VERTEX_LOCATION")
+        or os.environ.get("GOOGLE_CLOUD_LOCATION")
+        or "europe-west1"   # même région que Cloud Run (résidence des données UE)
+    )
 
 
 # L'ordre de la liste = ordre d'affichage dans le sélecteur.
 MODEL_REGISTRY: List[ModelSpec] = [
+    ModelSpec(
+        key="gemini-2.5-flash",
+        label="Gemini 2.5 Flash (Vertex AI) — rapide & économique",
+        provider="vertex",
+        model_id=os.environ.get("GEMINI_FLASH_MODEL_ID", "gemini-2.5-flash"),
+        price_in=0.30, price_out=2.50, multimodal=True, native_pdf=True,
+        api_key_env="GOOGLE_CLOUD_PROJECT",   # informatif ; auth réelle = ADC
+        note="GCP-natif (auth IAM, sans clé), PDF natif, sortie structurée garantie.",
+    ),
+    ModelSpec(
+        key="gemini-2.5-pro",
+        label="Gemini 2.5 Pro (Vertex AI) — précision max",
+        provider="vertex",
+        model_id=os.environ.get("GEMINI_PRO_MODEL_ID", "gemini-2.5-pro"),
+        price_in=1.25, price_out=10.0, multimodal=True, native_pdf=True,
+        api_key_env="GOOGLE_CLOUD_PROJECT",   # informatif ; auth réelle = ADC
+        note="Raisonnement documentaire le plus fin sur PDF/screenshots difficiles.",
+    ),
     ModelSpec(
         key="qwen3-vl-plus",
         label="Qwen3-VL-Plus (Alibaba) — spécialiste documents",
@@ -294,6 +338,14 @@ def _build_parts(filename: str, content: bytes, mime_type: str, spec: ModelSpec)
         )]
 
     if mime == PDF_MIME_TYPE:
+        # Modèles capables d'ingérer le PDF brut (Gemini/Vertex) : on évite la
+        # rasterisation, qui dégrade le texte vectoriel et coûte des tokens image.
+        if spec.native_pdf:
+            return [ContentPart(
+                kind="document",
+                image_b64=base64.standard_b64encode(content).decode("utf-8"),
+                media_type=PDF_MIME_TYPE,
+            )]
         return _rasterize_pdf(content)
 
     raise ImportError_(
@@ -439,6 +491,71 @@ def _extract_openai_compatible(spec: ModelSpec, parts: List[ContentPart]) -> Imp
         )
 
 
+def _extract_vertex(spec: ModelSpec, parts: List[ContentPart]) -> ImportResult:
+    """Extraction via Gemini sur Vertex AI.
+
+    Auth par ADC (aucune clé API). Génération contrôlée : on passe directement
+    le schéma Pydantic `ImportResult` en `response_schema`, et la plateforme
+    garantit un JSON conforme — pas de prompt « réponds en JSON » ni de parsing
+    défensif comme pour les endpoints compatibles OpenAI.
+    """
+    try:
+        from google import genai
+        from google.genai import types
+    except ImportError as e:
+        raise ImportError_(
+            "SDK google-genai absent (ajoute `google-genai` et `pip install -r requirements.txt`)."
+        ) from e
+
+    project = _vertex_project()
+    if not project:
+        raise ImportError_(
+            "Projet Vertex introuvable : définis GOOGLE_CLOUD_PROJECT (ou VERTEX_PROJECT) "
+            "et authentifie-toi (`gcloud auth application-default login` en local, "
+            "compte de service avec roles/aiplatform.user en prod)."
+        )
+
+    client = genai.Client(vertexai=True, project=project, location=_vertex_location())
+
+    content_parts: List[Any] = []
+    for p in parts:
+        if p.kind == "text":
+            content_parts.append(types.Part.from_text(text=p.text))
+        else:
+            content_parts.append(types.Part.from_bytes(
+                data=base64.b64decode(p.image_b64), mime_type=p.media_type,
+            ))
+    content_parts.append(types.Part.from_text(text=USER_INSTRUCTION))
+
+    config = types.GenerateContentConfig(
+        system_instruction=SYSTEM_PROMPT,
+        response_mime_type="application/json",
+        response_schema=ImportResult,
+        temperature=0,            # extraction déterministe
+        max_output_tokens=8000,
+    )
+
+    try:
+        resp = client.models.generate_content(
+            model=spec.model_id,
+            contents=[types.Content(role="user", parts=content_parts)],
+            config=config,
+        )
+    except Exception as e:  # noqa: BLE001 — le SDK lève des erreurs variées
+        raise ImportError_(f"Erreur Vertex AI ({spec.label}) : {e}") from e
+
+    parsed = getattr(resp, "parsed", None)
+    if isinstance(parsed, ImportResult):
+        return parsed
+    # Repli : valider le texte JSON renvoyé.
+    try:
+        return ImportResult.model_validate_json((resp.text or "").strip())
+    except Exception as e:  # noqa: BLE001
+        raise ImportError_(
+            f"Le modèle « {spec.label} » n'a pas renvoyé de JSON exploitable."
+        ) from e
+
+
 # ============================================================================
 # Post-traitement : ne garder que les achats + résolution ISIN par nom
 # ============================================================================
@@ -550,7 +667,7 @@ def _idf_w(token: str, idf: Dict[str, float]) -> float:
     return idf.get(token, max(idf.values()) if idf else 1.0)
 
 
-def _resolve_isin(name: str) -> Optional[str]:
+def _resolve_isin_tfidf(name: str) -> Optional[str]:
     """Trouve l'ISIN correspondant à un nom via le fichier de correspondance.
 
     Stratégie permissive :
@@ -561,27 +678,32 @@ def _resolve_isin(name: str) -> Optional[str]:
          génériques (UCITS, ETF…) ignorés, ce qui tolère ordre des mots,
          devise, tickers parasites et suffixes manquants.
     """
+    return _resolve_isin_tfidf_scored(name)[0]
+
+
+def _resolve_isin_tfidf_scored(name: str) -> Tuple[Optional[str], float]:
+    """Comme _resolve_isin_tfidf mais renvoie aussi le score de confiance (cosinus).
+
+    Sert au routage hybride : on ne fait confiance au TF-IDF que s'il est *sûr*.
+    Un match exact normalisé vaut une confiance de 1.0.
+    """
     entries = _load_isin_map()
     if not entries or not name:
-        return None
-
+        return None, 0.0
     target_norm = _normalize_name(name)
     if not target_norm:
-        return None
-
-    # 1) exact (normalisé)
+        return None, 0.0
     for norm, isin, _ in entries:
         if norm == target_norm:
-            return isin
+            return isin, 1.0
 
-    # 2) cosinus IDF sur les tokens
     q_tokens = set(_tokenize(name))
     if not q_tokens:
-        return None
+        return None, 0.0
     idf = _idf()
     q_norm = math.sqrt(sum(_idf_w(t, idf) ** 2 for t in q_tokens))
     if q_norm == 0:
-        return None
+        return None, 0.0
 
     best_isin, best_score = None, 0.0
     for _, isin, toks in entries:
@@ -597,7 +719,115 @@ def _resolve_isin(name: str) -> Optional[str]:
         if score > best_score:
             best_isin, best_score = isin, score
 
-    return best_isin if best_score >= _MATCH_THRESHOLD else None
+    return (best_isin, best_score) if best_score >= _MATCH_THRESHOLD else (None, best_score)
+
+
+# ----------------------------------------------------------------------------
+# Variante sémantique : résolution ISIN par embeddings Vertex
+# ----------------------------------------------------------------------------
+# Le TF-IDF échoue quand le nom lu ne partage aucun token discriminant avec
+# l'entrée (abréviations, traductions, ordre des mots très différent). Les
+# embeddings capturent la proximité sémantique. Coût maîtrisé : l'index est
+# pré-calculé une fois (scripts/build_isin_embeddings.py) et mis en cache ; en
+# mode `hybrid` (défaut) on n'embede la requête QUE si le TF-IDF a échoué.
+
+EMBEDDINGS_PATH = os.environ.get(
+    "ISIN_EMBEDDINGS_PATH",
+    os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "isin_embeddings.json"),
+)
+ISIN_EMBED_MODEL = os.environ.get("ISIN_EMBED_MODEL", "text-multilingual-embedding-002")
+# Stratégie : 'tfidf' (défaut historique, gratuit) | 'embeddings' | 'hybrid'.
+ISIN_RESOLVER = os.environ.get("ISIN_RESOLVER", "tfidf").lower()
+# Seuil cosinus embeddings (mieux vaut ne rien deviner qu'attribuer le mauvais).
+_EMBED_THRESHOLD = float(os.environ.get("ISIN_EMBED_THRESHOLD", "0.62"))
+# En mode hybrid, on ne fait confiance au TF-IDF (et on évite l'appel embeddings)
+# que si son score dépasse cette confiance ; sinon on défère à la sémantique.
+_HYBRID_TRUST = float(os.environ.get("ISIN_HYBRID_TRUST", "0.80"))
+
+
+@lru_cache(maxsize=1)
+def _load_isin_embeddings() -> Optional[Tuple[Tuple[str, ...], Any]]:
+    """Charge l'index d'embeddings pré-calculé : (isins, matrice normalisée L2).
+
+    Renvoie None si le fichier est absent (on retombera sur le TF-IDF).
+    """
+    if not os.path.exists(EMBEDDINGS_PATH):
+        return None
+    try:
+        import numpy as np
+        with open(EMBEDDINGS_PATH, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+        isins = tuple(e["isin"] for e in raw)
+        mat = np.asarray([e["embedding"] for e in raw], dtype="float32")
+        norms = np.linalg.norm(mat, axis=1, keepdims=True)
+        norms[norms == 0] = 1.0
+        return isins, mat / norms
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Index d'embeddings ISIN illisible (%s): %s", EMBEDDINGS_PATH, e)
+        return None
+
+
+@lru_cache(maxsize=512)
+def _embed_query(text: str) -> Optional[Tuple[float, ...]]:
+    """Embedding d'un nom de fonds (RETRIEVAL_QUERY), mis en cache par texte."""
+    project = _vertex_project()
+    if not project:
+        return None
+    from google import genai
+    from google.genai import types
+    client = genai.Client(vertexai=True, project=project, location=_vertex_location())
+    resp = client.models.embed_content(
+        model=ISIN_EMBED_MODEL,
+        contents=[text],
+        config=types.EmbedContentConfig(task_type="RETRIEVAL_QUERY"),
+    )
+    return tuple(resp.embeddings[0].values)
+
+
+def _resolve_isin_embeddings(name: str) -> Optional[str]:
+    """Résout l'ISIN par similarité cosinus d'embeddings Vertex."""
+    if not name:
+        return None
+    index = _load_isin_embeddings()
+    if index is None:
+        return None
+    isins, mat = index
+    try:
+        vec = _embed_query(name.strip())
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Embedding de requête échoué (%s): %s", name, e)
+        return None
+    if not vec:
+        return None
+    import numpy as np
+    q = np.asarray(vec, dtype="float32")
+    n = float(np.linalg.norm(q))
+    if n == 0:
+        return None
+    sims = mat @ (q / n)
+    i = int(sims.argmax())
+    return isins[i] if float(sims[i]) >= _EMBED_THRESHOLD else None
+
+
+def resolve_isin(name: str) -> Optional[str]:
+    """Dispatcher de résolution nom→ISIN selon ISIN_RESOLVER.
+
+    - 'tfidf'      : heuristique locale gratuite (défaut).
+    - 'embeddings' : sémantique Vertex pure.
+    - 'hybrid'     : TF-IDF d'abord, embeddings en repli (recommandé : robuste
+                     ET économe — on ne paie l'embedding que sur les cas durs).
+    """
+    if ISIN_RESOLVER == "embeddings":
+        return _resolve_isin_embeddings(name)
+    if ISIN_RESOLVER == "hybrid":
+        # Routage à base de confiance : on garde le TF-IDF s'il est sûr (gratuit),
+        # sinon on défère à la sémantique. On ne retombe sur un TF-IDF peu sûr
+        # que si les embeddings n'ont rien proposé non plus.
+        tfidf_isin, tfidf_score = _resolve_isin_tfidf_scored(name)
+        if tfidf_isin and tfidf_score >= _HYBRID_TRUST:
+            return tfidf_isin
+        return _resolve_isin_embeddings(name) or tfidf_isin
+    return _resolve_isin_tfidf(name)
 
 
 def _postprocess(result: ImportResult) -> ImportResult:
@@ -616,7 +846,7 @@ def _postprocess(result: ImportResult) -> ImportResult:
             o.total_eur = abs(o.total_eur)
         isin = (o.isin or "").strip().upper()
         if not isin or not ISIN_RE.match(isin):
-            resolved = _resolve_isin(o.name or "")
+            resolved = resolve_isin(o.name or "")
             if resolved:
                 o.isin = resolved
             else:
@@ -637,6 +867,8 @@ def _extract_one(spec: ModelSpec, filename: str, content: bytes, mime_type: str)
     parts = _build_parts(filename, content, mime_type, spec)
     if spec.provider == "anthropic":
         return _extract_anthropic(spec, parts)
+    if spec.provider == "vertex":
+        return _extract_vertex(spec, parts)
     return _extract_openai_compatible(spec, parts)
 
 

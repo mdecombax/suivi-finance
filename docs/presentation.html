@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finolio — AI Order Import on Vertex AI</title>
+<style>
+  :root{
+    --blue:#4285F4; --red:#EA4335; --yellow:#FBBC04; --green:#34A853;
+    --ink:#1f2330; --muted:#5f6677; --line:#e6e8ef; --bg:#ffffff; --soft:#f6f8fc;
+    --radius:14px; --maxw:1080px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink); background:#0b1020; overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  .deck{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+  .slide{
+    position:absolute;inset:0;display:none;flex-direction:column;
+    padding:54px 64px 72px; background:var(--bg);
+    animation:fade .35s ease; overflow:auto;
+  }
+  .slide.active{display:flex}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  /* accent bar */
+  .slide::before{content:"";position:absolute;top:0;left:0;right:0;height:6px;
+    background:linear-gradient(90deg,var(--blue) 0 25%,var(--red) 25% 50%,var(--yellow) 50% 75%,var(--green) 75% 100%)}
+
+  .kicker{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--blue);margin-bottom:14px}
+  h1{font-size:46px;line-height:1.08;letter-spacing:-.02em;margin-bottom:10px}
+  h2{font-size:34px;line-height:1.12;letter-spacing:-.02em;margin-bottom:22px}
+  h2 .num{color:var(--blue);font-weight:800;margin-right:12px}
+  p{font-size:19px;line-height:1.55;color:var(--ink);margin-bottom:14px;max-width:62ch}
+  .lead{font-size:21px;color:var(--muted)}
+  strong{color:var(--ink)}
+  em{color:var(--blue);font-style:normal;font-weight:600}
+  ul{list-style:none;margin:6px 0 14px}
+  li{position:relative;padding-left:26px;font-size:18px;line-height:1.5;margin-bottom:10px;max-width:64ch}
+  li::before{content:"";position:absolute;left:4px;top:9px;width:8px;height:8px;border-radius:50%;background:var(--blue)}
+  li.r::before{background:var(--red)} li.y::before{background:var(--yellow)} li.g::before{background:var(--green)}
+  .small{font-size:15px;color:var(--muted)}
+  code{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;background:var(--soft);
+    border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:.86em;color:#0b3b8c}
+
+  table{border-collapse:collapse;width:100%;margin:8px 0 14px;font-size:15.5px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:12.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}
+  tbody tr:nth-child(odd){background:var(--soft)}
+  .hi{background:#e8f0fe !important;font-weight:600}
+  .ok{color:var(--green);font-weight:700}.no{color:var(--red);font-weight:700}
+
+  pre{background:#0d1530;color:#cdd6f4;border-radius:var(--radius);padding:22px 24px;
+    font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;font-size:14px;line-height:1.5;
+    overflow:auto;margin:6px 0 14px}
+  pre .c{color:#7f8cc0}.k1{color:#82aaff}.k2{color:#c3e88d}.k3{color:#ffcb6b}.k4{color:#f78c6c}
+
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}
+  .card{border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;background:#fff}
+  .card h3{font-size:16px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .card p{font-size:15.5px;margin:0;color:var(--muted)}
+  .tag{display:inline-block;font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;background:#e8f0fe;color:#1a5fd4}
+  .tag.g{background:#e6f4ea;color:#137333}.tag.y{background:#fef7e0;color:#b06000}.tag.r{background:#fce8e6;color:#c5221f}
+
+  .quote{font-size:26px;line-height:1.4;font-weight:600;letter-spacing:-.01em;max-width:24ch;
+    border-left:5px solid var(--blue);padding-left:22px;margin:6px 0 22px}
+
+  /* title slide */
+  #s1{background:radial-gradient(1200px 600px at 80% -10%, #16224a 0, #0b1020 60%);color:#eef1fb}
+  #s1::before{opacity:.9}
+  #s1 .kicker{color:#9bb6ff}
+  #s1 h1{font-size:58px;color:#fff;max-width:18ch}
+  #s1 p{color:#aeb8d8}
+  #s1 .meta{margin-top:auto;display:flex;flex-wrap:wrap;gap:10px}
+  #s1 .chip{border:1px solid #2c3a66;border-radius:999px;padding:7px 14px;font-size:14px;color:#cdd6f4}
+  #s1 code{background:#162048;border-color:#2c3a66;color:#9bb6ff}
+
+  .spread{margin-top:auto}
+  /* chrome */
+  .bar{position:fixed;left:0;right:0;bottom:0;height:5px;background:var(--line);z-index:20}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--green));transition:width .3s}
+  .nav{position:fixed;right:18px;bottom:16px;z-index:21;display:flex;align-items:center;gap:10px;
+    font-size:13px;color:var(--muted);background:rgba(255,255,255,.9);border:1px solid var(--line);
+    border-radius:999px;padding:5px 8px 5px 14px;backdrop-filter:blur(6px)}
+  .nav button{border:none;background:var(--soft);width:30px;height:30px;border-radius:50%;cursor:pointer;
+    font-size:15px;color:var(--ink)}
+  .nav button:hover{background:#e8f0fe}
+  .foot{position:fixed;left:18px;bottom:14px;z-index:21;font-size:12px;color:#8089a0}
+  @media print{.slide{display:flex!important;position:relative;page-break-after:always;height:100vh}.bar,.nav,.foot{display:none}}
+
+  /* ---- visual diagrams ---- */
+  .diagram{display:flex;flex-direction:column;gap:12px;align-items:center;margin:8px 0 14px}
+  .diagram .row{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap}
+  .node{border:1.5px solid var(--line);border-radius:12px;padding:11px 16px;background:#fff;
+    font-size:15px;font-weight:600;text-align:center;min-width:120px;box-shadow:0 1px 2px rgba(20,30,60,.05)}
+  .node .sub{display:block;font-size:12px;font-weight:500;color:var(--muted);margin-top:3px}
+  .node.wide{min-width:210px}
+  .node.hl{border-color:var(--blue);background:#e8f0fe;color:#174ea6}
+  .node.v{border-color:var(--green);background:#e6f4ea;color:#137333}
+  .node.soft{background:var(--soft)}
+  .node.warn{border-color:var(--red);background:#fce8e6;color:#c5221f}
+  .arr{color:#9aa3b8;font-size:26px;font-weight:800;line-height:1}
+  .arr.d{transform:rotate(90deg)}
+  .cap{font-size:13px;color:var(--muted);text-align:center;margin:-4px 0 2px}
+  .stack{display:flex;flex-direction:column;gap:7px;border:1.5px dashed var(--blue);border-radius:14px;
+    padding:13px 14px;background:#f7faff}
+  .stack.green{border-color:var(--green);background:#f3fbf5}
+  .stack .lbl{font-size:11.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;
+    color:var(--blue);text-align:center;margin-bottom:2px}
+  .stack.green .lbl{color:#137333}
+  .lane{display:flex;align-items:center;gap:10px;font-size:14px;background:#fff;border:1px solid var(--line);
+    border-radius:9px;padding:7px 12px;font-weight:600}
+  .lane b{font-size:11px;font-weight:700;color:var(--muted);min-width:104px;text-transform:uppercase;letter-spacing:.04em}
+  .lane.hl{border-color:var(--green);background:#e6f4ea;color:#137333}
+  .decision{display:flex;align-items:center;justify-content:center;text-align:center;
+    border:1.5px solid var(--yellow);background:#fff7e6;color:#8a5a00;border-radius:999px;
+    padding:12px 24px;font-weight:700;font-size:14.5px}
+  .yesno{font-size:12px;font-weight:800;color:var(--muted);letter-spacing:.04em}
+  .legend{display:flex;gap:20px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-top:4px}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+
+  /* ---- user journey ---- */
+  .node.ai{border:2px solid var(--blue);background:linear-gradient(180deg,#eaf1fe,#d9e6fd);
+    color:#174ea6;min-width:188px;box-shadow:0 0 0 4px rgba(66,133,244,.13)}
+  .tagv{display:inline-block;margin-top:7px;font-size:10px;font-weight:800;letter-spacing:.06em;
+    background:var(--blue);color:#fff;padding:3px 9px;border-radius:999px}
+  .stepn{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;
+    border-radius:50%;background:var(--soft);color:var(--muted);font-size:12px;font-weight:800;
+    margin-right:7px;border:1px solid var(--line);vertical-align:1px}
+  .stepn.b{background:var(--blue);color:#fff;border-color:var(--blue)}
+
+  /* ---- screenshots ---- */
+  .shots{display:grid;gap:16px;width:100%}
+  .shots.g2{grid-template-columns:1fr 1fr}
+  .shot{margin:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;
+    background:#0b1020;box-shadow:0 8px 28px rgba(15,23,50,.16)}
+  .shot img{display:block;width:100%}
+  .shots .shot img{height:198px;object-fit:cover;object-position:top}
+  .shot figcaption{font-size:12.5px;color:var(--muted);padding:7px 12px;background:#fff;border-top:1px solid var(--line)}
+  .hero{max-width:880px;margin:6px auto 0}
+  .hero img{height:auto;object-fit:initial}
+  /* titles stay top-anchored for consistency; sparse slides are filled with content */
+  .slide.center{justify-content:flex-start}
+  /* bottom insight band to fill sparse slides */
+  .band{margin-top:26px;width:100%}
+  .band .grid{margin:0}
+  .tile{border:1px solid var(--line);border-radius:14px;padding:16px 20px;background:var(--soft)}
+  .tile.blue{border-color:#bcd3fb;background:#eef4fe}
+  .tile.green{border-color:#bfe3c8;background:#eaf6ee}
+  .tile h4{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  .tile .big{font-size:20px;font-weight:800;letter-spacing:-.01em}
+  .tile p{font-size:14px;color:var(--muted);margin:4px 0 0}
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <!-- 1 — TITLE -->
+  <section class="slide active" id="s1">
+    <div class="kicker">Interview deck · Vertex AI Developer (Consultant) · Deloitte ADMX</div>
+    <h1>Finolio</h1>
+    <p class="lead">A portfolio tracker — and a Vertex AI use case:<br>importing broker history from any document with an LLM.</p>
+    <div class="meta">
+      <span class="chip">Martin de Combarieu</span>
+      <span class="chip">Live on <code>Cloud Run · europe-west1</code></span>
+      <span class="chip">Flask · Firebase · Stripe · <strong style="color:#9bb6ff">Vertex AI</strong></span>
+    </div>
+  </section>
+
+  <!-- 2 — PRODUCT -->
+  <section class="slide" id="s2">
+    <div class="kicker">The product</div>
+    <h2><span class="num">01</span>In one line</h2>
+    <p><strong>Finolio</strong> is a personal investment-portfolio tracker: record your buys, it values
+      positions live, projects wealth &amp; passive income, and imports your broker history with a single
+      drag-and-drop — parsed by an LLM on Vertex AI.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:26px;align-items:center;width:100%;margin-top:14px">
+      <figure class="shot" style="flex:1.5;min-width:380px;margin:0">
+        <img src="img/portfolio.png" alt="Portfolio dashboard">
+      </figure>
+      <div style="flex:1;min-width:260px;display:flex;flex-direction:column;gap:12px">
+        <div class="card"><h3>🚀 In production</h3><p>Google Cloud Run, CI/CD via Cloud Build: <code>push main → build → deploy</code>.</p></div>
+        <div class="card"><h3>🧱 Stack</h3><p>Flask · Firebase · Stripe freemium · Vertex AI.</p></div>
+        <div class="card"><h3>🇪🇺 One GCP project</h3><p><code>europe-west1</code> → EU data residency, one perimeter.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 — MODULES -->
+  <section class="slide" id="s3">
+    <div class="kicker">The product</div>
+    <h2><span class="num">02</span>Modules &amp; user journey</h2>
+    <div class="diagram" style="margin-top:8px">
+      <div class="row" style="align-items:stretch">
+        <div class="node"><span class="stepn">1</span>Sign in<span class="sub">Firebase Auth</span></div>
+        <div class="arr">→</div>
+        <div class="node ai"><span class="stepn b">2</span>AI Import ⭐<span class="sub">screenshot · CSV · PDF</span><span class="tagv">Gemini · Vertex AI</span></div>
+        <div class="arr">→</div>
+        <div class="node"><span class="stepn">3</span>Orders<span class="sub">ledger · source of truth</span></div>
+        <div class="arr">→</div>
+        <div class="node"><span class="stepn">4</span>Portfolio<span class="sub">valuation · P&amp;L</span></div>
+        <div class="arr">→</div>
+        <div class="node"><span class="stepn">5</span>Goal<span class="sub">income · projection</span></div>
+      </div>
+      <div class="cap">⤷ alternative to step 2: <strong>add orders by hand</strong> in the Orders form (slow) — AI Import removes that friction</div>
+    </div>
+    <div class="band">
+      <div class="grid g2">
+        <div class="tile blue"><h4>Where the AI lives</h4><div class="big">One module — Import</div>
+          <p>Gemini on Vertex AI turns any document into structured orders; everything downstream (Orders → Portfolio → Goal) consumes its output.</p></div>
+        <div class="tile"><h4>Cross-cutting</h4><div class="big">Auth · Subscription · Position detail</div>
+          <p>Firebase identity everywhere, Stripe freemium gates premium, and a per-line <code>/position/&lt;isin&gt;</code> drill-down.</p></div>
+      </div>
+    </div>
+    <div class="tile" style="margin-top:18px;border-color:#bcd3fb;background:#eef4fe;text-align:center">
+      <p style="font-size:16.5px;color:var(--ink);margin:0">Finolio is a standard CRUD finance app — the one place AI changes the game is getting the data <em>in</em>.</p>
+    </div>
+  </section>
+
+  <!-- 3b — FOUR SCREENS -->
+  <section class="slide" id="s3b">
+    <div class="kicker">The product</div>
+    <h2><span class="num"></span>Four screens</h2>
+    <div class="shots g2">
+      <figure class="shot"><img src="img/portfolio.png" alt="Portfolio dashboard">
+        <figcaption><strong>Portfolio</strong> — live net value &amp; monthly evolution</figcaption></figure>
+      <figure class="shot"><img src="img/orders.png" alt="Orders ledger">
+        <figcaption><strong>Orders</strong> — ledger + “Import a file (AI)”</figcaption></figure>
+      <figure class="shot"><img src="img/import.png" alt="AI import">
+        <figcaption><strong>AI Import</strong> — drop a doc, pick a model</figcaption></figure>
+      <figure class="shot"><img src="img/objectif.png" alt="Goal & projection">
+        <figcaption><strong>Goal</strong> — passive income &amp; projection</figcaption></figure>
+    </div>
+  </section>
+
+  <!-- 4 — SYSTEM ARCHITECTURE -->
+  <section class="slide" id="s4">
+    <div class="kicker">The product</div>
+    <h2><span class="num">03</span>System architecture</h2>
+    <div class="diagram">
+      <div class="node wide">Browser <span class="sub">Jinja templates + JS</span></div>
+      <div class="arr d">→</div>
+      <div class="stack" style="border-style:solid">
+        <div class="lbl">Flask app · app.py · ~30 routes</div>
+        <div class="row">
+          <div class="lane"><b>Identity</b> Firebase Auth</div>
+          <div class="lane"><b>Data</b> Firestore</div>
+          <div class="lane"><b>Billing</b> Stripe + webhooks</div>
+          <div class="lane hl"><b>AI pipeline</b> import_service.py → Vertex AI</div>
+        </div>
+      </div>
+      <div class="arr d">→</div>
+      <div class="node wide v">Google Cloud Run · europe-west1
+        <span class="sub">container built &amp; deployed by Cloud Build on push to main</span></div>
+    </div>
+    <p>Everything runs under <strong>one service account</strong> with <strong>IAM</strong> roles —
+      including <code>roles/aiplatform.user</code> for Vertex. <em>No API keys</em> for the GCP-native path.</p>
+  </section>
+
+  <!-- 4c — THE PROBLEM (user pain) -->
+  <section class="slide" id="s4c">
+    <div class="kicker">Zoom · AI Import</div>
+    <h2><span class="num"></span>The problem</h2>
+    <p class="lead" style="margin-bottom:20px">Getting an investor's buy history <em>into</em> the app is the real friction — and the two usual options both fail.</p>
+    <div class="grid g2">
+      <div class="card" style="border-color:#f3c2bd">
+        <h3><span class="tag r">✕</span> Connect the broker</h3>
+        <p>Account aggregation means handing over broker credentials — a real <strong>security &amp; trust barrier</strong>, plus setup friction. Many users simply won't do it.</p>
+      </div>
+      <div class="card" style="border-color:#f3c2bd">
+        <h3><span class="tag r">✕</span> Re-enter every order by hand</h3>
+        <p>Dozens of buys, ISIN by ISIN, date by date. <strong>Slow and error-prone</strong> — people give up before finishing.</p>
+      </div>
+    </div>
+    <div class="arr d" style="margin:16px auto 8px">→</div>
+    <div class="tile green" style="display:flex;align-items:center;gap:18px">
+      <span style="font-size:30px;line-height:1">✅</span>
+      <div>
+        <div class="big">Solution — <code>/import</code></div>
+        <p style="font-size:15.5px;color:var(--ink)">Drop <strong>any document that contains the data</strong> — a screenshot of your broker history, a CSV from your own Google Sheet, a PDF statement — the AI reads it and extracts your orders. <strong>No broker login, no manual entry.</strong></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 — PROBLEM -->
+  <section class="slide center" id="s5">
+    <div class="kicker">Zoom · AI Import</div>
+    <h2><span class="num">04</span>The extraction challenge</h2>
+    <p>Once the user sends a document, the inputs are <strong>heterogeneous</strong>:</p>
+    <div class="grid g3">
+      <div class="card"><h3>📄 CSV</h3><p>A clean broker export.</p></div>
+      <div class="card"><h3>📱 Screenshot</h3><p>A mobile-app capture — ISIN usually missing.</p></div>
+      <div class="card"><h3>🧾 PDF</h3><p>A scanned statement.</p></div>
+    </div>
+    <p style="margin-top:18px">We must:</p>
+    <ul>
+      <li>keep <strong>only buys</strong> (drop dividends, sells, transfers, fees, taxes);</li>
+      <li class="y">normalize dates and amounts to EUR;</li>
+      <li class="g">fill in the <strong>ISIN</strong> from the fund name — often abbreviated, reordered, or in French.</li>
+    </ul>
+    <p class="small">→ A classic <strong>document-extraction + entity-resolution</strong> ML problem.</p>
+  </section>
+
+  <!-- 6 — WHY VERTEX -->
+  <section class="slide" id="s6">
+    <div class="kicker">Zoom · AI Import</div>
+    <h2><span class="num">05</span>Why Vertex AI</h2>
+    <table>
+      <thead><tr><th>Need</th><th>Vertex answer</th><th>Benefit</th></tr></thead>
+      <tbody>
+        <tr><td>Prod security</td><td><strong>ADC / IAM</strong> auth (service account, <code>aiplatform.user</code>)</td><td>Zero API keys to store / rotate</td></tr>
+        <tr><td>Output reliability</td><td><strong>Controlled generation</strong> (<code>response_schema</code> = Pydantic)</td><td>Schema-valid JSON guaranteed by the platform</td></tr>
+        <tr><td>Documents</td><td><strong>Native PDF</strong> (Gemini ingests raw PDF)</td><td>No rasterization, vector text kept, fewer tokens</td></tr>
+        <tr><td>Entity resolution</td><td><strong>Embeddings</strong> <code>text-multilingual-embedding-002</code></td><td>Approximate / multilingual names</td></tr>
+        <tr><td>Decision-making</td><td>In-house <strong>evaluation harness</strong></td><td>Model choice justified by metrics</td></tr>
+        <tr><td>Infra coherence</td><td><strong>Same GCP project</strong> as Cloud Run</td><td>EU data residency, one perimeter</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 6b — FEATURE IN THE PRODUCT -->
+  <section class="slide" id="s6b">
+    <div class="kicker">Zoom · AI Import</div>
+    <h2><span class="num"></span>The feature, in the product</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:30px;align-items:center;width:100%">
+      <figure class="shot hero" style="flex:1.4;min-width:380px;margin:0;max-width:none">
+        <img src="img/import.png" alt="AI import screen">
+      </figure>
+      <ul style="flex:1;min-width:280px">
+        <li>Three guided steps: <strong>Drop → Preview → Confirm</strong>.</li>
+        <li class="y">Powered by <strong>Gemini on Vertex AI</strong> — nothing to configure, no keys for the user.</li>
+        <li>Accepts <strong>CSV · PNG / JPEG / WebP · PDF</strong>, ≤ 10 MB per file, multi-file.</li>
+        <li class="g">Human in the loop: the user <strong>reviews &amp; edits</strong> extracted orders before saving.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 7 — PIPELINE -->
+  <section class="slide" id="s7">
+    <div class="kicker">Zoom · AI Import</div>
+    <h2><span class="num">06</span>Pipeline architecture</h2>
+    <div class="diagram">
+      <div class="row">
+        <div class="node">Document <span class="sub">CSV / IMG / PDF</span></div>
+        <div class="arr">→</div>
+        <div class="node">_build_parts() <span class="sub">text · image · native PDF</span></div>
+        <div class="arr">→</div>
+        <div class="node ai" style="min-width:200px">Gemini 2.5 Flash<span class="sub">Vertex AI · reads text, images &amp; PDF</span><span class="tagv">temperature 0</span></div>
+      </div>
+      <div class="arr d">→</div>
+      <div class="cap">controlled generation · <code>response_schema = ImportResult</code></div>
+      <div class="row">
+        <div class="node wide">ImportResult <span class="sub">orders[] · declared_total · currency_warning</span></div>
+        <div class="arr">→</div>
+        <div class="node">_postprocess() <span class="sub">buys only</span></div>
+        <div class="arr">→</div>
+        <div class="stack green">
+          <div class="lbl">resolve_isin()</div>
+          <div class="row" style="gap:8px">
+            <span class="lane">tfidf</span><span class="lane">embeddings</span><span class="lane hl">hybrid</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p>One model in production — <strong>Gemini 2.5 Flash on Vertex AI</strong>. It returns schema-valid
+      orders directly; post-processing then keeps only the buys and fills any missing ISIN.</p>
+  </section>
+
+  <!-- 8 — TWO DECISIONS -->
+  <section class="slide center" id="s8">
+    <div class="kicker">Zoom · AI Import</div>
+    <h2><span class="num">07</span>Two decisions worth defending</h2>
+    <div class="grid g2">
+      <div class="card">
+        <h3><span class="tag">a</span> Controlled generation</h3>
+        <p>I don't ask the model to "please reply in JSON". On Vertex I attach the exact output
+          schema (<code>response_schema</code>) with <code>temperature=0</code>, and the platform
+          <strong>guarantees valid, structured orders every time</strong> — no parsing hacks, no retries.</p>
+      </div>
+      <div class="card">
+        <h3><span class="tag g">b</span> Cost-aware hybrid ISIN</h3>
+        <p>To fill a missing ISIN, a <strong>free local text match</strong> runs first; the
+          <strong>paid</strong> Vertex embedding is called <em>only</em> when that match is unsure.
+          Semantic accuracy at a fraction of the cost — detailed on the next two slides.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 — MODEL COMPARISON -->
+  <section class="slide center" id="s9">
+    <div class="kicker">Zoom · Measurement (the core)</div>
+    <h2><span class="num">08</span>Model comparison</h2>
+    <p class="small"><strong>Offline benchmark</strong> on a labelled golden set (5 docs, 10 orders) — run once to <strong>choose the model</strong>, not computed live in the app. Reproducible: <code>python -m evaluation.run_eval</code></p>
+    <table>
+      <thead><tr><th>Model</th><th>F1</th><th>Precision</th><th>Recall</th><th>ISIN exact</th><th>Latency p50</th><th>p95</th><th>Cost/doc</th></tr></thead>
+      <tbody>
+        <tr class="hi"><td><strong>gemini-2.5-flash</strong></td><td>1.00</td><td>1.00</td><td>1.00</td><td>90 %</td><td>~6 s</td><td>~8 s</td><td><strong>$0.0004</strong></td></tr>
+        <tr><td>gemini-2.5-pro</td><td>1.00</td><td>1.00</td><td>1.00</td><td>90 %</td><td>~20 s</td><td>~27 s</td><td>$0.0015</td></tr>
+      </tbody>
+    </table>
+    <p><strong>Conclusion:</strong> Flash equals Pro in quality for <em>~4× cheaper and ~3× faster</em> →
+      ship <strong>Flash by default</strong>, keep <strong>Pro as fallback</strong> for documents flagged by a low <code>confidence</code> score.</p>
+    <p class="small">These metrics live in the <strong>evaluation harness (offline)</strong> to justify the model choice. In production the live guardrail is the per-line <code>confidence</code> score — not F1.</p>
+    <div class="band">
+      <div class="grid g3">
+        <div class="tile green"><h4>Ship by default</h4><div class="big">Gemini 2.5 Flash</div>
+          <p>F1 1.00 · ~6 s · $0.0004/doc</p></div>
+        <div class="tile blue"><h4>Fallback (hard docs)</h4><div class="big">Gemini 2.5 Pro</div>
+          <p>Triggered by a low <code>confidence</code> line</p></div>
+        <div class="tile"><h4>Decision rule</h4><div class="big">Quality first, then $/latency</div>
+          <p>Equal quality → pick the 4× cheaper, 3× faster model</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9b — HYBRID ISIN ROUTING (diagram) -->
+  <section class="slide" id="s9b">
+    <div class="kicker">Zoom · AI Import</div>
+    <h2><span class="num">09</span>Hybrid ISIN routing <span style="font-size:18px;color:var(--muted);font-weight:600">— cost-aware</span></h2>
+    <div class="diagram" style="gap:9px">
+      <div class="node soft wide">Fund name — ISIN missing</div>
+      <div class="arr d">→</div>
+      <div class="node wide">TF-IDF match <span class="sub">local · free</span></div>
+      <div class="arr d">→</div>
+      <div class="row">
+        <div class="decision">TF-IDF confidence ≥ 0.80 ?</div>
+        <div class="yesno">yes →</div>
+        <div class="node v">Return TF-IDF ISIN <span class="sub">0 API call</span></div>
+      </div>
+      <div class="yesno">no ↓</div>
+      <div class="node wide hl">Vertex embedding of the name <span class="sub">paid · ~10 tokens</span></div>
+      <div class="arr d">→</div>
+      <div class="row">
+        <div class="decision">cosine ≥ 0.62 ?</div>
+        <div class="yesno">yes →</div>
+        <div class="node v">Return semantic ISIN</div>
+      </div>
+      <div class="yesno">no ↓</div>
+      <div class="node warn wide">Leave ISIN empty — never guess</div>
+    </div>
+    <div class="legend">
+      <span><i style="background:#e6f4ea;border:1px solid #34A853"></i>free path (TF-IDF)</span>
+      <span><i style="background:#e8f0fe;border:1px solid #4285F4"></i>paid path (embedding) — only 2/10 queries</span>
+      <span><i style="background:#fce8e6;border:1px solid #EA4335"></i>safe abstain</span>
+    </div>
+  </section>
+
+  <!-- 10 — ISIN STRATEGY -->
+  <section class="slide center" id="s10">
+    <div class="kicker">Zoom · Measurement (the core)</div>
+    <h2><span class="num">10</span>ISIN resolution strategy</h2>
+    <p class="small"><strong>Offline benchmark</strong>: 10 noisy fund names. Reproducible: <code>python -m evaluation.bench_isin</code></p>
+    <table>
+      <thead><tr><th>Strategy</th><th>Accuracy</th><th>Paid embedding calls</th></tr></thead>
+      <tbody>
+        <tr><td>Text match only <span class="small">(local, free)</span></td><td>80 %</td><td>0 / 10</td></tr>
+        <tr><td>Embeddings only <span class="small">(Vertex, paid)</span></td><td>80 %</td><td>10 / 10</td></tr>
+        <tr class="hi"><td><strong>Confidence-routed hybrid</strong></td><td><strong>90 %</strong></td><td><strong>2 / 10</strong></td></tr>
+      </tbody>
+    </table>
+    <p><strong>Why a simple "text match, else embeddings" fails:</strong> the text match almost always
+      returns <em>something</em> — even when it's wrong — so it never actually falls back.</p>
+    <p><strong>The fix — fall back on confidence:</strong> trust the free text match only when its score is
+      high; otherwise ask the Vertex embeddings. That recovers hard cases (e.g. a fund named in French)
+      with <strong>no regression</strong>, and the paid call fires on only <strong>2 of 10</strong> names.</p>
+  </section>
+
+  <!-- 11 — COST -->
+  <section class="slide" id="s11">
+    <div class="kicker">Zoom · AI Import</div>
+    <h2><span class="num">11</span>Cost &amp; model pricing</h2>
+    <p class="small">All usage-based. The candidates I benchmarked before choosing — price $ / 1M tokens:</p>
+    <table>
+      <thead><tr><th>Model</th><th>In</th><th>Out</th><th>Multimodal</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr class="hi"><td>Gemini 2.5 Flash</td><td>0.30</td><td>2.50</td><td class="ok">✅ +native PDF</td><td><span class="tag g">default</span></td></tr>
+        <tr><td>Gemini 2.5 Pro</td><td>1.25</td><td>10.0</td><td class="ok">✅ +native PDF</td><td>accuracy fallback</td></tr>
+        <tr><td>Qwen3-VL-Plus</td><td>0.30</td><td>1.20</td><td class="ok">✅</td><td>doc/OCR (benchmark)</td></tr>
+        <tr><td>GPT-5 mini</td><td>0.25</td><td>2.00</td><td class="ok">✅</td><td>benchmark</td></tr>
+        <tr><td>MiniMax M3</td><td>0.60</td><td>2.30</td><td class="ok">✅</td><td>1M context (benchmark)</td></tr>
+        <tr><td>Claude Haiku→Opus</td><td>1–5</td><td>5–25</td><td class="ok">✅</td><td>hard docs (benchmark)</td></tr>
+        <tr><td>DeepSeek V4</td><td>0.14</td><td>0.28</td><td class="no">❌ text only</td><td>cheapest, CSV-only</td></tr>
+      </tbody>
+    </table>
+    <p class="small"><strong>Cost levers:</strong> Flash default · <code>MAX_FILE_SIZE</code> 10 MB · <code>MAX_PDF_PAGES</code> 15 ·
+      <code>lru_cache</code> · similarity thresholds · hybrid cost-aware. Embedding ≈ <strong>100× cheaper</strong> than generation; index = one-time fraction of a cent.</p>
+  </section>
+
+  <!-- 12 — PRODUCTION / MLOPS -->
+  <section class="slide" id="s12">
+    <div class="kicker">Zoom · Production</div>
+    <h2><span class="num">12</span>Production &amp; MLOps</h2>
+    <table>
+      <thead><tr><th>Concern</th><th>Status</th><th>How</th></tr></thead>
+      <tbody>
+        <tr><td>Auth &amp; security</td><td><span class="tag g">done</span></td><td>IAM service account, no keys for Vertex</td></tr>
+        <tr><td>Determinism</td><td><span class="tag g">done</span></td><td><code>temperature=0</code>, controlled generation</td></tr>
+        <tr><td>Guardrails</td><td><span class="tag g">done</span></td><td>Per-line <code>confidence</code>, file/page caps, currency warnings</td></tr>
+        <tr><td>Quality gate</td><td><span class="tag g">done</span></td><td>Eval harness = regression test before model/prompt change</td></tr>
+        <tr><td>Drift / monitoring</td><td><span class="tag y">planned</span></td><td>Cloud Monitoring on latency/error; alert on confidence drop</td></tr>
+        <tr><td>Retraining loop</td><td><span class="tag y">planned</span></td><td>User corrections → grow golden set → re-evaluate</td></tr>
+        <tr><td>Scale-out</td><td><span class="tag">roadmap</span></td><td>Pub/Sub + Dataflow batch, Cloud Storage, BigQuery</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 13 — JD MAPPING -->
+  <section class="slide" id="s13">
+    <div class="kicker">Fit for the role</div>
+    <h2><span class="num">13</span>Mapping to the job description</h2>
+    <table>
+      <thead><tr><th>JD responsibility</th><th>What this project demonstrates</th></tr></thead>
+      <tbody>
+        <tr><td>Design/deploy ML pipelines on Vertex AI</td><td>Gemini pipeline on Vertex AI, live on Cloud Run</td></tr>
+        <tr><td>End-to-end workflow (ingest → deploy → monitor)</td><td>Ingest → controlled generation → post-process → eval → guardrails</td></tr>
+        <tr><td>Translate requirements into scalable Vertex solutions</td><td>Product-driven feature, shipped on Vertex</td></tr>
+        <tr><td>Model Registry / Feature Store mindset</td><td>Versioned eval golden set + pre-computed embeddings index</td></tr>
+        <tr><td>Integrate GCP (BigQuery, GCS, Pub/Sub, Dataflow)</td><td>Roadmap — positioned, not faked</td></tr>
+        <tr><td>Monitor drift, alerts, retrain</td><td>Confidence routing + eval-as-gate + feedback loop</td></tr>
+        <tr><td>Documentation &amp; knowledge sharing</td><td>This deck + <code>docs/vertex-ai-import.md</code> + reproducible evals</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 14 — ROADMAP -->
+  <section class="slide center" id="s14">
+    <div class="kicker">Where it goes next</div>
+    <h2><span class="num">14</span>Roadmap</h2>
+    <ul>
+      <li><strong>Share-class re-ranking</strong> for ISIN (acc vs dist) on semantic candidates.</li>
+      <li class="r"><strong>Feedback loop:</strong> capture user edits → grow golden set → CI re-eval.</li>
+      <li class="y"><strong>Monitoring:</strong> Cloud Monitoring dashboards (latency, error rate, mean confidence) + alerts.</li>
+      <li class="g"><strong>Scale:</strong> Pub/Sub-triggered batch via Dataflow; archive raw docs in Cloud Storage; analytics in BigQuery.</li>
+      <li><strong>Vertex AI Pipelines</strong> to formalize ingest → extract → resolve → evaluate as a managed DAG.</li>
+    </ul>
+  </section>
+
+  <!-- 15 — CLOSING -->
+  <section class="slide center" id="s15">
+    <div class="kicker">Closing</div>
+    <h2><span class="num">15</span>What this shows</h2>
+    <div class="quote">"My job isn't to make a model call work — it's to say <em>why</em> this model, at <em>what</em> cost, with <em>what</em> reliability, and how to keep it under control in production."</div>
+    <ul>
+      <li><strong>Platform judgment</strong> — Vertex for IAM auth, controlled generation, native PDF, embeddings.</li>
+      <li class="y"><strong>Measured decisions</strong> — Flash = Pro for 4× less; confidence-routed hybrid beats naïve.</li>
+      <li class="g"><strong>Production-minded</strong> — guardrails, eval-as-gate, cost levers, monitoring &amp; feedback roadmap.</li>
+    </ul>
+    <p style="margin-top:18px;font-size:22px"><strong>Thank you — questions welcome.</strong></p>
+  </section>
+
+</div>
+
+<div class="bar"><i id="prog"></i></div>
+<div class="foot" id="foot"></div>
+<div class="nav">
+  <span id="count">1 / 15</span>
+  <button onclick="go(-1)" aria-label="Previous">‹</button>
+  <button onclick="go(1)" aria-label="Next">›</button>
+</div>
+
+<script>
+  const slides=[...document.querySelectorAll('.slide')];
+  // auto-number section badges so slides can be inserted without renumbering
+  let _k=0;
+  slides.forEach(s=>{const n=s.querySelector('.num'); if(n){_k++; n.textContent=String(_k).padStart(2,'0');}});
+  let i=0;
+  function render(){
+    slides.forEach((s,n)=>s.classList.toggle('active',n===i));
+    document.getElementById('count').textContent=(i+1)+' / '+slides.length;
+    document.getElementById('prog').style.width=((i+1)/slides.length*100)+'%';
+    document.getElementById('foot').textContent='Finolio · AI Order Import on Vertex AI';
+    slides[i].scrollTop=0;
+  }
+  function go(d){i=Math.min(slides.length-1,Math.max(0,i+d));render();}
+  document.addEventListener('keydown',e=>{
+    if(['ArrowRight','PageDown',' '].includes(e.key)){e.preventDefault();go(1);}
+    else if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();go(-1);}
+    else if(e.key==='Home'){i=0;render();}
+    else if(e.key==='End'){i=slides.length-1;render();}
+  });
+  document.getElementById('deck').addEventListener('click',e=>{
+    if(e.target.closest('.nav')||e.target.closest('a'))return;
+    go(e.clientX > window.innerWidth*0.5 ? 1 : -1);
+  });
+  render();
+</script>
+</body>
+</html>
