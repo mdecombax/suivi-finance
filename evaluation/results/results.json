@@ -1,0 +1,158 @@
+[
+  {
+    "model": "gemini-2.5-flash",
+    "f1": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "isin_acc": 0.9,
+    "declared_acc": 0.5,
+    "latency_p50": 5.90209191699978,
+    "latency_p95": 7.802416083193384,
+    "est_cost_total_usd": 0.00182655,
+    "errors": 0,
+    "diff_isin": {
+      "facile": [
+        4,
+        4
+      ],
+      "moyen": [
+        2,
+        2
+      ],
+      "difficile": [
+        3,
+        4
+      ]
+    },
+    "cases": [
+      {
+        "case": "c01_csv_isin",
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "isin_correct": 2,
+        "declared_ok": true,
+        "latency_s": 5.902,
+        "error": null
+      },
+      {
+        "case": "c02_csv_names",
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "isin_correct": 2,
+        "declared_ok": null,
+        "latency_s": 4.815,
+        "error": null
+      },
+      {
+        "case": "c03_csv_fuzzy",
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "isin_correct": 1,
+        "declared_ok": null,
+        "latency_s": 4.636,
+        "error": null
+      },
+      {
+        "case": "c04_pdf_isin",
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "isin_correct": 2,
+        "declared_ok": false,
+        "latency_s": 8.136,
+        "error": null
+      },
+      {
+        "case": "c05_pdf_fuzzy",
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "isin_correct": 2,
+        "declared_ok": null,
+        "latency_s": 6.468,
+        "error": null
+      }
+    ]
+  },
+  {
+    "model": "gemini-2.5-pro",
+    "f1": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "isin_acc": 0.9,
+    "declared_acc": 0.5,
+    "latency_p50": 20.402012500097044,
+    "latency_p95": 27.034887033584525,
+    "est_cost_total_usd": 0.007280625,
+    "errors": 0,
+    "diff_isin": {
+      "facile": [
+        4,
+        4
+      ],
+      "moyen": [
+        2,
+        2
+      ],
+      "difficile": [
+        3,
+        4
+      ]
+    },
+    "cases": [
+      {
+        "case": "c01_csv_isin",
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "isin_correct": 2,
+        "declared_ok": false,
+        "latency_s": 28.444,
+        "error": null
+      },
+      {
+        "case": "c02_csv_names",
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "isin_correct": 2,
+        "declared_ok": null,
+        "latency_s": 16.295,
+        "error": null
+      },
+      {
+        "case": "c03_csv_fuzzy",
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "isin_correct": 1,
+        "declared_ok": null,
+        "latency_s": 20.402,
+        "error": null
+      },
+      {
+        "case": "c04_pdf_isin",
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "isin_correct": 2,
+        "declared_ok": true,
+        "latency_s": 21.398,
+        "error": null
+      },
+      {
+        "case": "c05_pdf_fuzzy",
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "isin_correct": 2,
+        "declared_ok": null,
+        "latency_s": 13.812,
+        "error": null
+      }
+    ]
+  }
+]
