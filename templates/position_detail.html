@@ -771,8 +771,8 @@
                     ['Valeur actuelle', `€${(data.portfolio.current_value || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2})}`],
                     ['Plus/Moins-value', `<span class="${pnlClass}">${pnl >= 0 ? '+' : ''}€${pnl.toFixed(2)} (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%)</span>`],
                     ['Nombre d\'ordres', `${data.portfolio.orders_count}`],
-                    ['Premier achat', new Date(data.portfolio.first_purchase_date).toLocaleDateString('fr-FR')],
-                    ['Dernier achat', new Date(data.portfolio.last_purchase_date).toLocaleDateString('fr-FR')]
+                    ['Premier achat', new Date(data.portfolio.first_purchase_date + 'T00:00:00').toLocaleDateString('fr-FR')],
+                    ['Dernier achat', new Date(data.portfolio.last_purchase_date + 'T00:00:00').toLocaleDateString('fr-FR')]
                 ]);
             } else {
                 portfolioInfo.innerHTML = '<div class="no-position">🚫 Vous ne possédez pas cette position dans votre portefeuille</div>';
@@ -839,7 +839,7 @@
             const firstOrder = sortedOrders[0];
             if (!firstOrder) return [];
 
-            const startDate = new Date(firstOrder.date);
+            const startDate = new Date(firstOrder.date + 'T00:00:00');
             const currentDate = new Date();
 
             const monthlyData = [];
@@ -876,7 +876,7 @@
 
             // Calculer les quantités détenues par ISIN à la date cible
             orders.forEach(order => {
-                const orderDate = new Date(order.date);
+                const orderDate = new Date(order.date + 'T00:00:00');
                 if (orderDate <= targetDate) {
                     const isin = order.isin;
                     if (!positions[isin]) {

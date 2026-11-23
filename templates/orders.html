@@ -99,8 +99,9 @@
 
                 <!-- Orders History Section -->
                 <div class="orders-section table-container">
-                    <div class="table-header">
+                    <div class="table-header" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
                         <div class="table-title">Historique des ordres</div>
+                        <button type="button" class="btn btn-secondary" id="exportOrdersBtn" onclick="exportOrdersCSV()" disabled>📤 Exporter (CSV)</button>
                     </div>
                     <table class="table orders-table">
                         <thead>
@@ -150,6 +151,8 @@
 
         function updateOrdersTable() {
             const tbody = document.getElementById('ordersTableBody');
+            const exportBtn = document.getElementById('exportOrdersBtn');
+            if (exportBtn) exportBtn.disabled = orders.length === 0;
 
             if (orders.length === 0) {
                 tbody.innerHTML = `
@@ -183,6 +186,34 @@
                     </tr>
                 `;
             }).join('');
+        }
+
+        // Export CSV des ordres affichés (format Excel FR : séparateur « ; », virgule décimale, BOM UTF-8)
+        function exportOrdersCSV() {
+            if (!orders.length) return;
+            const num = v => (Number.isFinite(Number(v)) ? String(Number(v)) : '').replace('.', ',');
+            const cell = v => {
+                const s = String(v ?? '');
+                return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+            };
+            const rows = [['Date', 'ISIN', 'Quantité', 'Prix unitaire (EUR)', 'Total (EUR)']];
+            [...orders]
+                .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+                .forEach(o => {
+                    const unit = Number(o.unitPriceEUR ?? o.unitPrice);
+                    const total = Number(o.totalPriceEUR) || unit * Number(o.quantity);
+                    rows.push([o.date, o.isin, num(o.quantity), num(unit), num(Math.round(total * 100) / 100)]);
+                });
+            const csv = '\ufeff' + rows.map(r => r.map(cell).join(';')).join('\r\n');
+            const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `ordres_${getTodayISO()}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            showMessage(`${orders.length} ordre${orders.length > 1 ? 's' : ''} exporté${orders.length > 1 ? 's' : ''}`, 'success');
         }
 
         // Ajout d'un ordre (utilise apiPost du module partagé)

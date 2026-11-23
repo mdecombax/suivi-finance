@@ -38,11 +38,6 @@ function openSettings() {
     if (settingsPopup) {
         settingsPopup.classList.add('show');
     }
-
-    // Fermer le menu flottant s'il existe
-    if (typeof toggleFloatingMenu === 'function') {
-        toggleFloatingMenu();
-    }
 }
 
 /**

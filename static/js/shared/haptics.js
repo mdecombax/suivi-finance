@@ -137,7 +137,7 @@
         ['.tab-bar-item', () => 'selection'],
         ['.period-btn, .tab-btn, .settings-radio-option, .details-toggle', () => 'selection'],
         ['input[type="checkbox"], input[type="radio"], select', () => 'selection'],
-        ['.portfolio-row, .floating-action-button, .floating-menu-item, .user-avatar', () => 'light'],
+        ['.portfolio-row, .user-avatar', () => 'light'],
         ['.btn-primary, button[type="submit"], .cta-button', () => 'light'],
     ];
 

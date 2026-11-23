@@ -80,7 +80,16 @@ function formatDate(date, options = {}) {
         ...options
     };
 
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    let dateObj = date;
+    if (typeof date === 'string') {
+        // Les dates calendaires 'YYYY-MM-DD' doivent être parsées en local :
+        // new Date('YYYY-MM-DD') est interprété en UTC et décale d'un jour
+        // pour les fuseaux à l'ouest d'UTC.
+        const parts = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        dateObj = parts
+            ? new Date(+parts[1], +parts[2] - 1, +parts[3])
+            : new Date(date);
+    }
     return new Intl.DateTimeFormat('fr-FR', defaultOptions).format(dateObj);
 }
 
@@ -321,7 +330,10 @@ function debounce(func, wait = 300) {
  * @returns {string}
  */
 function getTodayISO() {
-    return new Date().toISOString().split('T')[0];
+    // Date locale (et non UTC) : toISOString() décale d'un jour selon le fuseau.
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 /**

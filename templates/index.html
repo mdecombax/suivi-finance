@@ -659,178 +659,6 @@
             transform: translateY(0);
         }
 
-        /* Bouton flottant avec animations ultra satisfaisantes */
-        .floating-action-button {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            width: 64px;
-            height: 64px;
-            background: var(--gradient-primary);
-            border: none;
-            border-radius: 50%;
-            cursor: pointer;
-            z-index: 1000;
-            box-shadow: var(--shadow-xl), 0 0 0 0 rgba(130,196,255,0.4);
-            transition: all var(--transition-bounce);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #001024;
-            font-size: 1.5rem;
-            overflow: hidden;
-            animation: fabPulse 3s infinite;
-        }
-
-        .floating-action-button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.3), transparent);
-            transform: translateX(-100%) rotate(45deg);
-            transition: transform var(--transition-normal);
-        }
-
-        .floating-action-button:hover::before {
-            transform: translateX(100%) rotate(45deg);
-        }
-
-        .floating-action-button:hover {
-            transform: scale(1.15) rotate(5deg);
-            box-shadow: var(--shadow-xl), 0 0 30px rgba(130,196,255,0.6), 0 0 0 8px rgba(130,196,255,0.2);
-            animation: fabHover 0.6s ease-out;
-        }
-
-        .floating-action-button:active {
-            transform: scale(1.05) rotate(0deg);
-            transition: transform 0.1s ease;
-        }
-
-        .floating-action-button.expanded {
-            transform: rotate(45deg);
-            background: var(--gradient-danger);
-        }
-
-        /* Menu flottant */
-        .floating-menu {
-            position: fixed;
-            bottom: 100px;
-            right: 24px;
-            z-index: 999;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            opacity: 0;
-            visibility: hidden;
-            transform: translateY(20px) scale(0.8);
-            transition: all var(--transition-bounce);
-        }
-
-        .floating-menu.show {
-            opacity: 1;
-            visibility: visible;
-            transform: translateY(0) scale(1);
-        }
-
-        .floating-menu-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 20px;
-            background: var(--card);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 50px;
-            color: var(--text);
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 0.9rem;
-            box-shadow: var(--shadow-lg);
-            backdrop-filter: blur(10px);
-            cursor: pointer;
-            transition: all var(--transition-fast);
-            white-space: nowrap;
-            position: relative;
-            overflow: hidden;
-            opacity: 0;
-            transform: translateX(20px);
-            animation: slideInMenuItem 0.4s ease-out forwards;
-        }
-
-        .floating-menu-item:nth-child(1) { animation-delay: 0.1s; }
-        .floating-menu-item:nth-child(2) { animation-delay: 0.2s; }
-        .floating-menu-item:nth-child(3) { animation-delay: 0.3s; }
-        .floating-menu-item:nth-child(4) { animation-delay: 0.4s; }
-
-        .floating-menu-item::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(130,196,255,0.2), transparent);
-            transition: left var(--transition-normal);
-        }
-
-        .floating-menu-item:hover::before {
-            left: 100%;
-        }
-
-        .floating-menu-item:hover {
-            transform: translateX(-8px) scale(1.05);
-            border-color: var(--primary);
-            box-shadow: var(--shadow-xl), var(--shadow-primary);
-            background: rgba(130,196,255,0.1);
-        }
-
-        .floating-menu-item .icon {
-            width: 20px;
-            height: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1rem;
-        }
-
-        /* Animations spéciales */
-        @keyframes fabPulse {
-            0%, 100% {
-                box-shadow: var(--shadow-xl), 0 0 0 0 rgba(130,196,255,0.4);
-            }
-            50% {
-                box-shadow: var(--shadow-xl), 0 0 0 8px rgba(130,196,255,0.1);
-            }
-        }
-
-        @keyframes fabHover {
-            0% { transform: scale(1.15) rotate(5deg); }
-            50% { transform: scale(1.25) rotate(-2deg); }
-            100% { transform: scale(1.15) rotate(5deg); }
-        }
-
-        @keyframes slideInMenuItem {
-            from {
-                opacity: 0;
-                transform: translateX(30px) scale(0.8);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0) scale(1);
-            }
-        }
-
-        /* Mode mobile */
-        @media (max-width: 768px) {
-            .floating-menu-item {
-                padding: 10px 16px;
-                font-size: 0.85rem;
-            }
-        }
-
-        
         .positions-table {
             opacity: 0;
             transform: translateY(30px);
@@ -1772,21 +1600,107 @@
             .chart-range-info { white-space: normal; font-size: 0.8rem; }
         }
 
-        /* Téléphone / tablette : bouton flottant au-dessus de la barre d'onglets */
-        @media (max-width: 1024px) {
-            .floating-action-button {
-                width: 52px;
-                height: 52px;
-                right: 16px;
-                bottom: calc(var(--tab-bar-height, 64px) + 16px + env(safe-area-inset-bottom));
-                font-size: 1.25rem;
-            }
-
-            .floating-menu {
-                right: 16px;
-                bottom: calc(var(--tab-bar-height, 64px) + 80px + env(safe-area-inset-bottom));
-            }
+        /* Bouton « Zoomer sur cette période » dans l'encart de comparaison (mode MAX) */
+        .chart-range-info .range-zoom-btn {
+            pointer-events: auto;
+            margin-top: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.08);
+            color: var(--text);
+            font: inherit;
+            font-size: 0.78rem;
+            cursor: pointer;
         }
+        .chart-range-info .range-zoom-btn:hover { background: rgba(255,255,255,0.16); }
+
+        /* ===== Zoom du graphique (période MAX uniquement) ===== */
+        .chart-zoom-bar { margin-top: 12px; }
+        .chart-zoom-bar[hidden] { display: none; }
+
+        .chart-navigator {
+            position: relative;
+            height: 48px;
+            border-radius: var(--border-radius-md);
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            touch-action: none; /* glisser horizontal = déplacer la fenêtre */
+            user-select: none;
+            -webkit-user-select: none;
+            cursor: crosshair;
+        }
+        .chart-navigator canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .chart-navigator .nav-shade {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.45);
+            pointer-events: none;
+        }
+        .chart-navigator .nav-shade-left { left: 0; border-radius: var(--border-radius-md) 0 0 var(--border-radius-md); }
+        .chart-navigator .nav-shade-right { right: 0; border-radius: 0 var(--border-radius-md) var(--border-radius-md) 0; }
+        .chart-navigator .nav-window {
+            position: absolute;
+            top: -1px;
+            bottom: -1px;
+            border: 1.5px solid rgba(129, 199, 132, 0.9);
+            border-radius: 6px;
+            background: rgba(129, 199, 132, 0.08);
+            cursor: grab;
+        }
+        .chart-navigator .nav-window:active { cursor: grabbing; }
+        .chart-navigator .nav-handle {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 28px; /* zone de saisie large pour le doigt */
+            cursor: ew-resize;
+            z-index: 2;
+        }
+        .chart-navigator .nav-handle-left { left: -14px; }
+        .chart-navigator .nav-handle-right { right: -14px; }
+        .chart-navigator .nav-handle::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 6px;
+            height: 22px;
+            transform: translate(-50%, -50%);
+            border-radius: 3px;
+            background: #81C784;
+            box-shadow: 0 0 0 2px rgba(10, 14, 22, 0.8);
+        }
+
+        .chart-zoom-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-top: 6px;
+            min-height: 26px;
+        }
+        .chart-zoom-hint { color: var(--muted); font-size: 0.75rem; }
+        .chart-zoom-reset {
+            padding: 3px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(255,255,255,0.06);
+            color: var(--text);
+            font: inherit;
+            font-size: 0.75rem;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .chart-zoom-reset:hover { background: rgba(255,255,255,0.14); }
+        .chart-zoom-reset[hidden] { display: none; }
 
         /* ===== Téléphone / tablette : positions en liste de cartes (façon app) ===== */
         @media (max-width: 1024px) {
@@ -2296,6 +2210,22 @@
                             <div>Erreur de chargement</div>
                         </div>
                     </div>
+                    <!-- Zoom : mini-frise de tout l'historique (période MAX uniquement) -->
+                    <div id="chartZoomBar" class="chart-zoom-bar" hidden>
+                        <div id="chartNavigator" class="chart-navigator" aria-label="Choisir la période affichée">
+                            <canvas id="chartNavigatorCanvas"></canvas>
+                            <div class="nav-shade nav-shade-left"></div>
+                            <div class="nav-shade nav-shade-right"></div>
+                            <div class="nav-window" data-nav="window">
+                                <span class="nav-handle nav-handle-left" data-nav="left"></span>
+                                <span class="nav-handle nav-handle-right" data-nav="right"></span>
+                            </div>
+                        </div>
+                        <div class="chart-zoom-footer">
+                            <span id="chartZoomHint" class="chart-zoom-hint"></span>
+                            <button type="button" id="chartZoomReset" class="chart-zoom-reset" hidden>Tout afficher</button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Positions Table -->
@@ -2328,31 +2258,6 @@
         </main>
     </div>
 
-    <!-- Bouton flottant avec menu -->
-    <button class="floating-action-button" id="fabButton" onclick="toggleFloatingMenu()">
-        <span id="fabIcon">⚡</span>
-    </button>
-
-    <div class="floating-menu" id="floatingMenu">
-        <div class="floating-menu-item" onclick="exportOrders()">
-            <span class="icon">📄</span>
-            <span>Exporter les ordres</span>
-        </div>
-        <div class="floating-menu-item" onclick="showComingSoon('Import')">
-            <span class="icon">📥</span>
-            <span>Importer des données</span>
-        </div>
-        <div class="floating-menu-item" onclick="showComingSoon('Sauvegarde')">
-            <span class="icon">☁️</span>
-            <span>Sauvegarde cloud</span>
-        </div>
-        <div class="floating-menu-item" onclick="openSettings()">
-            <span class="icon">⚙️</span>
-            <span>Paramètres</span>
-        </div>
-    </div>
-
-    
     <!-- Settings Popup -->
     <!-- Modale des paramètres -->
     {% include 'components/settings_modal.html' %}
@@ -2395,7 +2300,6 @@
     <script>
         // État de l'application
         let portfolioData = null;
-        let isFloatingMenuOpen = false;
         let userAccountType = null;
         let isFirstTime = false;
         let currentUser = null;
@@ -2869,6 +2773,19 @@
             }
         } catch (e) {
         }
+        // Granularité choisie par l'utilisateur (le zoom peut l'affiner temporairement)
+        let preferredGranularity = currentGranularity;
+
+        // État du zoom (période MAX uniquement) : fenêtre visible en dates (ms), null = tout l'historique.
+        // En dates et non en index : la fenêtre survit aux changements de granularité.
+        const chartZoom = {
+            active: false,           // vrai quand la période MAX est affichée
+            from: null,
+            to: null,
+            override: false,         // granularité forcée au bouton pendant le zoom (auto suspendue)
+            suppressAnimation: false,
+            granSeq: 0
+        };
 
         // Restaurer le cache depuis sessionStorage au démarrage : affiché tout de suite,
         // puis revalidé en arrière-plan s'il a plus de 5 minutes
@@ -2919,7 +2836,7 @@
             }
 
             return data.filter(item => {
-                const itemDate = new Date(item.date);
+                const itemDate = new Date(item.date + 'T00:00:00');
                 return itemDate >= startDate;
             });
         }
@@ -2982,6 +2899,12 @@
         async function loadPortfolioChart(period = null, granularity = null) {
             if (period) {
                 currentPeriod = period;
+                // Le zoom n'existe qu'en période MAX : en sortant, on revient à la granularité choisie
+                const wasZoomable = chartZoom.active;
+                setChartZoomActive(currentPeriod === 'max');
+                if (wasZoomable && !chartZoom.active && !granularity) {
+                    granularity = preferredGranularity;
+                }
             }
             if (granularity && CHART_GRANULARITIES.includes(granularity)) {
                 currentGranularity = granularity;
@@ -3340,8 +3263,12 @@
             const px = evt.clientX - rect.left;
             const n = chart.data.labels.length;
             if (!n) return null;
-            const idx = Math.round(chart.scales.x.getValueForPixel(px));
-            return Math.max(0, Math.min(n - 1, isNaN(idx) ? 0 : idx));
+            const xs = chart.scales.x;
+            const idx = Math.round(xs.getValueForPixel(px));
+            // Bornes visibles (graphique zoomé) sinon tout le jeu de données
+            const lo = Number.isFinite(xs.min) ? xs.min : 0;
+            const hi = Number.isFinite(xs.max) ? xs.max : n - 1;
+            return Math.max(lo, Math.min(hi, isNaN(idx) ? lo : idx));
         }
 
         function hideChartRangeInfo() {
@@ -3419,6 +3346,10 @@
             } else {
                 html += `<div class="range-sub">Hors apports · aucun versement sur la période</div>`;
             }
+            // Période MAX : proposer de zoomer sur la plage sélectionnée
+            if (chartZoom.active && !r.dragging && chart.$times) {
+                html += `<button type="button" class="range-zoom-btn" data-zoom-range="${a},${b}">🔍 Zoomer sur cette période</button>`;
+            }
 
             info.innerHTML = html;
             // Placer l'encart dans la zone de tracé (sous la légende)
@@ -3434,7 +3365,8 @@
 
             canvas.addEventListener('pointerdown', evt => {
                 const chart = window.portfolioChart;
-                if (!chart || evt.button > 0) return;
+                // Deuxième doigt : réservé au pincement (zoom), pas à la sélection
+                if (!chart || evt.button > 0 || !evt.isPrimary) return;
                 const idx = chartIndexFromEvent(chart, evt);
                 if (idx == null) return;
                 chart.$range = { start: idx, end: idx, dragging: true, hapticStarted: false };
@@ -3467,6 +3399,7 @@
             });
 
             const endDrag = evt => {
+                if (!evt.isPrimary) return;
                 const chart = window.portfolioChart;
                 const r = chart && chart.$range;
                 if (!r || !r.dragging) return;
@@ -3489,6 +3422,549 @@
 
         window.debug = window.debug || {};
         window.debug.chartRange = () => window.portfolioChart ? window.portfolioChart.$range : null;
+
+        // ===== Zoom du graphique (période MAX uniquement) =====
+        // - mini-frise sous le graphique : poignées, fenêtre déplaçable, glisser pour tracer une fenêtre
+        // - ordi : pincement du pavé tactile / Ctrl + molette (zoom), Maj + molette ou glisser à 2 doigts (déplacement)
+        // - téléphone : pincer à deux doigts (zoom + déplacement)
+        // - double-clic / double-tap : tout afficher
+        // - granularité automatique selon la largeur de la fenêtre (jamais plus grossière que celle choisie)
+        const DAY_MS = 24 * 60 * 60 * 1000;
+        const ZOOM_MIN_SPAN_MS = 7 * DAY_MS;
+        const GRANULARITY_ORDER = { day: 0, week: 1, month: 2, year: 3 };
+        const isCoarsePointer = (() => {
+            try { return window.matchMedia('(pointer: coarse)').matches; } catch (e) { return false; }
+        })();
+
+        function chartPointTime(point) {
+            return new Date(point.date + 'T12:00:00').getTime();
+        }
+
+        function chartZoomExtent(chart = window.portfolioChart) {
+            const t = chart && chart.$times;
+            if (!t || t.length < 2) return null;
+            return { lo: t[0], hi: t[t.length - 1] };
+        }
+
+        function isChartZoomed() {
+            return chartZoom.from != null && chartZoom.to != null;
+        }
+
+        // Fenêtre effective (tout l'historique si pas de zoom)
+        function chartZoomWindow(chart = window.portfolioChart) {
+            const ext = chartZoomExtent(chart);
+            if (!ext) return null;
+            return isChartZoomed() ? { from: chartZoom.from, to: chartZoom.to } : { from: ext.lo, to: ext.hi };
+        }
+
+        function granularityForSpan(spanMs) {
+            const days = spanMs / DAY_MS;
+            if (days <= 120) return 'day';
+            if (days <= 730) return 'week';
+            return 'month';
+        }
+
+        // Index visibles : on prend le point juste avant `from` et juste après `to`
+        // pour que la courbe remplisse toute la largeur
+        function chartZoomIndexRange(times) {
+            const n = times.length;
+            let iMin = 0;
+            let iMax = n - 1;
+            for (let i = 0; i < n; i++) {
+                if (times[i] <= chartZoom.from) iMin = i; else break;
+            }
+            for (let i = n - 1; i >= 0; i--) {
+                if (times[i] >= chartZoom.to) iMax = i; else break;
+            }
+            if (iMax - iMin < 1) {
+                if (iMax < n - 1) iMax = iMin + 1; else iMin = Math.max(0, iMax - 1);
+            }
+            return { iMin, iMax };
+        }
+
+        // Applique la fenêtre aux bornes de l'axe X (l'axe Y se recale sur les points visibles)
+        function applyChartZoom(chart = window.portfolioChart, mode = 'none') {
+            if (!chart || !chart.$times) return;
+            const xOpts = chart.options.scales.x;
+            if (chartZoom.active && isChartZoomed()) {
+                const { iMin, iMax } = chartZoomIndexRange(chart.$times);
+                xOpts.min = iMin;
+                xOpts.max = iMax;
+            } else {
+                delete xOpts.min;
+                delete xOpts.max;
+            }
+            chart.update(mode);
+            updateChartNavigator();
+        }
+
+        let zoomRafPending = false;
+        function scheduleChartZoomApply() {
+            if (zoomRafPending) return;
+            zoomRafPending = true;
+            requestAnimationFrame(() => {
+                zoomRafPending = false;
+                applyChartZoom();
+            });
+        }
+
+        /**
+         * Définit la fenêtre visible (ms). Bornée à l'historique, largeur minimale 7 jours ;
+         * une fenêtre couvrant (presque) tout l'historique = pas de zoom.
+         */
+        function setChartZoomWindow(from, to) {
+            const ext = chartZoomExtent();
+            if (!ext || !chartZoom.active) return;
+            const full = ext.hi - ext.lo;
+            if (from > to) [from, to] = [to, from];
+            let span = Math.min(Math.max(to - from, Math.min(ZOOM_MIN_SPAN_MS, full)), full);
+            if (from < ext.lo) from = ext.lo;
+            to = from + span;
+            if (to > ext.hi) {
+                to = ext.hi;
+                from = to - span;
+            }
+            if (span >= full * 0.995) {
+                chartZoom.from = null;
+                chartZoom.to = null;
+            } else {
+                chartZoom.from = from;
+                chartZoom.to = to;
+            }
+            scheduleChartZoomApply();
+            scheduleZoomGranularitySync();
+        }
+
+        // Zoom d'un facteur (< 1 = rapprocher) autour d'une position relative (0 = gauche, 1 = droite)
+        function zoomChartBy(factor, anchorFrac = 0.5) {
+            const w = chartZoomWindow();
+            if (!w) return;
+            chartZoom.override = false;
+            const span = w.to - w.from;
+            const anchor = w.from + anchorFrac * span;
+            const newSpan = span * factor;
+            setChartZoomWindow(anchor - anchorFrac * newSpan, anchor + (1 - anchorFrac) * newSpan);
+        }
+
+        function panChartBy(frac) {
+            const w = chartZoomWindow();
+            if (!w || !isChartZoomed()) return;
+            const dt = (w.to - w.from) * frac;
+            setChartZoomWindow(w.from + dt, w.to + dt);
+        }
+
+        function resetChartZoom() {
+            const wasZoomed = isChartZoomed() || chartZoom.override;
+            chartZoom.from = null;
+            chartZoom.to = null;
+            chartZoom.override = false;
+            clearChartRange(window.portfolioChart);
+            applyChartZoom();
+            syncZoomGranularity();
+            if (wasZoomed && window.haptics) window.haptics.light();
+        }
+
+        // Granularité automatique : recalculée une fois le geste terminé (évite les requêtes en rafale)
+        let zoomGranularityTimer = null;
+        function scheduleZoomGranularitySync() {
+            clearTimeout(zoomGranularityTimer);
+            zoomGranularityTimer = setTimeout(syncZoomGranularity, 350);
+        }
+
+        function syncZoomGranularity() {
+            clearTimeout(zoomGranularityTimer);
+            if (!chartZoom.active || chartZoom.override) return;
+            let target = preferredGranularity;
+            if (isChartZoomed()) {
+                const auto = granularityForSpan(chartZoom.to - chartZoom.from);
+                if (GRANULARITY_ORDER[auto] < GRANULARITY_ORDER[target]) target = auto;
+            }
+            if (target === currentGranularity) return;
+
+            const seq = ++chartZoom.granSeq;
+            const cached = chartDataByGranularity[target];
+            const ready = cached && cached.length ? Promise.resolve() : fetchChartData(target);
+            // On garde l'affichage courant tant que la nouvelle série n'est pas arrivée
+            ready
+                .then(() => {
+                    if (seq !== chartZoom.granSeq || !chartZoom.active || chartZoom.override) return;
+                    chartZoom.suppressAnimation = true;
+                    loadPortfolioChart(null, target);
+                })
+                .catch(err => console.warn('Zoom : granularité ' + target + ' indisponible :', err.message));
+        }
+
+        function setChartZoomActive(active) {
+            chartZoom.active = !!active;
+            if (!chartZoom.active) {
+                chartZoom.from = null;
+                chartZoom.to = null;
+                chartZoom.override = false;
+                chartZoom.granSeq++;
+            }
+            const bar = document.getElementById('chartZoomBar');
+            if (bar) bar.hidden = !chartZoom.active;
+            if (chartZoom.active) {
+                bindChartNavigator();
+                updateChartNavigator();
+            }
+        }
+
+        // --- Mini-frise ---
+        function updateChartNavigator() {
+            const bar = document.getElementById('chartZoomBar');
+            const nav = document.getElementById('chartNavigator');
+            const chart = window.portfolioChart;
+            const ext = chartZoomExtent(chart);
+            const showable = chartZoom.active && !!ext;
+            if (bar) bar.hidden = !showable;
+            if (!showable || !nav) return;
+
+            drawChartNavigator(chart);
+
+            const full = ext.hi - ext.lo;
+            const w = chartZoomWindow(chart);
+            const left = ((w.from - ext.lo) / full) * 100;
+            const right = ((ext.hi - w.to) / full) * 100;
+            const win = nav.querySelector('.nav-window');
+            const shadeL = nav.querySelector('.nav-shade-left');
+            const shadeR = nav.querySelector('.nav-shade-right');
+            if (win) {
+                win.style.left = left + '%';
+                win.style.right = right + '%';
+            }
+            if (shadeL) shadeL.style.width = left + '%';
+            if (shadeR) shadeR.style.width = right + '%';
+
+            const reset = document.getElementById('chartZoomReset');
+            if (reset) reset.hidden = !isChartZoomed();
+            const hint = document.getElementById('chartZoomHint');
+            if (hint) {
+                hint.textContent = isCoarsePointer
+                    ? 'Pincez le graphique ou tirez les poignées pour zoomer · double-tap pour tout afficher'
+                    : 'Tirez les poignées, pincez le pavé tactile ou Ctrl + molette pour zoomer · double-clic pour tout afficher';
+            }
+        }
+
+        let navigatorDrawKey = '';
+        function drawChartNavigator(chart, force = false) {
+            const canvas = document.getElementById('chartNavigatorCanvas');
+            if (!canvas || !chart || !chart.$times) return;
+            const dpr = window.devicePixelRatio || 1;
+            const cssW = canvas.clientWidth;
+            const cssH = canvas.clientHeight;
+            if (!cssW || !cssH) return;
+            // Ne redessiner que si les données ou la taille changent (pas à chaque mouvement)
+            const key = [cssW, cssH, dpr, chart.$times.length, chart.$times[0], chart.$times[chart.$times.length - 1], chart.id].join('|');
+            if (!force && key === navigatorDrawKey) return;
+            navigatorDrawKey = key;
+
+            canvas.width = Math.round(cssW * dpr);
+            canvas.height = Math.round(cssH * dpr);
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, cssW, cssH);
+
+            const times = chart.$times;
+            const values = chart.data.datasets[1].data;
+            const invested = chart.data.datasets[0].data;
+            const lo = times[0];
+            const full = times[times.length - 1] - lo || 1;
+            let max = -Infinity, min = Infinity;
+            for (let i = 0; i < values.length; i++) {
+                const v = values[i] || 0, c = invested[i] || 0;
+                max = Math.max(max, v, c);
+                min = Math.min(min, v, c);
+            }
+            if (!(max > 0)) return;
+            // Échelle resserrée sur les valeurs (plus de relief qu'en partant de 0)
+            min = Math.max(0, min - (max - min) * 0.05);
+            const range = (max - min) || 1;
+            const pad = 4;
+            const xOf = t => ((t - lo) / full) * cssW;
+            const yOf = v => cssH - pad - (((v || 0) - min) / range) * (cssH - pad * 2);
+
+            // Valeur du portefeuille : aire + ligne
+            ctx.beginPath();
+            ctx.moveTo(xOf(times[0]), cssH);
+            for (let i = 0; i < times.length; i++) ctx.lineTo(xOf(times[i]), yOf(values[i]));
+            ctx.lineTo(xOf(times[times.length - 1]), cssH);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(129, 199, 132, 0.18)';
+            ctx.fill();
+            ctx.beginPath();
+            for (let i = 0; i < times.length; i++) {
+                const x = xOf(times[i]), y = yOf(values[i]);
+                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.strokeStyle = 'rgba(129, 199, 132, 0.9)';
+            ctx.lineWidth = 1.25;
+            ctx.stroke();
+
+            // Capital investi : ligne fine
+            ctx.beginPath();
+            for (let i = 0; i < times.length; i++) {
+                const x = xOf(times[i]), y = yOf(invested[i]);
+                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.strokeStyle = 'rgba(100, 181, 246, 0.7)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+
+        function bindChartNavigator() {
+            const nav = document.getElementById('chartNavigator');
+            if (!nav || nav.dataset.bound === '1') return;
+            nav.dataset.bound = '1';
+
+            let drag = null;
+            const timeAt = evt => {
+                const ext = chartZoomExtent();
+                const rect = nav.getBoundingClientRect();
+                const frac = Math.max(0, Math.min(1, (evt.clientX - rect.left) / (rect.width || 1)));
+                return ext.lo + frac * (ext.hi - ext.lo);
+            };
+
+            nav.addEventListener('pointerdown', evt => {
+                const ext = chartZoomExtent();
+                if (!ext || evt.button > 0) return;
+                const w = chartZoomWindow();
+                const part = evt.target.closest('[data-nav]');
+                drag = {
+                    mode: part ? part.dataset.nav : 'brush',
+                    startX: evt.clientX,
+                    startT: timeAt(evt),
+                    from0: w.from,
+                    to0: w.to,
+                    zoomed0: isChartZoomed(),
+                    moved: false,
+                    pointerId: evt.pointerId
+                };
+                chartZoom.override = false;
+                clearChartRange(window.portfolioChart);
+                try { nav.setPointerCapture(evt.pointerId); } catch (e) {}
+                evt.preventDefault();
+            });
+
+            nav.addEventListener('pointermove', evt => {
+                if (!drag || evt.pointerId !== drag.pointerId) return;
+                const ext = chartZoomExtent();
+                if (!ext) return;
+                const rect = nav.getBoundingClientRect();
+                const dx = evt.clientX - drag.startX;
+                if (!drag.moved && Math.abs(dx) < 4) return;
+                if (!drag.moved && window.haptics) window.haptics.light();
+                drag.moved = true;
+                const dt = (dx / (rect.width || 1)) * (ext.hi - ext.lo);
+                const minSpan = Math.min(ZOOM_MIN_SPAN_MS, ext.hi - ext.lo);
+
+                switch (drag.mode) {
+                    case 'left': {
+                        const from = Math.max(ext.lo, Math.min(drag.from0 + dt, drag.to0 - minSpan));
+                        setChartZoomWindow(from, drag.to0);
+                        break;
+                    }
+                    case 'right': {
+                        const to = Math.min(ext.hi, Math.max(drag.to0 + dt, drag.from0 + minSpan));
+                        setChartZoomWindow(drag.from0, to);
+                        break;
+                    }
+                    case 'window':
+                        // Pas de zoom en cours : la fenêtre couvre tout, glisser trace une nouvelle fenêtre
+                        if (!drag.zoomed0) {
+                            setChartZoomWindow(drag.startT, timeAt(evt));
+                        } else {
+                            setChartZoomWindow(drag.from0 + dt, drag.to0 + dt);
+                        }
+                        break;
+                    default: // 'brush' : tracer une nouvelle fenêtre
+                        setChartZoomWindow(drag.startT, timeAt(evt));
+                }
+            });
+
+            const end = evt => {
+                if (!drag || evt.pointerId !== drag.pointerId) return;
+                const d = drag;
+                drag = null;
+                try { nav.releasePointerCapture(evt.pointerId); } catch (e) {}
+                if (d.moved) {
+                    syncZoomGranularity();
+                    return;
+                }
+                if (evt.type === 'pointercancel' || d.mode === 'left' || d.mode === 'right') return;
+                // Simple tap : centrer la fenêtre sur ce point (ou zoomer sur 1/4 de l'historique)
+                const ext = chartZoomExtent();
+                if (!ext) return;
+                const span = d.zoomed0 ? d.to0 - d.from0 : (ext.hi - ext.lo) / 4;
+                setChartZoomWindow(d.startT - span / 2, d.startT + span / 2);
+                syncZoomGranularity();
+            };
+            nav.addEventListener('pointerup', end);
+            nav.addEventListener('pointercancel', end);
+
+            const reset = document.getElementById('chartZoomReset');
+            if (reset) reset.addEventListener('click', resetChartZoom);
+
+            // Redessiner la mini-frise quand la largeur change
+            if (window.ResizeObserver) {
+                new ResizeObserver(() => {
+                    if (chartZoom.active) {
+                        drawChartNavigator(window.portfolioChart);
+                    }
+                }).observe(nav);
+            }
+        }
+
+        // --- Gestes sur le graphique principal ---
+        function bindChartZoomGestures(canvas) {
+            if (!canvas || canvas.dataset.zoomBound === '1') return;
+            canvas.dataset.zoomBound = '1';
+
+            const areaFrac = clientX => {
+                const chart = window.portfolioChart;
+                if (!chart || !chart.chartArea) return 0.5;
+                const rect = canvas.getBoundingClientRect();
+                const { left, right } = chart.chartArea;
+                return Math.max(0, Math.min(1, (clientX - rect.left - left) / ((right - left) || 1)));
+            };
+
+            // Ordi : pincement du pavé tactile (= molette + ctrlKey) ou Ctrl/⌘ + molette ; Maj + molette / glisser horizontal = déplacement.
+            // La molette seule continue de faire défiler la page.
+            canvas.addEventListener('wheel', evt => {
+                if (!chartZoom.active || !chartZoomExtent()) return;
+                const horizontal = Math.abs(evt.deltaX) > Math.abs(evt.deltaY);
+                if (evt.ctrlKey || evt.metaKey) {
+                    evt.preventDefault();
+                    const unit = evt.deltaMode === 1 ? 16 : 1; // lignes → pixels
+                    // ~22 % par cran de molette, progressif au pincement du pavé tactile
+                    const factor = Math.exp(Math.max(-0.25, Math.min(0.25, evt.deltaY * unit * 0.006)));
+                    clearChartRange(window.portfolioChart);
+                    zoomChartBy(factor, areaFrac(evt.clientX));
+                } else if (isChartZoomed() && (evt.shiftKey || horizontal)) {
+                    evt.preventDefault();
+                    const delta = horizontal ? evt.deltaX : evt.deltaY;
+                    const width = (window.portfolioChart.chartArea && window.portfolioChart.chartArea.width) || canvas.clientWidth || 1;
+                    panChartBy(delta / width);
+                }
+            }, { passive: false });
+
+            // Double-clic : tout afficher
+            canvas.addEventListener('dblclick', () => {
+                if (chartZoom.active) resetChartZoom();
+            });
+
+            // Téléphone : pincer à deux doigts (zoom + déplacement simultanés)
+            const touches = new Map();
+            let pinch = null;
+            let lastTap = null;
+            let pinchedThisGesture = false;
+
+            const pinchState = () => {
+                const pts = [...touches.values()];
+                const a = pts[0], b = pts[1];
+                return {
+                    dist: Math.max(10, Math.abs(a.x - b.x)),
+                    center: (a.x + b.x) / 2
+                };
+            };
+
+            canvas.addEventListener('pointerdown', evt => {
+                if (evt.pointerType !== 'touch' || !chartZoom.active) return;
+                touches.set(evt.pointerId, { x: evt.clientX, y: evt.clientY, x0: evt.clientX, y0: evt.clientY, t0: Date.now() });
+                if (touches.size === 1) pinchedThisGesture = false;
+                if (touches.size === 2 && chartZoomExtent()) {
+                    // Annuler la sélection commencée par le premier doigt
+                    clearChartRange(window.portfolioChart);
+                    const tooltipEl = document.getElementById('chartjs-tooltip');
+                    if (tooltipEl) tooltipEl.style.opacity = '0';
+                    touches.forEach((_, id) => { try { canvas.setPointerCapture(id); } catch (e) {} });
+                    const s = pinchState();
+                    const w = chartZoomWindow();
+                    const frac = areaFrac(s.center);
+                    pinch = {
+                        dist0: s.dist,
+                        span0: w.to - w.from,
+                        anchorT: w.from + frac * (w.to - w.from)
+                    };
+                    chartZoom.override = false;
+                    pinchedThisGesture = true;
+                    if (window.haptics) window.haptics.light();
+                }
+            });
+
+            canvas.addEventListener('pointermove', evt => {
+                const p = touches.get(evt.pointerId);
+                if (!p) return;
+                p.x = evt.clientX;
+                p.y = evt.clientY;
+                if (!pinch || touches.size < 2) return;
+                const s = pinchState();
+                const span = pinch.span0 * (pinch.dist0 / s.dist);
+                const frac = areaFrac(s.center);
+                // Le moment situé sous les doigts au départ reste sous les doigts
+                setChartZoomWindow(pinch.anchorT - frac * span, pinch.anchorT + (1 - frac) * span);
+            });
+
+            const endTouch = evt => {
+                const p = touches.get(evt.pointerId);
+                if (!p) return;
+                touches.delete(evt.pointerId);
+                if (pinch && touches.size < 2) {
+                    pinch = null;
+                    syncZoomGranularity();
+                }
+                // Double-tap (deux tapes rapides sans glisser) : tout afficher
+                if (evt.type === 'pointerup' && touches.size === 0 && !pinchedThisGesture) {
+                    const now = Date.now();
+                    const still = Math.hypot(p.x - p.x0, p.y - p.y0) < 10 && now - p.t0 < 300;
+                    if (still && lastTap && now - lastTap.t < 320 && Math.hypot(p.x - lastTap.x, p.y - lastTap.y) < 30) {
+                        lastTap = null;
+                        resetChartZoom();
+                    } else {
+                        lastTap = still ? { t: now, x: p.x, y: p.y } : null;
+                    }
+                }
+            };
+            canvas.addEventListener('pointerup', endTouch);
+            canvas.addEventListener('pointercancel', endTouch);
+
+            // iOS : empêcher le zoom/défilement de la page pendant un pincement sur le graphique
+            canvas.addEventListener('touchmove', evt => {
+                if (chartZoom.active && evt.touches.length > 1) evt.preventDefault();
+            }, { passive: false });
+            canvas.addEventListener('gesturestart', evt => {
+                if (chartZoom.active) evt.preventDefault();
+            });
+
+            // Bouton « Zoomer sur cette période » de l'encart de comparaison
+            const info = document.getElementById('chartRangeInfo');
+            if (info) {
+                info.addEventListener('click', evt => {
+                    const btn = evt.target.closest('[data-zoom-range]');
+                    const chart = window.portfolioChart;
+                    if (!btn || !chart || !chart.$times) return;
+                    const [a, b] = btn.dataset.zoomRange.split(',').map(Number);
+                    const from = chart.$times[a];
+                    const to = chart.$times[b];
+                    if (from == null || to == null) return;
+                    chartZoom.override = false;
+                    clearChartRange(chart);
+                    setChartZoomWindow(from, to);
+                    syncZoomGranularity();
+                    if (window.haptics) window.haptics.light();
+                });
+            }
+        }
+
+        window.debug.chartZoom = () => ({
+            ...chartZoom,
+            fromDate: chartZoom.from ? new Date(chartZoom.from).toISOString().slice(0, 10) : null,
+            toDate: chartZoom.to ? new Date(chartZoom.to).toISOString().slice(0, 10) : null,
+            currentGranularity,
+            preferredGranularity,
+            visibleIndexes: window.portfolioChart ? [window.portfolioChart.scales.x.min, window.portfolioChart.scales.x.max] : null
+        });
+        window.debug.zoomTo = (from, to) => setChartZoomWindow(new Date(from + 'T12:00:00').getTime(), new Date(to + 'T12:00:00').getTime());
 
         function createPortfolioChart(monthlyData) {
             const canvas = document.getElementById('portfolioEvolutionChart');
@@ -3540,6 +4016,16 @@
             }
             hideChartRangeInfo();
             bindChartRangeSelection(canvas);
+            bindChartZoomGestures(canvas);
+
+            // Zoom (période MAX) : bornes de l'axe X calculées dès la création
+            const pointTimes = sortedData.map(chartPointTime);
+            let zoomMin, zoomMax;
+            if (chartZoom.active && isChartZoomed() && pointTimes.length > 1) {
+                ({ iMin: zoomMin, iMax: zoomMax } = chartZoomIndexRange(pointTimes));
+            }
+            const skipAnimation = chartZoom.suppressAnimation;
+            chartZoom.suppressAnimation = false;
 
             // Masquer les états de chargement
             loadingState.style.display = 'none';
@@ -3585,12 +4071,18 @@
                                 const capitalData = chart.data.datasets[0].data;
                                 const portfolioData = chart.data.datasets[1].data;
 
-                                const gradient = ctx.createLinearGradient(0, chartArea.left, chartArea.right, 0);
+                                const gradient = ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
+                                const xScale = chart.scales.x;
+                                const areaWidth = (chartArea.right - chartArea.left) || 1;
 
                                 // Créer un gradient horizontal basé sur la différence entre les valeurs
+                                // (positions calculées en pixels : reste juste quand le graphique est zoomé)
                                 for (let i = 0; i < portfolioData.length; i++) {
                                     const diff = portfolioData[i] - capitalData[i];
-                                    const position = i / (portfolioData.length - 1);
+                                    const position = xScale
+                                        ? (xScale.getPixelForValue(i) - chartArea.left) / areaWidth
+                                        : i / (portfolioData.length - 1);
+                                    if (!(position >= 0 && position <= 1)) continue;
 
                                     if (diff >= 0) {
                                         // Vert vif pour les gains
@@ -3617,6 +4109,7 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: skipAnimation ? false : undefined,
                     plugins: {
                         legend: {
                             display: true,
@@ -3728,6 +4221,8 @@
                     },
                     scales: {
                         x: {
+                            min: zoomMin,
+                            max: zoomMax,
                             grid: {
                                 color: 'rgba(255, 255, 255, 0.1)',
                                 drawBorder: false
@@ -3738,8 +4233,14 @@
                                     size: 11
                                 },
                                 autoSkip: true,
-                                maxTicksLimit: 12,
-                                maxRotation: 0
+                                // Téléphone : moins de graduations pour éviter les chevauchements
+                                maxTicksLimit: canvas.clientWidth && canvas.clientWidth < 500 ? 4 : 12,
+                                maxRotation: 0,
+                                // Libellé court sur l'axe (« Sem. du » reste dans l'infobulle)
+                                callback: function(value) {
+                                    const label = this.getLabelForValue(value);
+                                    return typeof label === 'string' ? label.replace(/^Sem\. du /, '') : label;
+                                }
                             }
                         },
                         y: {
@@ -3773,6 +4274,8 @@
                     }
                 }
             });
+            window.portfolioChart.$times = pointTimes;
+            updateChartNavigator();
 
             // Ajouter l'animation d'entrée
             setTimeout(() => {
@@ -4043,124 +4546,6 @@
 
         // Démarrer l'application
         init();
-
-        // Gestion du bouton flottant
-        function toggleFloatingMenu() {
-            const menu = document.getElementById('floatingMenu');
-            const button = document.getElementById('fabButton');
-            const icon = document.getElementById('fabIcon');
-            
-            isFloatingMenuOpen = !isFloatingMenuOpen;
-            
-            if (isFloatingMenuOpen) {
-                menu.classList.add('show');
-                button.classList.add('expanded');
-                icon.textContent = '✕';
-                
-                // Animation de vibration satisfaisante
-                button.style.animation = 'fabHover 0.6s ease-out';
-                setTimeout(() => {
-                    button.style.animation = '';
-                }, 600);
-            } else {
-                menu.classList.remove('show');
-                button.classList.remove('expanded');
-                icon.textContent = '⚡';
-            }
-        }
-
-        // Fonction d'export des ordres
-        async function exportOrders() {
-            try {
-                // Animation de feedback
-                const button = event.target.closest('.floating-menu-item');
-                button.style.transform = 'translateX(-8px) scale(1.1)';
-                button.style.background = 'rgba(76,175,80,0.2)';
-                
-                const response = await fetch('/api/orders', {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    }
-                });
-                const result = await response.json();
-                
-                if (result.success) {
-                    const orders = result.orders;
-                    const csvContent = convertToCSV(orders);
-                    downloadCSV(csvContent, 'ordres_portefeuille.csv');
-                    
-                    // Animation de succès
-                    button.querySelector('.icon').textContent = '✅';
-                    setTimeout(() => {
-                        button.querySelector('.icon').textContent = '📄';
-                        button.style.transform = '';
-                        button.style.background = '';
-                    }, 2000);
-                    
-                    // Fermer le menu après export
-                    setTimeout(() => {
-                        toggleFloatingMenu();
-                    }, 1000);
-                } else {
-                    throw new Error('Erreur lors de l\'export');
-                }
-            } catch (error) {
-                console.error('Erreur export:', error);
-                
-                // Animation d'erreur
-                const button = event.target.closest('.floating-menu-item');
-                button.style.background = 'rgba(255,107,107,0.2)';
-                button.querySelector('.icon').textContent = '❌';
-                setTimeout(() => {
-                    button.querySelector('.icon').textContent = '📄';
-                    button.style.background = '';
-                    button.style.transform = '';
-                }, 2000);
-            }
-        }
-
-        // Conversion en CSV
-        function convertToCSV(orders) {
-            if (!orders || orders.length === 0) return '';
-            
-            const headers = ['ID', 'Date', 'Date Demandée', 'ISIN', 'Quantité', 'Prix Unitaire EUR', 'Prix Total EUR', 'Source Prix', 'Venue'];
-            const csvRows = [headers.join(',')];
-            
-            orders.forEach(order => {
-                const row = [
-                    order.id || '',
-                    order.date || '',
-                    order.requestedDate || '',
-                    order.isin || '',
-                    order.quantity || 0,
-                    order.unitPriceEUR || 0,
-                    order.totalPriceEUR || 0,
-                    order.priceSource || '',
-                    order.venue || ''
-                ];
-                csvRows.push(row.map(field => `"${field}"`).join(','));
-            });
-            
-            return csvRows.join('\n');
-        }
-
-        // Téléchargement du fichier CSV
-        function downloadCSV(csvContent, filename) {
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            
-            if (link.download !== undefined) {
-                const url = URL.createObjectURL(blob);
-                link.setAttribute('href', url);
-                link.setAttribute('download', filename);
-                link.style.visibility = 'hidden';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            }
-        }
 
         // Gestion des paramètres
         // Les fonctions openSettings, closeSettings, changeAccountType, setTheme et resetData
@@ -4610,29 +4995,6 @@
             }
         }
 
-        // Fonction pour les fonctionnalités à venir
-        function showComingSoon(feature) {
-            const button = event.target.closest('.floating-menu-item');
-            const originalIcon = button.querySelector('.icon').textContent;
-            
-            // Animation de feedback
-            button.style.transform = 'translateX(-8px) scale(1.05)';
-            button.style.background = 'rgba(255,167,38,0.2)';
-            button.querySelector('.icon').textContent = '🚧';
-            
-            // Message temporaire
-            const originalText = button.querySelector('span:last-child').textContent;
-            button.querySelector('span:last-child').textContent = 'Bientôt disponible !';
-            
-            setTimeout(() => {
-                button.querySelector('.icon').textContent = originalIcon;
-                button.querySelector('span:last-child').textContent = originalText;
-                button.style.transform = '';
-                button.style.background = '';
-            }, 2000);
-        }
-
-
         // Variable globale pour le tooltip
         let currentTooltip = null;
         
@@ -4788,19 +5150,10 @@
         // Fermer le menu utilisateur en cliquant à l'extérieur
         document.addEventListener('click', (e) => {
             const userAvatarContainer = document.getElementById('userAvatarContainer');
-            const fabButton = document.getElementById('fabButton');
-            const floatingMenu = document.getElementById('floatingMenu');
 
             // Fermer le menu utilisateur
             if (isUserMenuOpen && userAvatarContainer && !userAvatarContainer.contains(e.target)) {
                 toggleUserMenu();
-            }
-
-            // Fermer le menu flottant
-            if (isFloatingMenuOpen &&
-                !fabButton.contains(e.target) &&
-                !floatingMenu.contains(e.target)) {
-                toggleFloatingMenu();
             }
         });
 
@@ -4939,9 +5292,16 @@
                 button.addEventListener('click', function() {
                     const newGranularity = this.dataset.granularity;
                     if (newGranularity === currentGranularity) return;
+                    preferredGranularity = newGranularity;
                     try {
                         localStorage.setItem('portfolioChartGranularity', newGranularity);
                     } catch (e) {
+                    }
+                    // Pendant un zoom, le choix manuel prime sur l'auto jusqu'au prochain geste
+                    if (chartZoom.active && isChartZoomed()) {
+                        chartZoom.override = true;
+                        chartZoom.granSeq++;
+                        chartZoom.suppressAnimation = true;
                     }
                     loadPortfolioChart(null, newGranularity);
                 });
