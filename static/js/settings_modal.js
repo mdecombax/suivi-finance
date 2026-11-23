@@ -23,6 +23,16 @@ function openSettings() {
         showDetailedKpisCheckbox.checked = showDetailedKpisDefault;
     }
 
+    // Vibrations : état courant, option masquée si l'appareil ne sait pas vibrer
+    const hapticsCheckbox = document.getElementById('hapticsEnabled');
+    const hapticsOption = document.getElementById('hapticsSettingOption');
+    if (hapticsCheckbox && window.haptics) {
+        hapticsCheckbox.checked = window.haptics.isEnabled();
+        if (hapticsOption) hapticsOption.style.display = window.haptics.supported ? '' : 'none';
+    } else if (hapticsOption) {
+        hapticsOption.style.display = 'none';
+    }
+
     // Afficher la modale
     const settingsPopup = document.getElementById('settingsPopup');
     if (settingsPopup) {
@@ -80,6 +90,14 @@ function changeAccountType(accountType) {
 /**
  * Bascule l'option d'affichage des détails par défaut
  */
+function toggleHaptics() {
+    const checkbox = document.getElementById('hapticsEnabled');
+    if (checkbox && window.haptics) {
+        // Activer déclenche une vibration de confirmation (haptics.setEnabled)
+        window.haptics.setEnabled(checkbox.checked);
+    }
+}
+
 function toggleDetailedKpisDefault() {
     const showDetailedKpisCheckbox = document.getElementById('showDetailedKpis');
     if (showDetailedKpisCheckbox) {

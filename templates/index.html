@@ -157,8 +157,35 @@
         
         .detailed-kpis.show {
             opacity: 1;
-            max-height: 200px;
+            /* max-height réel posé en JS (toggleDetailedKpis) : la hauteur dépend de la largeur d'écran */
             margin-bottom: 16px;
+        }
+
+        /* Téléphone : 2 colonnes compactes, la dernière carte seule prend toute la largeur */
+        @media (max-width: 768px) {
+            .detailed-kpis {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 10px;
+            }
+
+            .detailed-kpis .kpi-card:last-child:nth-child(odd) {
+                grid-column: 1 / -1;
+            }
+
+            .detailed-kpis .kpi-card {
+                min-height: 0;
+                padding: 14px 10px;
+            }
+
+            .detailed-kpis .kpi-label {
+                min-height: 2.4rem;
+                margin-bottom: 6px;
+                font-size: 0.75rem;
+            }
+
+            .detailed-kpis .kpi-value {
+                font-size: 1.15rem;
+            }
         }
 
         /* Structure uniforme des cartes KPI pour l'alignement */
@@ -3425,7 +3452,7 @@
                 if (!chart || evt.button > 0) return;
                 const idx = chartIndexFromEvent(chart, evt);
                 if (idx == null) return;
-                chart.$range = { start: idx, end: idx, dragging: true };
+                chart.$range = { start: idx, end: idx, dragging: true, hapticStarted: false };
                 try { canvas.setPointerCapture(evt.pointerId); } catch (e) {}
                 hideChartRangeInfo();
                 chart.draw();
@@ -3438,6 +3465,15 @@
                 const idx = chartIndexFromEvent(chart, evt);
                 if (idx == null || idx === r.end) return;
                 r.end = idx;
+                // Retour haptique (static/js/shared/haptics.js) : impulsion au départ, puis un tic par point
+                if (window.haptics) {
+                    if (!r.hapticStarted) {
+                        r.hapticStarted = true;
+                        window.haptics.light();
+                    } else {
+                        window.haptics.tick();
+                    }
+                }
                 // Pas de tooltip pendant la sélection
                 const tooltipEl = document.getElementById('chartjs-tooltip');
                 if (tooltipEl) tooltipEl.style.opacity = '0';
@@ -4110,6 +4146,10 @@
             const isVisible = detailedKpis.style.display !== 'none';
 
             if (isVisible) {
+                // Partir de la hauteur réelle pour que l'animation de fermeture soit fluide
+                detailedKpis.style.maxHeight = detailedKpis.scrollHeight + 'px';
+                void detailedKpis.offsetHeight;
+                detailedKpis.style.maxHeight = '0px';
                 detailedKpis.classList.remove('show');
                 setTimeout(() => {
                     detailedKpis.style.display = 'none';
@@ -4119,6 +4159,12 @@
             } else {
                 detailedKpis.style.display = 'grid';
                 setTimeout(() => {
+                    // Hauteur réelle du contenu (5 cartes empilées sur téléphone), puis libre
+                    // une fois ouvert : rotation d'écran, valeurs chargées après coup…
+                    detailedKpis.style.maxHeight = detailedKpis.scrollHeight + 'px';
+                    setTimeout(() => {
+                        if (detailedKpis.classList.contains('show')) detailedKpis.style.maxHeight = 'none';
+                    }, 450);
                     detailedKpis.classList.add('show');
                     // Animer les cartes individuelles
                     const cards = detailedKpis.querySelectorAll('.kpi-card');

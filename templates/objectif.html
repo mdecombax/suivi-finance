@@ -1166,6 +1166,7 @@
         }
 
         function displayResults(p) {
+            window.haptics?.success(); // résultat du calcul affiché
             if (!p) return;
             currentData = p;
 
@@ -1500,6 +1501,7 @@
         }
 
         function displayRevenuResults(d) {
+            window.haptics?.success(); // résultat du calcul affiché
             const section = document.getElementById('revenuResults');
             section.style.display = 'block';
 
@@ -1742,6 +1744,7 @@
         }
 
         function displayMCResults(result, targetAmount, targetYear, meanReturn, volatility) {
+            window.haptics?.success(); // résultat du calcul affiché
             const { labels, pData, probability, numSims } = result;
 
             const probPct = Math.round(probability);

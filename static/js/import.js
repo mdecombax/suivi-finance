@@ -145,6 +145,7 @@
             }
             renderPreview();
             goToStep(2);
+            window.haptics?.success(); // extraction terminée
         } catch (e) {
             console.error('Parse échoué', e);
             showMessage(e.message, 'error');
@@ -288,6 +289,7 @@
             const result = await apiPost('/api/orders/import/confirm', { orders });
             renderDone(result);
             goToStep(3);
+            window.haptics?.success(); // ordres importés
         } catch (e) {
             console.error('Confirm échoué', e);
             showMessage(e.message, 'error');
