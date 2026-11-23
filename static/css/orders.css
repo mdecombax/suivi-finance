@@ -144,3 +144,69 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* ===== Mobile : historique des ordres en liste de cartes (façon app) ===== */
+@media (max-width: 768px) {
+    .orders-table,
+    .orders-table tbody {
+        display: block;
+        width: 100%;
+    }
+
+    .orders-table thead {
+        display: none;
+    }
+
+    .orders-table tbody tr:not(.empty-state) {
+        display: grid;
+        grid-template-columns: auto auto minmax(0, 1fr) auto;
+        grid-template-areas:
+            "isin  isin  isin  total"
+            "date  qty   price action";
+        align-items: center;
+        gap: 2px 8px;
+        padding: 12px 4px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .orders-table tbody tr:hover {
+        transform: none;
+    }
+
+    .orders-table tbody td {
+        padding: 0;
+        border: none;
+        text-align: left;
+        white-space: nowrap;
+    }
+
+    .orders-table td:nth-child(1) { grid-area: date;  color: var(--muted); font-size: 0.8rem; }
+    .orders-table td:nth-child(2) { grid-area: isin;  font-weight: 600; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; }
+    .orders-table td:nth-child(3) { grid-area: qty;   color: var(--muted); font-size: 0.8rem; }
+    .orders-table td:nth-child(3)::after { content: ' ×'; }
+    .orders-table td:nth-child(4) { grid-area: price; color: var(--muted); font-size: 0.8rem; }
+    .orders-table td:nth-child(5) { grid-area: total; font-weight: 700; text-align: right; }
+    .orders-table td:nth-child(6) { grid-area: action; text-align: right; }
+
+    /* Bouton supprimer discret (contour), zone tactile conservée */
+    .orders-table td:nth-child(6) .btn {
+        min-height: 32px;
+        padding: 4px 12px !important;
+        font-size: 0.75rem !important;
+        background: transparent;
+        color: var(--danger);
+        border: 1px solid rgba(255,107,107,0.35);
+        box-shadow: none;
+    }
+
+    .orders-table td:nth-child(6) .btn:hover,
+    .orders-table td:nth-child(6) .btn:active {
+        transform: none;
+        background: rgba(255,107,107,0.12);
+    }
+
+    .orders-table tbody tr.empty-state,
+    .orders-table tbody tr.empty-state td {
+        display: block;
+    }
+}

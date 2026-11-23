@@ -2,7 +2,12 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b0f19" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Finolio" />
     <title>Détail Position - {{ isin }}</title>
     <link rel="stylesheet" href="/static/css/main.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -13,6 +18,49 @@
             border-bottom: 1px solid rgba(255,255,255,0.08);
             backdrop-filter: blur(12px);
             margin-bottom: 24px;
+        }
+
+        /* Téléphone / tablette : barre du haut compacte façon app (retour + titre) */
+        @media (max-width: 1024px) {
+            .position-header {
+                position: sticky;
+                top: 0;
+                z-index: 100;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: calc(8px + env(safe-area-inset-top)) 16px 8px;
+                margin-bottom: 16px;
+                background: rgba(11, 15, 25, 0.88);
+                -webkit-backdrop-filter: blur(16px);
+            }
+
+            .position-header .position-back {
+                flex: 0 0 auto;
+                margin-bottom: 0 !important;
+                min-height: 36px;
+                padding: 6px 12px;
+                font-size: 0.85rem;
+            }
+
+            .position-header .position-back-label {
+                display: none;
+            }
+
+            .position-header .position-back {
+                width: 40px;
+                justify-content: center;
+                font-size: 1.1rem;
+            }
+
+            .position-header .position-title {
+                font-size: 1.05rem !important;
+                min-width: 0;
+                margin: 0;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
         }
 
         .position-title {
@@ -413,12 +461,10 @@
                 grid-template-columns: 1fr;
             }
 
-            .position-header {
-                padding: 20px;
-            }
-
             .position-title {
-                font-size: 1.8rem;
+                font-size: 1.4rem;
+                line-height: 1.25;
+                margin-bottom: 0;
             }
 
             .freemium-limit-content {
@@ -434,8 +480,8 @@
 </head>
 <body>
     <div class="position-header">
-        <a href="/" class="btn btn-secondary" style="margin-bottom: 16px;">
-            ← Retour au portefeuille
+        <a href="/" class="btn btn-secondary position-back" style="margin-bottom: 16px;" aria-label="Retour au portefeuille">
+            ←<span class="position-back-label"> Retour au portefeuille</span>
         </a>
         <h1 id="pageTitle" class="position-title">Détail Position - {{ isin }}</h1>
     </div>
@@ -1830,5 +1876,6 @@
             }
         }
     </style>
+    {% with active_page = 'portfolio' %}{% include 'components/tab_bar.html' %}{% endwith %}
 </body>
 </html>

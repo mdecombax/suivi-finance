@@ -1,16 +1,16 @@
+{%- from 'components/nav_items.html' import nav_items -%}
 <!-- Header Navigation -->
 <header class="animate-fadeInDown">
     <div class="header-content">
-        <div class="logo animate-slideInLeft">
-            <img src="/static/images/logo.png" alt="Suivi Finance Logo" class="logo-icon">
+        <a href="/" class="logo animate-slideInLeft" aria-label="Finolio — accueil">
+            <img src="/static/images/logo.png" alt="" class="logo-icon">
             <div class="logo-text">Finolio</div>
-        </div>
+        </a>
 
-        <nav class="nav animate-slideInRight">
-            <a href="/" class="nav-link {% if active_page == 'portfolio' %}active{% endif %}">Portefeuille</a>
-            <a href="/orders" class="nav-link {% if active_page == 'orders' %}active{% endif %}">Ordres</a>
-            <a href="/import" class="nav-link {% if active_page == 'import' %}active{% endif %}">Importer</a>
-            <a href="/objectif" class="nav-link {% if active_page == 'objectif' %}active{% endif %}">Objectif</a>
+        <nav class="nav animate-slideInRight" aria-label="Navigation principale">
+            {%- for key, href, label, icon in nav_items %}
+            <a href="{{ href }}" class="nav-link {% if active_page == key %}active{% endif %}"{% if active_page == key %} aria-current="page"{% endif %}>{{ label }}</a>
+            {%- endfor %}
         </nav>
 
         <div class="header-controls">
@@ -19,3 +19,5 @@
         </div>
     </div>
 </header>
+
+{% include 'components/tab_bar.html' %}

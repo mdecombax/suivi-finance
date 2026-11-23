@@ -1,0 +1,14 @@
+{#- Barre d'onglets (téléphone / tablette). Inclus par header.html et par les pages sans header.
+    Les onglets sont définis dans components/nav_items.html (source unique). -#}
+{%- from 'components/nav_items.html' import nav_items -%}
+
+<!-- Barre d'onglets (téléphone / tablette) — hors du <header> : un parent avec
+     backdrop-filter/transform casserait le position: fixed -->
+<nav class="tab-bar" aria-label="Navigation principale">
+    {%- for key, href, label, icon in nav_items %}
+    <a href="{{ href }}" class="tab-bar-item {% if active_page == key %}active{% endif %}"{% if active_page == key %} aria-current="page"{% endif %}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ icon | safe }}</svg>
+        <span>{{ label }}</span>
+    </a>
+    {%- endfor %}
+</nav>

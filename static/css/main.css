@@ -257,6 +257,13 @@ p {
     min-height: 100dvh; 
     display: grid; 
     grid-template-rows: auto 1fr auto; 
+    /* Colonne bornée à l'écran : sans ça, le contenu le plus large élargit toute la page */
+    grid-template-columns: minmax(0, 1fr);
+}
+
+/* Les médias ne débordent jamais de leur conteneur */
+img, video, canvas, svg {
+    max-width: 100%;
 }
 
 /* Header */
@@ -1004,20 +1011,132 @@ main {
 }
 
 /* Responsive */
-@media (max-width: 768px) {
+/* ===== Navigation façon app : barre d'onglets en bas (téléphone + tablette) ===== */
+.logo {
+    text-decoration: none;
+    color: inherit;
+}
+
+.tab-bar {
+    display: none;
+}
+
+@media (max-width: 1024px) {
+    :root {
+        --tab-bar-height: 64px;
+        --app-bar-height: 56px;
+    }
+
+    /* Barre du haut compacte : logo + avatar */
+    header {
+        position: sticky;
+        top: 0;
+        padding: calc(8px + env(safe-area-inset-top)) 16px 8px;
+        background: rgba(11, 15, 25, 0.88);
+        -webkit-backdrop-filter: blur(16px);
+        backdrop-filter: blur(16px);
+        animation: none;
+    }
+
     .header-content {
-        flex-direction: column;
-        gap: 16px;
-    }
-
-    .nav {
-        order: 2;
-    }
-
-    .header-controls {
+        min-height: 40px;
         gap: 12px;
     }
 
+    header .nav {
+        display: none;
+    }
+
+    .logo { gap: 8px; min-width: 0; }
+    .logo:hover { transform: none; }
+    .logo-icon { height: 32px; }
+    .logo-text { font-size: 1.25rem; }
+
+    .user-avatar {
+        width: 36px;
+        height: 36px;
+    }
+
+    /* Le menu utilisateur ne sort jamais de l'écran */
+    .user-dropdown {
+        min-width: 0;
+        width: min(300px, calc(100vw - 32px));
+    }
+
+    /* Barre d'onglets fixe en bas */
+    .tab-bar {
+        display: flex;
+        justify-content: space-around;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 900;
+        padding: 6px max(8px, env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-right));
+        background: rgba(13, 18, 31, 0.94);
+        -webkit-backdrop-filter: blur(20px) saturate(140%);
+        backdrop-filter: blur(20px) saturate(140%);
+        border-top: 1px solid rgba(255,255,255,0.08);
+        box-shadow: 0 -8px 24px rgba(0,0,0,0.25);
+    }
+
+    .tab-bar-item {
+        flex: 1 1 0;
+        max-width: 140px;
+        min-width: 0;
+        min-height: calc(var(--tab-bar-height) - 12px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        border-radius: 14px;
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        -webkit-tap-highlight-color: transparent;
+        transition: color var(--transition-fast), background var(--transition-fast);
+    }
+
+    .tab-bar-item svg {
+        width: 24px;
+        height: 24px;
+        transition: transform var(--transition-fast);
+    }
+
+    .tab-bar-item span {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .tab-bar-item.active {
+        color: var(--primary-accent);
+    }
+
+    .tab-bar-item.active svg {
+        transform: translateY(-1px);
+        filter: drop-shadow(0 0 6px rgba(130,196,255,0.45));
+    }
+
+    .tab-bar-item:active {
+        background: rgba(130,196,255,0.08);
+    }
+
+    /* Le contenu ne passe jamais sous la barre d'onglets */
+    body:has(.tab-bar) {
+        padding-bottom: calc(var(--tab-bar-height) + env(safe-area-inset-bottom));
+    }
+
+    main {
+        padding: 16px;
+    }
+}
+
+@media (max-width: 768px) {
     .kpis {
         grid-template-columns: 1fr;
     }
