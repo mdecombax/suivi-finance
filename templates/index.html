@@ -3359,8 +3359,7 @@
                 const { ctx, chartArea } = chart;
                 const x1 = x.getPixelForValue(Math.min(r.start, r.end));
                 const x2 = x.getPixelForValue(Math.max(r.start, r.end));
-                const values = chart.data.datasets[1].data;
-                const up = (values[Math.max(r.start, r.end)] || 0) >= (values[Math.min(r.start, r.end)] || 0);
+                const up = computeRangePerformance(chart, Math.min(r.start, r.end), Math.max(r.start, r.end)).gain >= 0;
 
                 ctx.save();
                 ctx.fillStyle = up ? 'rgba(46, 204, 113, 0.12)' : 'rgba(231, 76, 60, 0.12)';
@@ -3400,6 +3399,38 @@
             hideChartRangeInfo();
         }
 
+        /**
+         * Performance hors apports entre deux points du graphique.
+         * - gain € = variation de valeur − argent versé sur la période
+         * - % = rendement pondéré dans le temps (TWR) : on enchaîne les rendements de chaque
+         *   intervalle en neutralisant le versement de l'intervalle
+         *   r_i = V_i / (V_{i-1} + apport_i) − 1   (apport supposé fait en début d'intervalle,
+         *   cohérent avec le calcul backend : ordres antérieurs à la date du point)
+         *   → indépendant du montant et du moment des versements.
+         */
+        function computeRangePerformance(chart, a, b) {
+            const invested = chart.data.datasets[0].data;
+            const values = chart.data.datasets[1].data;
+            const vA = values[a] || 0, vB = values[b] || 0;
+            const iA = invested[a] || 0, iB = invested[b] || 0;
+            const deltaValue = vB - vA;
+            const deltaInvested = iB - iA;
+            const gain = deltaValue - deltaInvested;
+
+            let growth = 1;
+            let valid = false;
+            for (let i = a + 1; i <= b; i++) {
+                const prev = values[i - 1] || 0;
+                const flow = (invested[i] || 0) - (invested[i - 1] || 0);
+                const base = prev + flow;
+                if (base > 0) {
+                    growth *= (values[i] || 0) / base;
+                    valid = true;
+                }
+            }
+            return { deltaValue, deltaInvested, gain, twrPct: valid ? (growth - 1) * 100 : null };
+        }
+
         function renderChartRangeInfo(chart) {
             const info = document.getElementById('chartRangeInfo');
             const r = chart && chart.$range;
@@ -3413,26 +3444,22 @@
             const invested = chart.data.datasets[0].data;
             const values = chart.data.datasets[1].data;
 
-            const vA = values[a] || 0, vB = values[b] || 0;
-            const iA = invested[a] || 0, iB = invested[b] || 0;
-            const deltaValue = vB - vA;
-            const deltaInvested = iB - iA;
-            const gain = deltaValue - deltaInvested; // variation hors apports
+            const perf = computeRangePerformance(chart, a, b);
 
             const eur = v => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(v);
             const pct = v => (v >= 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + ' %';
             const signed = v => (v >= 0 ? '+' : '') + eur(v);
             const cls = v => v >= 0 ? 'up' : 'down';
 
-            const valuePct = vA > 0 ? (deltaValue / vA) * 100 : null;
+            // Chiffre principal : performance HORS APPORTS (l'argent versé n'est pas un gain)
             let html = `<div class="range-dates">${labels[a]} → ${labels[b]}</div>`;
-            html += `<div class="range-main ${cls(deltaValue)}">${valuePct !== null ? pct(valuePct) + ' · ' : ''}${signed(deltaValue)}</div>`;
+            html += `<div class="range-main ${cls(perf.gain)}">${perf.twrPct !== null ? pct(perf.twrPct) + ' · ' : ''}${signed(perf.gain)}</div>`;
 
-            if (Math.abs(deltaInvested) >= 0.01) {
-                // Rendement approché (Modified Dietz : apports supposés en milieu de période)
-                const base = vA + deltaInvested / 2;
-                const perfPct = base > 0 ? (gain / base) * 100 : null;
-                html += `<div class="range-sub">Apports ${signed(deltaInvested)} · Hors apports <span class="${cls(gain)}">${perfPct !== null ? '≈ ' + pct(perfPct) + ' · ' : ''}${signed(gain)}</span></div>`;
+            // Contexte : variation brute de la valeur, dont les versements
+            if (Math.abs(perf.deltaInvested) >= 0.01) {
+                html += `<div class="range-sub">Valeur ${signed(perf.deltaValue)} dont apports ${signed(perf.deltaInvested)}</div>`;
+            } else {
+                html += `<div class="range-sub">Hors apports · aucun versement sur la période</div>`;
             }
 
             info.innerHTML = html;
