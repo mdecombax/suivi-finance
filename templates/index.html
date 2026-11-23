@@ -1714,7 +1714,53 @@
             background: linear-gradient(135deg, rgba(130,196,255,0.12), rgba(255,255,255,0.05));
         }
 
-        /* Chart Period Selector */
+        /* Sélection d'une plage sur le graphique (clic + glisser) */
+        #portfolioEvolutionChart {
+            touch-action: pan-y; /* glisser horizontal = sélection, vertical = scroll */
+            cursor: crosshair;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .chart-range-info {
+            position: absolute;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            z-index: 5;
+            padding: 8px 14px;
+            border-radius: var(--border-radius-md);
+            background: rgba(10, 14, 22, 0.92);
+            border: 1px solid rgba(255,255,255,0.12);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+            color: var(--text);
+            font-size: 0.85rem;
+            text-align: center;
+            pointer-events: none;
+            white-space: nowrap;
+            max-width: calc(100% - 24px);
+        }
+
+        .chart-range-info.show { display: block; }
+        .chart-range-info .range-dates { color: var(--muted); font-size: 0.78rem; }
+        .chart-range-info .range-main { font-size: 1.05rem; font-weight: 700; margin: 2px 0; }
+        .chart-range-info .range-sub { color: var(--muted); font-size: 0.78rem; }
+        .chart-range-info .up { color: #2ECC71; }
+        .chart-range-info .down { color: #E74C3C; }
+
+        @media (max-width: 768px) {
+            .chart-range-info { white-space: normal; font-size: 0.8rem; }
+        }
+
+        /* Chart Period / Granularity Selectors */
+        .chart-controls {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
         .chart-period-selector {
             display: flex;
             gap: 4px;
@@ -1795,9 +1841,13 @@
         }
 
         @media (max-width: 768px) {
-            .chart-period-selector {
+            .chart-controls {
                 order: 1;
                 width: 100%;
+            }
+
+            .chart-period-selector {
+                flex: 1 1 auto;
                 justify-content: center;
             }
         }
@@ -2089,19 +2139,28 @@
                     <div class="table-header">
                         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                             <div>
-                                <div class="table-title">Évolution Mensuelle du Portefeuille</div>
+                                <div class="table-title">Évolution du Portefeuille</div>
                                 <div class="table-subtitle">Capital investi vs Valeur du portefeuille avec +/- values</div>
                             </div>
-                            <div class="chart-period-selector">
-                                <button class="period-btn active" data-period="3m">3m</button>
-                                <button class="period-btn" data-period="6m">6m</button>
-                                <button class="period-btn" data-period="1y">1an</button>
-                                <button class="period-btn" data-period="max">MAX</button>
+                            <div class="chart-controls">
+                                <div class="chart-period-selector chart-granularity-selector" role="group" aria-label="Granularité du graphique">
+                                    <button class="period-btn" data-granularity="day" title="Un point par jour ouvré">Jour</button>
+                                    <button class="period-btn" data-granularity="week" title="Un point par semaine">Sem.</button>
+                                    <button class="period-btn active" data-granularity="month" title="Un point par mois">Mois</button>
+                                    <button class="period-btn" data-granularity="year" title="Un point par an">An</button>
+                                </div>
+                                <div class="chart-period-selector" role="group" aria-label="Période affichée">
+                                    <button class="period-btn active" data-period="3m">3m</button>
+                                    <button class="period-btn" data-period="6m">6m</button>
+                                    <button class="period-btn" data-period="1y">1an</button>
+                                    <button class="period-btn" data-period="max">MAX</button>
+                                </div>
                             </div>
                         </div>
                     </div>
                     <div style="position: relative; height: 400px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--border-radius-xl); padding: 20px;">
                         <canvas id="portfolioEvolutionChart"></canvas>
+                        <div id="chartRangeInfo" class="chart-range-info" aria-live="polite"></div>
                         <canvas id="loadingChart" style="position: absolute; top: 20px; left: 20px; right: 20px; bottom: 20px; width: calc(100% - 40px); height: calc(100% - 40px);"></canvas>
                         <div id="chartLoadingState" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: var(--muted); display: none;">
                             <div style="font-size: 2rem; margin-bottom: 10px;">⚠️</div>
@@ -2707,21 +2766,49 @@
 
         // Variables globales pour le graphique
         let portfolioChart = null;
-        let fullMonthlyData = null;
         let currentPeriod = '3m';
+        const CHART_GRANULARITIES = ['day', 'week', 'month', 'year'];
+        const CHART_CACHE_TTL_MS = 5 * 60 * 1000;
+        let currentGranularity = 'month';
+        // Cache des séries par granularité : { day: [...], week: [...], month: [...], year: [...] }
+        const chartDataByGranularity = {};
+        let chartRequestSeq = 0;
+        // Métriques avancées (renvoyées uniquement avec la série mensuelle)
+        let cachedAdvancedMetrics = null;
+        let advancedMetricsShown = false;
 
-        // Restaurer le cache depuis sessionStorage au démarrage
+        // Granularité mémorisée (par défaut : mois)
         try {
-            const cached = sessionStorage.getItem('portfolioChartData');
-            if (cached) {
-                const { data, timestamp } = JSON.parse(cached);
-                // Utiliser le cache s'il a moins de 5 minutes
-                if (Date.now() - timestamp < 5 * 60 * 1000) {
-                    fullMonthlyData = data;
-                }
+            const savedGranularity = localStorage.getItem('portfolioChartGranularity');
+            if (CHART_GRANULARITIES.includes(savedGranularity)) {
+                currentGranularity = savedGranularity;
             }
         } catch (e) {
         }
+
+        // Restaurer le cache depuis sessionStorage au démarrage (moins de 5 minutes)
+        CHART_GRANULARITIES.forEach(g => {
+            try {
+                const cached = sessionStorage.getItem('portfolioChartData_' + g);
+                if (cached) {
+                    const { data, timestamp, advancedMetrics } = JSON.parse(cached);
+                    if (Date.now() - timestamp < CHART_CACHE_TTL_MS && Array.isArray(data) && data.length) {
+                        chartDataByGranularity[g] = data;
+                        if (g === 'month' && advancedMetrics) {
+                            cachedAdvancedMetrics = advancedMetrics;
+                        }
+                    }
+                }
+            } catch (e) {
+            }
+        });
+
+        window.debug = window.debug || {};
+        window.debug.chart = () => ({
+            currentGranularity,
+            currentPeriod,
+            cachedPoints: Object.fromEntries(Object.entries(chartDataByGranularity).map(([g, d]) => [g, d ? d.length : 0]))
+        });
 
         // Fonction pour filtrer les données selon la période
         function filterDataByPeriod(data, period) {
@@ -2752,19 +2839,28 @@
         }
 
         // Chargement et affichage du graphique mensuel
-        async function loadPortfolioChart(period = null) {
+        async function loadPortfolioChart(period = null, granularity = null) {
             if (period) {
                 currentPeriod = period;
             }
+            if (granularity && CHART_GRANULARITIES.includes(granularity)) {
+                currentGranularity = granularity;
+            }
+            const requestedGranularity = currentGranularity;
+            syncGranularityButtons();
 
             // Si les données sont déjà en cache, utiliser le cache (pas de rechargement)
-            if (fullMonthlyData) {
-                const filteredData = filterDataByPeriod(fullMonthlyData, currentPeriod);
-                createPortfolioChart(filteredData);
+            const cachedData = chartDataByGranularity[requestedGranularity];
+            if (cachedData && cachedData.length) {
+                chartRequestSeq++; // invalide une éventuelle requête en cours
+                createPortfolioChart(filterDataByPeriod(cachedData, currentPeriod));
+                ensureAdvancedMetrics();
                 return;
             }
 
-            // Démarrer l'animation de chargement uniquement pour le premier chargement
+            const requestId = ++chartRequestSeq;
+
+            // Animation de chargement pendant la récupération
             startLoadingAnimation();
 
             try {
@@ -2772,7 +2868,7 @@
                     throw new Error('Utilisateur non authentifié');
                 }
 
-                const response = await fetch('/api/portfolio/monthly-values', {
+                const response = await fetch('/api/portfolio/monthly-values?granularity=' + encodeURIComponent(requestedGranularity), {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2787,25 +2883,35 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    // Stocker les données complètes dans le cache
-                    fullMonthlyData = result.data;
+                    // Stocker les données complètes dans le cache (par granularité)
+                    chartDataByGranularity[requestedGranularity] = result.data;
 
                     // Sauvegarder dans sessionStorage pour persistance entre onglets
                     try {
-                        sessionStorage.setItem('portfolioChartData', JSON.stringify({
-                            data: fullMonthlyData,
-                            timestamp: Date.now()
+                        sessionStorage.setItem('portfolioChartData_' + requestedGranularity, JSON.stringify({
+                            data: result.data,
+                            timestamp: Date.now(),
+                            advancedMetrics: result.advanced_metrics || null
                         }));
                     } catch (e) {
                     }
 
-                    // Afficher les métriques avancées si disponibles
+                    // Afficher les métriques avancées si disponibles (série mensuelle)
                     if (result.advanced_metrics) {
+                        cachedAdvancedMetrics = result.advanced_metrics;
+                        advancedMetricsShown = true;
                         updateAdvancedMetrics(result.advanced_metrics);
+                    } else {
+                        ensureAdvancedMetrics();
+                    }
+
+                    // Une autre granularité/période a été demandée entre-temps : ne pas écraser
+                    if (requestId !== chartRequestSeq) {
+                        return;
                     }
 
                     // Filtrer les données selon la période sélectionnée
-                    const filteredData = filterDataByPeriod(fullMonthlyData, currentPeriod);
+                    const filteredData = filterDataByPeriod(result.data, currentPeriod);
 
                     // Arrêter l'animation de chargement et afficher le vrai graphique
                     stopLoadingAnimation();
@@ -2817,6 +2923,9 @@
                 }
             } catch (error) {
                 console.error('Erreur lors du chargement du graphique:', error);
+                if (requestId !== chartRequestSeq) {
+                    return;
+                }
                 stopLoadingAnimation();
                 const loadingState = document.getElementById('chartLoadingState');
                 loadingState.style.display = 'block';
@@ -2827,6 +2936,67 @@
                         <div style="font-size: 0.9rem; opacity: 0.7;">${error.message}</div>
                     </div>
                 `;
+            }
+        }
+
+        // Les métriques avancées viennent de la série mensuelle : si la granularité
+        // affichée est autre (ou servie depuis le cache), les charger/afficher à part.
+        let advancedMetricsRequest = null;
+        function ensureAdvancedMetrics() {
+            if (advancedMetricsShown) return;
+            if (cachedAdvancedMetrics) {
+                advancedMetricsShown = true;
+                updateAdvancedMetrics(cachedAdvancedMetrics);
+                return;
+            }
+            if (advancedMetricsRequest || !authToken) return;
+            advancedMetricsRequest = fetch('/api/portfolio/monthly-values?granularity=month', {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            })
+                .then(r => r.ok ? r.json() : null)
+                .then(result => {
+                    if (!result || !result.success) return;
+                    chartDataByGranularity.month = result.data;
+                    try {
+                        sessionStorage.setItem('portfolioChartData_month', JSON.stringify({
+                            data: result.data,
+                            timestamp: Date.now(),
+                            advancedMetrics: result.advanced_metrics || null
+                        }));
+                    } catch (e) {
+                    }
+                    if (result.advanced_metrics) {
+                        cachedAdvancedMetrics = result.advanced_metrics;
+                        advancedMetricsShown = true;
+                        updateAdvancedMetrics(result.advanced_metrics);
+                    }
+                })
+                .catch(err => console.error('Erreur chargement métriques avancées:', err))
+                .finally(() => { advancedMetricsRequest = null; });
+        }
+
+        function syncGranularityButtons() {
+            document.querySelectorAll('.period-btn[data-granularity]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.granularity === currentGranularity);
+            });
+        }
+
+        // Libellé de l'axe X selon la granularité courante
+        function formatChartLabel(data) {
+            if (data.is_current || data.month === 'current') {
+                return 'Actuellement';
+            }
+            const date = new Date(data.date + 'T12:00:00');
+            switch (currentGranularity) {
+                case 'day':
+                    return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: '2-digit' });
+                case 'week':
+                    return 'Sem. du ' + date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: '2-digit' });
+                case 'year':
+                    return String(date.getFullYear());
+                case 'month':
+                default:
+                    return date.toLocaleDateString('fr-FR', { year: 'numeric', month: 'short' });
             }
         }
 
@@ -3049,6 +3219,154 @@
             }
         }
 
+        // ===== Sélection d'une plage (clic + glisser, façon Google Finance) =====
+        // État porté par le graphique : chart.$range = { start, end, dragging }
+        const rangeSelectPlugin = {
+            id: 'rangeSelect',
+            afterDatasetsDraw(chart) {
+                const r = chart.$range;
+                if (!r || r.start == null || r.end == null || r.start === r.end) return;
+                const x = chart.scales.x;
+                const { ctx, chartArea } = chart;
+                const x1 = x.getPixelForValue(Math.min(r.start, r.end));
+                const x2 = x.getPixelForValue(Math.max(r.start, r.end));
+                const values = chart.data.datasets[1].data;
+                const up = (values[Math.max(r.start, r.end)] || 0) >= (values[Math.min(r.start, r.end)] || 0);
+
+                ctx.save();
+                ctx.fillStyle = up ? 'rgba(46, 204, 113, 0.12)' : 'rgba(231, 76, 60, 0.12)';
+                ctx.fillRect(x1, chartArea.top, x2 - x1, chartArea.bottom - chartArea.top);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 4]);
+                [x1, x2].forEach(px => {
+                    ctx.beginPath();
+                    ctx.moveTo(px, chartArea.top);
+                    ctx.lineTo(px, chartArea.bottom);
+                    ctx.stroke();
+                });
+                ctx.restore();
+            }
+        };
+
+        function chartIndexFromEvent(chart, evt) {
+            const rect = chart.canvas.getBoundingClientRect();
+            const px = evt.clientX - rect.left;
+            const n = chart.data.labels.length;
+            if (!n) return null;
+            const idx = Math.round(chart.scales.x.getValueForPixel(px));
+            return Math.max(0, Math.min(n - 1, isNaN(idx) ? 0 : idx));
+        }
+
+        function hideChartRangeInfo() {
+            const info = document.getElementById('chartRangeInfo');
+            if (info) info.classList.remove('show');
+        }
+
+        function clearChartRange(chart) {
+            if (chart) {
+                chart.$range = null;
+                chart.draw();
+            }
+            hideChartRangeInfo();
+        }
+
+        function renderChartRangeInfo(chart) {
+            const info = document.getElementById('chartRangeInfo');
+            const r = chart && chart.$range;
+            if (!info || !r || r.start == null || r.end == null || r.start === r.end) {
+                hideChartRangeInfo();
+                return;
+            }
+            const a = Math.min(r.start, r.end);
+            const b = Math.max(r.start, r.end);
+            const labels = chart.data.labels;
+            const invested = chart.data.datasets[0].data;
+            const values = chart.data.datasets[1].data;
+
+            const vA = values[a] || 0, vB = values[b] || 0;
+            const iA = invested[a] || 0, iB = invested[b] || 0;
+            const deltaValue = vB - vA;
+            const deltaInvested = iB - iA;
+            const gain = deltaValue - deltaInvested; // variation hors apports
+
+            const eur = v => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(v);
+            const pct = v => (v >= 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + ' %';
+            const signed = v => (v >= 0 ? '+' : '') + eur(v);
+            const cls = v => v >= 0 ? 'up' : 'down';
+
+            const valuePct = vA > 0 ? (deltaValue / vA) * 100 : null;
+            let html = `<div class="range-dates">${labels[a]} → ${labels[b]}</div>`;
+            html += `<div class="range-main ${cls(deltaValue)}">${valuePct !== null ? pct(valuePct) + ' · ' : ''}${signed(deltaValue)}</div>`;
+
+            if (Math.abs(deltaInvested) >= 0.01) {
+                // Rendement approché (Modified Dietz : apports supposés en milieu de période)
+                const base = vA + deltaInvested / 2;
+                const perfPct = base > 0 ? (gain / base) * 100 : null;
+                html += `<div class="range-sub">Apports ${signed(deltaInvested)} · Hors apports <span class="${cls(gain)}">${perfPct !== null ? '≈ ' + pct(perfPct) + ' · ' : ''}${signed(gain)}</span></div>`;
+            }
+
+            info.innerHTML = html;
+            // Placer l'encart dans la zone de tracé (sous la légende)
+            if (chart.chartArea) {
+                info.style.top = (chart.canvas.offsetTop + chart.chartArea.top + 8) + 'px';
+            }
+            info.classList.add('show');
+        }
+
+        function bindChartRangeSelection(canvas) {
+            if (!canvas || canvas.dataset.rangeBound === '1') return;
+            canvas.dataset.rangeBound = '1';
+
+            canvas.addEventListener('pointerdown', evt => {
+                const chart = window.portfolioChart;
+                if (!chart || evt.button > 0) return;
+                const idx = chartIndexFromEvent(chart, evt);
+                if (idx == null) return;
+                chart.$range = { start: idx, end: idx, dragging: true };
+                try { canvas.setPointerCapture(evt.pointerId); } catch (e) {}
+                hideChartRangeInfo();
+                chart.draw();
+            });
+
+            canvas.addEventListener('pointermove', evt => {
+                const chart = window.portfolioChart;
+                const r = chart && chart.$range;
+                if (!r || !r.dragging) return;
+                const idx = chartIndexFromEvent(chart, evt);
+                if (idx == null || idx === r.end) return;
+                r.end = idx;
+                // Pas de tooltip pendant la sélection
+                const tooltipEl = document.getElementById('chartjs-tooltip');
+                if (tooltipEl) tooltipEl.style.opacity = '0';
+                chart.draw();
+                renderChartRangeInfo(chart);
+            });
+
+            const endDrag = evt => {
+                const chart = window.portfolioChart;
+                const r = chart && chart.$range;
+                if (!r || !r.dragging) return;
+                r.dragging = false;
+                try { canvas.releasePointerCapture(evt.pointerId); } catch (e) {}
+                // Simple clic sans glisser : efface la sélection
+                if (r.start === r.end) {
+                    clearChartRange(chart);
+                } else {
+                    renderChartRangeInfo(chart);
+                }
+            };
+            canvas.addEventListener('pointerup', endDrag);
+            canvas.addEventListener('pointercancel', endDrag);
+
+            document.addEventListener('keydown', evt => {
+                if (evt.key === 'Escape') clearChartRange(window.portfolioChart);
+            });
+        }
+
+        window.debug = window.debug || {};
+        window.debug.chartRange = () => window.portfolioChart ? window.portfolioChart.$range : null;
+
         function createPortfolioChart(monthlyData) {
             const canvas = document.getElementById('portfolioEvolutionChart');
             const loadingState = document.getElementById('chartLoadingState');
@@ -3068,13 +3386,12 @@
             const sortedData = [...monthlyData].sort((a, b) => new Date(a.date) - new Date(b.date));
 
             // Préparer les données pour Chart.js
-            const labels = sortedData.map(data => {
-                if (data.is_current || data.month === 'current') {
-                    return 'Actuellement';
-                }
-                const date = new Date(data.date + 'T12:00:00');
-                return date.toLocaleDateString('fr-FR', { year: 'numeric', month: 'short' });
-            });
+            const labels = sortedData.map(formatChartLabel);
+
+            // Beaucoup de points (jour/semaine) : masquer les points, garder le survol
+            const densePoints = sortedData.length > 60;
+            const pointRadius = densePoints ? 0 : 4;
+            const lineTension = densePoints ? 0.1 : 0.3;
 
             const portfolioValues = sortedData.map(data => data.portfolio_value || 0);
             const investedCapitals = sortedData.map(data => data.invested_capital || 0);
@@ -3098,6 +3415,8 @@
             if (window.portfolioChart) {
                 window.portfolioChart.destroy();
             }
+            hideChartRangeInfo();
+            bindChartRangeSelection(canvas);
 
             // Masquer les états de chargement
             loadingState.style.display = 'none';
@@ -3110,6 +3429,7 @@
             const ctx = canvas.getContext('2d');
             window.portfolioChart = new Chart(ctx, {
                 type: 'line',
+                plugins: [rangeSelectPlugin],
                 data: {
                     labels: labels,
                     datasets: [
@@ -3119,13 +3439,13 @@
                             borderColor: '#64B5F6',
                             backgroundColor: 'rgba(100, 181, 246, 0.1)',
                             borderWidth: 2,
-                            tension: 0.3,
+                            tension: lineTension,
                             fill: false,
                             pointBackgroundColor: '#64B5F6',
                             pointBorderColor: '#1976D2',
                             pointBorderWidth: 2,
-                            pointRadius: 4,
-                            pointHoverRadius: 6
+                            pointRadius: pointRadius,
+                            pointHoverRadius: densePoints ? 4 : 6
                         },
                         {
                             label: 'Valeur du portefeuille',
@@ -3161,13 +3481,13 @@
                                 return gradient;
                             },
                             borderWidth: 2,
-                            tension: 0.3,
+                            tension: lineTension,
                             fill: '-1',
                             pointBackgroundColor: '#81C784',
                             pointBorderColor: '#388E3C',
                             pointBorderWidth: 2,
-                            pointRadius: 4,
-                            pointHoverRadius: 6
+                            pointRadius: pointRadius,
+                            pointHoverRadius: densePoints ? 4 : 6
                         }
                     ]
                 },
@@ -3218,8 +3538,9 @@
 
                                 const tooltipModel = context.tooltip;
 
-                                // Cacher si pas de tooltip
-                                if (tooltipModel.opacity === 0) {
+                                // Cacher si pas de tooltip ou pendant une sélection de plage
+                                const activeRange = context.chart.$range;
+                                if (tooltipModel.opacity === 0 || (activeRange && (activeRange.dragging || activeRange.start !== activeRange.end))) {
                                     tooltipEl.style.opacity = '0';
                                     return;
                                 }
@@ -3292,7 +3613,10 @@
                                 color: 'rgba(255, 255, 255, 0.7)',
                                 font: {
                                     size: 11
-                                }
+                                },
+                                autoSkip: true,
+                                maxTicksLimit: 12,
+                                maxRotation: 0
                             }
                         },
                         y: {
@@ -4382,7 +4706,7 @@
 
         // Fonction pour mettre à jour l'état des boutons de période
         function updatePeriodButtonsAccess() {
-            const periodButtons = document.querySelectorAll('.period-btn');
+            const periodButtons = document.querySelectorAll('.period-btn[data-period]');
             const hasPremium = hasPremiumAccess();
 
             periodButtons.forEach(button => {
@@ -4430,7 +4754,21 @@
 
         // Initialisation des boutons de période pour le graphique
         document.addEventListener('DOMContentLoaded', function() {
-            const periodButtons = document.querySelectorAll('.period-btn');
+            const periodButtons = document.querySelectorAll('.period-btn[data-period]');
+
+            // Boutons de granularité (jour / semaine / mois / an) : accessibles à tous
+            syncGranularityButtons();
+            document.querySelectorAll('.period-btn[data-granularity]').forEach(button => {
+                button.addEventListener('click', function() {
+                    const newGranularity = this.dataset.granularity;
+                    if (newGranularity === currentGranularity) return;
+                    try {
+                        localStorage.setItem('portfolioChartGranularity', newGranularity);
+                    } catch (e) {
+                    }
+                    loadPortfolioChart(null, newGranularity);
+                });
+            });
 
             periodButtons.forEach(button => {
                 button.addEventListener('click', function() {
@@ -4448,12 +4786,7 @@
                     this.classList.add('active');
 
                     // Recharger le graphique avec la nouvelle période
-                    if (fullMonthlyData) {
-                        loadPortfolioChart(newPeriod);
-                    } else {
-                        currentPeriod = newPeriod;
-                        loadPortfolioChart();
-                    }
+                    loadPortfolioChart(newPeriod);
                 });
             });
 

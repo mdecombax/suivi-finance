@@ -767,24 +767,44 @@ def monthly_portfolio_values_api():
         # Récupérer les ordres depuis Firebase pour cet utilisateur
         user_orders = firebase_service.get_user_orders(user_id)
 
-        # Calculer les valeurs mensuelles du portefeuille
-        monthly_values = portfolio_service.get_monthly_portfolio_values(user_orders)
+        # Granularité du graphique : day | week | month (défaut) | year
+        granularity = request.args.get("granularity", "month")
+        if granularity not in portfolio_service.VALID_GRANULARITIES:
+            granularity = "month"
 
-        # Calculer les métriques avancées (sur toutes les données)
-        advanced_metrics = portfolio_service.calculate_advanced_metrics(monthly_values)
+        # Calculer les valeurs du portefeuille à la granularité demandée
+        monthly_values = portfolio_service.get_portfolio_values(user_orders, granularity=granularity)
+
+        # Métriques avancées : calculées sur la série mensuelle uniquement
+        # (les autres granularités ne servent qu'au graphique)
+        advanced_metrics = (
+            portfolio_service.calculate_advanced_metrics(monthly_values)
+            if granularity == "month" else None
+        )
 
         # Pour les utilisateurs freemium, limiter aux 3 derniers mois
         is_limited = False
         total_months_available = len(monthly_values)
 
-        if not is_premium and len(monthly_values) > 3:
-            monthly_values = monthly_values[-3:]  # Garder uniquement les 3 derniers mois
-            is_limited = True
+        if not is_premium:
+            if granularity == "month":
+                if len(monthly_values) > 3:
+                    monthly_values = monthly_values[-3:]  # Garder uniquement les 3 derniers mois
+                    is_limited = True
+            else:
+                # Même fenêtre que le mensuel : depuis le 1er du mois précédent
+                today = date.today()
+                cutoff = (date(today.year - 1, 12, 1) if today.month == 1
+                          else date(today.year, today.month - 1, 1)).isoformat()
+                limited = [v for v in monthly_values if v["date"] >= cutoff]
+                is_limited = len(limited) < len(monthly_values)
+                monthly_values = limited
 
         result = {
             "success": True,
             "data": monthly_values,
-            "advanced_metrics": advanced_metrics.to_dict(),
+            "granularity": granularity,
+            "advanced_metrics": advanced_metrics.to_dict() if advanced_metrics else None,
             "user_id": user_id,
             "total_months": len(monthly_values),
             "is_premium": is_premium,

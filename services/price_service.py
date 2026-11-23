@@ -9,6 +9,8 @@ import yfinance as yf
 from datetime import datetime, timedelta, date
 from typing import Optional, Tuple, Dict, Any, List
 import concurrent.futures
+import bisect
+import math
 
 from models import PriceQuote
 
@@ -22,6 +24,8 @@ class PriceService:
     def __init__(self, debug_logger=None):
         self.logger = debug_logger
         self._batch_cache = {}  # Cache pour le batch pricing: {isin: {date: price}}
+        self._batch_sorted_dates = {}  # {isin: [dates triées]} pour la recherche dichotomique
+        self._fx_cache = {}  # {devise: {date: taux vers EUR}}
     
     def _log(self, message: str, extra: Optional[Dict[str, Any]] = None):
         """Log debug information if logger is available."""
@@ -536,6 +540,7 @@ class PriceService:
 
                     # Mettre à jour le cache
                     self._batch_cache[isin] = prices
+                    self._batch_sorted_dates.pop(isin, None)
 
                     self._log("Batch fetch completed for ISIN", {
                         "isin": isin,
@@ -566,16 +571,75 @@ class PriceService:
                 self._log("No historical data", {"isin": isin})
                 return {}
 
-            # Créer un dictionnaire date -> prix
+            # Créer un dictionnaire date -> prix (on ignore les NaN de la séance en cours)
             prices = {}
             for idx, row in hist.iterrows():
-                prices[idx.date()] = float(row['Close'])
+                close = float(row['Close'])
+                if not math.isnan(close) and close > 0:
+                    prices[idx.date()] = close
+
+            # Yahoo peut résoudre l'ISIN vers une cotation hors EUR (ex. IWDA.L en USD) :
+            # convertir l'historique en EUR pour rester cohérent avec les prix JustETF.
+            currency = None
+            try:
+                currency = (yf_ticker.history_metadata or {}).get('currency')
+            except Exception:
+                currency = None
+
+            if prices and currency and currency.upper() != 'EUR':
+                prices = self._convert_history_to_eur(prices, currency)
 
             return prices
 
         except Exception as e:
             self._log("Failed to fetch all prices", {"isin": isin, "error": str(e)})
             return {}
+
+    def _get_fx_history_to_eur(self, currency: str) -> Dict[date, float]:
+        """Historique journalier du taux <currency> -> EUR (Yahoo, ex. USDEUR=X), mis en cache."""
+        if currency in self._fx_cache:
+            return self._fx_cache[currency]
+        rates: Dict[date, float] = {}
+        try:
+            hist = yf.Ticker(f"{currency}EUR=X").history(period='max', interval='1d')
+            for idx, row in hist.iterrows():
+                rate = float(row['Close'])
+                if not math.isnan(rate) and rate > 0:
+                    rates[idx.date()] = rate
+        except Exception as e:
+            self._log("Failed to fetch FX history", {"currency": currency, "error": str(e)})
+        self._fx_cache[currency] = rates
+        return rates
+
+    def _convert_history_to_eur(self, prices: Dict[date, float], currency: str) -> Dict[date, float]:
+        """Convertit un historique {date: prix} exprimé en `currency` vers l'EUR."""
+        factor = 1.0
+        cur = currency
+        # Cotations en pence / cents (GBp, GBX, ZAc, ILA...) : ramener à l'unité
+        if currency in ('GBp', 'GBX'):
+            cur, factor = 'GBP', 0.01
+        elif currency == 'ZAc':
+            cur, factor = 'ZAR', 0.01
+        elif currency == 'ILA':
+            cur, factor = 'ILS', 0.01
+        cur = cur.upper()
+
+        rates = self._get_fx_history_to_eur(cur)
+        if not rates:
+            # Sans taux de change, mieux vaut ne rien renvoyer que des prix faux :
+            # le calcul retombera sur les autres sources de prix.
+            self._log("No FX rates, dropping non-EUR history", {"currency": currency})
+            return {}
+
+        rate_dates = sorted(rates.keys())
+        converted: Dict[date, float] = {}
+        for d, price in prices.items():
+            idx = bisect.bisect_right(rate_dates, d)
+            # Taux au plus tard à cette date, sinon le premier disponible
+            rate = rates[rate_dates[idx - 1]] if idx > 0 else rates[rate_dates[0]]
+            converted[d] = price * factor * rate
+        self._log("Converted history to EUR", {"currency": currency, "points": len(converted)})
+        return converted
 
     def get_historical_price_from_batch(self, isin: str, target_date: date) -> Optional[float]:
         """
@@ -592,16 +656,21 @@ class PriceService:
         if not price_cache:
             return None
 
-        # Chercher la date exacte ou la plus proche avant
-        available_dates = sorted([d for d in price_cache.keys() if d <= target_date], reverse=True)
+        # Chercher la date exacte ou la plus proche avant (recherche dichotomique
+        # sur les dates triées, mises en cache : indispensable en granularité jour)
+        sorted_dates = self._batch_sorted_dates.get(isin)
+        if sorted_dates is None or len(sorted_dates) != len(price_cache):
+            sorted_dates = sorted(price_cache.keys())
+            self._batch_sorted_dates[isin] = sorted_dates
 
-        if available_dates:
-            best_date = available_dates[0]
-            return price_cache[best_date]
+        idx = bisect.bisect_right(sorted_dates, target_date)
+        if idx > 0:
+            return price_cache[sorted_dates[idx - 1]]
 
         return None
 
     def clear_batch_cache(self):
         """Vide le cache batch (utile pour libérer de la mémoire)."""
         self._batch_cache = {}
+        self._batch_sorted_dates = {}
         self._log("Batch cache cleared")

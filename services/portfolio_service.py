@@ -3,7 +3,7 @@ Service for portfolio management operations including performance calculations a
 """
 
 import json
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import numpy as np
@@ -384,12 +384,59 @@ class PortfolioService:
         
         return scenarios
 
+    VALID_GRANULARITIES = ("day", "week", "month", "year")
+
     def get_monthly_portfolio_values(self, orders_data: List[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-        """Calculate portfolio value at the beginning of each month since first order.
+        """Calculate portfolio value at the beginning of each month since first order."""
+        return self.get_portfolio_values(orders_data, granularity="month")
+
+    @staticmethod
+    def _generate_sample_dates(first_order_date: date, end_date: date, granularity: str) -> List[date]:
+        """Dates d'échantillonnage du graphique selon la granularité.
+
+        - day   : chaque jour ouvré (lun-ven) depuis le premier ordre
+        - week  : chaque lundi depuis la semaine du premier ordre
+        - month : chaque 1er du mois depuis le mois du premier ordre
+        - year  : chaque 1er janvier depuis l'année du premier ordre
+        """
+        dates: List[date] = []
+        if granularity == "day":
+            d = first_order_date
+            while d <= end_date:
+                if d.weekday() < 5:
+                    dates.append(d)
+                d += timedelta(days=1)
+        elif granularity == "week":
+            d = first_order_date - timedelta(days=first_order_date.weekday())
+            while d <= end_date:
+                dates.append(d)
+                d += timedelta(days=7)
+        elif granularity == "year":
+            y = first_order_date.year
+            while date(y, 1, 1) <= end_date:
+                dates.append(date(y, 1, 1))
+                y += 1
+        else:  # month
+            d = date(first_order_date.year, first_order_date.month, 1)
+            while d <= end_date:
+                dates.append(d)
+                d = date(d.year + 1, 1, 1) if d.month == 12 else date(d.year, d.month + 1, 1)
+        return dates
+
+    def get_portfolio_values(self, orders_data: List[Dict[str, Any]] = None, granularity: str = "month") -> List[Dict[str, Any]]:
+        """Calculate portfolio value at each sample date (day/week/month/year) since first order.
 
         OPTIMISATION: Utilise le batch pricing pour fetcher tous les prix en une fois,
         ce qui est ~50x plus rapide que des requêtes individuelles.
+
+        En granularité "month", le format historique est conservé (positions détaillées,
+        premier mois à 0). Pour les autres granularités, les positions ne sont pas
+        incluses (payload léger) et aucun appel réseau unitaire n'est fait en fallback.
         """
+        if granularity not in self.VALID_GRANULARITIES:
+            granularity = "month"
+        is_month = granularity == "month"
+
         if orders_data is not None:
             # Convert Firebase orders data to InvestmentOrder objects
             orders = []
@@ -429,65 +476,47 @@ class PortfolioService:
             "successful": sum(1 for p in batch_prices.values() if p)
         })
 
-        # Find the first order date to determine starting month
         first_order_date = orders[0].order_date
-        first_month = date(first_order_date.year, first_order_date.month, 1)
-
-        # Generate monthly data from first month to current month
         current_date = date.today()
-        current_month = date(current_date.year, current_date.month, 1)
+        sample_dates = self._generate_sample_dates(first_order_date, current_date, granularity)
 
-        monthly_values = []
-        month_iter = first_month
-
-        while month_iter <= current_month:
-            month_first_day = month_iter
-
-            # For the very first month (month of first order), value is 0
-            if month_iter == first_month:
-                monthly_values.append({
-                    "month": month_first_day.strftime("%Y-%m"),
-                    "month_display": month_first_day.strftime("%B %Y"),
-                    "date": month_first_day.isoformat(),
-                    "portfolio_value": 0.0,
-                    "invested_capital": 0.0,
-                    "plus_minus_values": 0.0,
-                    "plus_minus_values_pct": 0.0,
-                    "positions": [],
-                    "is_first_month": True
-                })
+        values = []
+        for i, sample_date in enumerate(sample_dates):
+            # Mois du premier ordre : valeur 0 (comportement historique)
+            if is_month and i == 0:
+                portfolio_value, invested_capital, positions = 0.0, 0.0, []
             else:
-                # Calculate portfolio value at the beginning of this month
-                portfolio_value, invested_capital, positions = self._calculate_portfolio_value_at_date(orders, month_first_day)
+                portfolio_value, invested_capital, positions = self._calculate_portfolio_value_at_date(
+                    orders, sample_date, allow_network_fallback=is_month
+                )
 
-                # Calculate +/- values (profit/loss)
-                plus_minus_values = portfolio_value - invested_capital
-                plus_minus_values_pct = (plus_minus_values / invested_capital * 100) if invested_capital > 0 else 0
+            plus_minus_values = portfolio_value - invested_capital
+            plus_minus_values_pct = (plus_minus_values / invested_capital * 100) if invested_capital > 0 else 0
 
-                monthly_values.append({
-                    "month": month_first_day.strftime("%Y-%m"),
-                    "month_display": month_first_day.strftime("%B %Y"),
-                    "date": month_first_day.isoformat(),
-                    "portfolio_value": portfolio_value,
-                    "invested_capital": invested_capital,
-                    "plus_minus_values": plus_minus_values,
-                    "plus_minus_values_pct": plus_minus_values_pct,
-                    "positions": positions,
-                    "is_first_month": False
-                })
+            point = {
+                "month": sample_date.strftime("%Y-%m"),
+                "month_display": sample_date.strftime("%B %Y"),
+                "date": sample_date.isoformat(),
+                "portfolio_value": portfolio_value,
+                "invested_capital": invested_capital,
+                "plus_minus_values": plus_minus_values,
+                "plus_minus_values_pct": plus_minus_values_pct,
+                "is_first_month": is_month and i == 0
+            }
+            if is_month:
+                point["positions"] = positions
+            values.append(point)
 
-            # Move to next month
-            if month_iter.month == 12:
-                month_iter = date(month_iter.year + 1, 1, 1)
-            else:
-                month_iter = date(month_iter.year, month_iter.month + 1, 1)
+        # Hors mensuel, un point tombant aujourd'hui est remplacé par la ligne "Actuellement"
+        if not is_month and values and values[-1]["date"] == current_date.isoformat():
+            values.pop()
 
-        # Add current value as a final row
-        current_portfolio_value, current_invested_capital, current_positions = self._calculate_portfolio_value_at_date(orders, current_date)
+        # Ligne "Actuellement" : même calcul que les KPI (/api/portfolio) pour être cohérent
+        current_portfolio_value, current_invested_capital, current_positions = self._calculate_current_portfolio_value(orders)
         current_plus_minus_values = current_portfolio_value - current_invested_capital
         current_plus_minus_values_pct = (current_plus_minus_values / current_invested_capital * 100) if current_invested_capital > 0 else 0
 
-        monthly_values.append({
+        current_point = {
             "month": "current",
             "month_display": "Actuellement",
             "date": current_date.isoformat(),
@@ -495,17 +524,52 @@ class PortfolioService:
             "invested_capital": current_invested_capital,
             "plus_minus_values": current_plus_minus_values,
             "plus_minus_values_pct": current_plus_minus_values_pct,
-            "positions": current_positions,
             "is_current": True,
             "is_first_month": False
-        })
+        }
+        if is_month:
+            current_point["positions"] = current_positions
+        values.append(current_point)
 
-        return monthly_values
+        return values
+
+    def _calculate_current_portfolio_value(
+        self,
+        orders: List[InvestmentOrder]
+    ) -> tuple[float, float, List[Dict[str, Any]]]:
+        """Valeur actuelle calculée exactement comme get_portfolio_summary (KPI) :
+        tous les ordres, prix courant (JustETF en EUR pour les ISIN)."""
+        isin_positions: Dict[str, Dict[str, float]] = {}
+        for order in orders:
+            pos = isin_positions.setdefault(order.isin, {'quantity': 0.0, 'total_invested': 0.0})
+            pos['quantity'] += order.quantity
+            pos['total_invested'] += order.total_price_eur
+
+        total_invested = sum(order.total_price_eur for order in orders)
+        total_value = 0.0
+        positions_detail = []
+
+        for isin, pos in isin_positions.items():
+            quote = self.price_service.get_current_price(isin)
+            if quote.is_valid and quote.price > 0:
+                value = quote.price * pos['quantity']
+                total_value += value
+                positions_detail.append({
+                    "isin": isin,
+                    "quantity": pos['quantity'],
+                    "price": quote.price,
+                    "value": value,
+                    "total_invested": pos['total_invested'],
+                    "price_source": quote.source
+                })
+
+        return total_value, total_invested, positions_detail
 
     def _calculate_portfolio_value_at_date(
         self,
         orders: List[InvestmentOrder],
-        target_date: date
+        target_date: date,
+        allow_network_fallback: bool = True
     ) -> tuple[float, float, List[Dict[str, Any]]]:
         """Calculate portfolio value, total invested capital and positions at a specific date."""
         # Filter orders that occurred before the target date
@@ -559,6 +623,9 @@ class PortfolioService:
                     "total_invested": position_data['total_invested'],
                     "price_source": "Batch cache"
                 })
+            elif not allow_network_fallback:
+                # Granularité fine : pas d'appel réseau par point (trop coûteux)
+                continue
             else:
                 # Fallback: requête individuelle (ancien comportement)
                 price_quote = self.price_service.get_historical_price(isin, target_date)
