@@ -21,4 +21,7 @@ ENV PORT=8080
 EXPOSE 8080
 
 # Run the application
-CMD exec gunicorn --bind 0.0.0.0:${PORT:-8080} --workers 2 --timeout 120 app:app
+# 1 process + 8 threads : les appels API d'une page partent en parallèle (au lieu de faire
+# la queue derrière 2 workers synchrones) et partagent les caches de prix en mémoire.
+# L'essentiel du travail attend le réseau (JustETF / Yahoo / Firestore), donc les threads suffisent.
+CMD exec gunicorn --bind 0.0.0.0:${PORT:-8080} --workers 1 --threads 8 --worker-class gthread --timeout 120 app:app

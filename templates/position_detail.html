@@ -667,19 +667,41 @@
             }
         });
 
+        /**
+         * GET authentifié mémorisé : la page lance toutes ses requêtes en même temps au démarrage
+         * (avant : /api/position, puis seulement après le graphique et /api/orders, l'un après l'autre).
+         * Renvoie un objet compatible avec Response (ok, status, statusText, json()) réutilisable.
+         */
+        const apiGetPromises = {};
+        function apiGetOnce(url) {
+            if (!apiGetPromises[url]) {
+                apiGetPromises[url] = fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                }).then(async response => {
+                    const body = await response.json().catch(() => ({}));
+                    return { ok: response.ok, status: response.status, statusText: response.statusText, json: async () => body };
+                });
+                // En cas d'échec réseau, permettre une nouvelle tentative
+                apiGetPromises[url].catch(() => { delete apiGetPromises[url]; });
+            }
+            return apiGetPromises[url];
+        }
+
         async function loadPositionData() {
             try {
                 if (!authToken) {
                     throw new Error('Utilisateur non authentifié');
                 }
 
-                const response = await fetch(`/api/position/${isin}`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    }
-                });
+                // Toutes les données de la page demandées en parallèle
+                apiGetOnce(`/api/position/${isin}/monthly-values`);
+                apiGetOnce('/api/orders');
+
+                const response = await apiGetOnce(`/api/position/${isin}`);
                 const data = await response.json();
 
                 if (data.error) {
@@ -780,13 +802,7 @@
                     throw new Error('Utilisateur non authentifié');
                 }
 
-                const ordersResponse = await fetch('/api/orders', {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    }
-                });
+                const ordersResponse = await apiGetOnce('/api/orders');
                 const ordersData = await ordersResponse.json();
 
                 // Debug: afficher les données récupérées
@@ -1259,13 +1275,7 @@
                     throw new Error('Utilisateur non authentifié');
                 }
 
-                const response = await fetch(`/api/position/${isin}/monthly-values`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    }
-                });
+                const response = await apiGetOnce(`/api/position/${isin}/monthly-values`);
 
                 if (!response.ok) {
                     throw new Error(`Erreur ${response.status}: ${response.statusText}`);

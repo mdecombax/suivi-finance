@@ -190,6 +190,7 @@
             try {
                 const result = await apiPost('/api/orders', orderData);
                 if (result.success) {
+                    window.invalidatePortfolioCaches?.();
                     showMessage('Ordre ajouté avec succès', 'success');
                     await loadOrders();
                 } else {
@@ -217,6 +218,7 @@
             try {
                 const result = await apiDelete(`/api/orders?order_id=${orderId}`);
                 if (result.success) {
+                    window.invalidatePortfolioCaches?.();
                     showMessage('Ordre supprimé avec succès', 'success');
 
                     const row = deleteBtn.closest('tr');

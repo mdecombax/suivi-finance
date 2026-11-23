@@ -4,6 +4,8 @@ Handles both Yahoo Finance and JustETF data sources.
 """
 
 import re
+import threading
+import time
 import requests
 import yfinance as yf
 from datetime import datetime, timedelta, date
@@ -21,12 +23,31 @@ class PriceService:
     ISIN_PATTERN = re.compile(r"^[A-Z]{2}[A-Z0-9]{9}\d$")
     JUSTETF_BASE_URL = "https://www.justetf.com/api/etfs"
 
+    # Durées de vie des caches (secondes). Sans cache, chaque requête refaisait tous
+    # les appels JustETF / Yahoo (≈ 5-7 s par page, mesuré sur téléphone).
+    CURRENT_PRICE_TTL = 600      # prix courant : 10 min
+    HISTORY_TTL = 3600           # historique journalier : 1 h
+    FX_TTL = 12 * 3600           # taux de change : 12 h
+
     def __init__(self, debug_logger=None):
         self.logger = debug_logger
+        self._current_price_cache = {}  # {ticker/isin: (expiration, PriceQuote)}
+        self._historical_price_cache = {}  # {(ticker/isin, date): (expiration, PriceQuote)}
+        self._batch_cache_expiry = {}   # {isin: expiration}
+        self._fx_cache_expiry = {}      # {devise: expiration}
+        self._fetch_locks = {}          # {clé: Lock} : une seule requête réseau par clé à la fois
+        self._locks_guard = threading.Lock()
         self._batch_cache = {}  # Cache pour le batch pricing: {isin: {date: price}}
         self._batch_sorted_dates = {}  # {isin: [dates triées]} pour la recherche dichotomique
         self._fx_cache = {}  # {devise: {date: taux vers EUR}}
     
+    def _lock_for(self, key) -> threading.Lock:
+        with self._locks_guard:
+            lock = self._fetch_locks.get(key)
+            if lock is None:
+                lock = self._fetch_locks[key] = threading.Lock()
+            return lock
+
     def _log(self, message: str, extra: Optional[Dict[str, Any]] = None):
         """Log debug information if logger is available."""
         if self.logger:
@@ -51,20 +72,36 @@ class PriceService:
                 error_message="Empty ticker/ISIN provided"
             )
         
-        self._log("Fetching current price", {"ticker": ticker_or_isin})
-        
-        # Try Yahoo Finance first for ticker symbols
-        if not self.is_valid_isin(ticker_or_isin):
-            yahoo_quote = self._get_yahoo_current_price(ticker_or_isin)
-            if yahoo_quote.is_valid:
-                return yahoo_quote
-        
-        # Try JustETF for ISIN codes or as fallback
-        if self.is_valid_isin(ticker_or_isin):
-            justetf_quote = self._get_justetf_current_price(ticker_or_isin)
-            if justetf_quote.is_valid:
-                return justetf_quote
-        
+        cached = self._current_price_cache.get(ticker_or_isin)
+        if cached and cached[0] > time.time():
+            return cached[1]
+
+        # Requêtes simultanées pour le même ISIN (plusieurs API appelées en parallèle par
+        # la page) : une seule part sur le réseau, les autres attendent son résultat.
+        with self._lock_for(("price", ticker_or_isin)):
+            cached = self._current_price_cache.get(ticker_or_isin)
+            if cached and cached[0] > time.time():
+                return cached[1]
+
+            self._log("Fetching current price", {"ticker": ticker_or_isin})
+            quote = None
+
+            # Try Yahoo Finance first for ticker symbols
+            if not self.is_valid_isin(ticker_or_isin):
+                yahoo_quote = self._get_yahoo_current_price(ticker_or_isin)
+                if yahoo_quote.is_valid:
+                    quote = yahoo_quote
+
+            # Try JustETF for ISIN codes or as fallback
+            if quote is None and self.is_valid_isin(ticker_or_isin):
+                justetf_quote = self._get_justetf_current_price(ticker_or_isin)
+                if justetf_quote.is_valid:
+                    quote = justetf_quote
+
+            if quote is not None:
+                self._current_price_cache[ticker_or_isin] = (time.time() + self.CURRENT_PRICE_TTL, quote)
+                return quote
+
         return PriceQuote(
             price=0.0,
             source="Error",
@@ -83,17 +120,29 @@ class PriceService:
                 error_message="Empty ticker/ISIN provided"
             )
         
+        # Un prix passé ne change plus : mémorisé 24 h (1 h pour aujourd'hui).
+        # Sans ça, le graphique mensuel refaisait ~0,5 s d'appel JustETF par point manquant.
+        key = (ticker_or_isin, target_date)
+        cached = self._historical_price_cache.get(key)
+        if cached and cached[0] > time.time():
+            return cached[1]
+
         self._log("Fetching historical price", {
             "ticker": ticker_or_isin,
             "date": target_date.isoformat()
         })
-        
-        # Use JustETF for ISIN codes
+
         if self.is_valid_isin(ticker_or_isin):
-            return self._get_justetf_historical_price(ticker_or_isin, target_date)
-        
-        # Use Yahoo Finance for ticker symbols
-        return self._get_yahoo_historical_price(ticker_or_isin, target_date)
+            # Use JustETF for ISIN codes
+            quote = self._get_justetf_historical_price(ticker_or_isin, target_date)
+        else:
+            # Use Yahoo Finance for ticker symbols
+            quote = self._get_yahoo_historical_price(ticker_or_isin, target_date)
+
+        ttl = self.HISTORY_TTL if target_date >= date.today() else 24 * 3600
+        # Un échec est retenté au bout de 5 min plutôt qu'à chaque requête
+        self._historical_price_cache[key] = (time.time() + (ttl if quote.is_valid else 300), quote)
+        return quote
     
     def _get_yahoo_current_price(self, ticker: str) -> PriceQuote:
         """Get current price from Yahoo Finance."""
@@ -523,13 +572,32 @@ class PriceService:
 
         Cette méthode est ~50x plus rapide que des appels individuels à get_historical_price().
         """
-        self._log("Batch fetch starting", {"isins_count": len(isins), "max_workers": max_workers})
-
+        # Réutiliser les séries encore fraîches (re-télécharger l'historique complet
+        # coûtait ~1,3 s par ISIN à chaque requête)
+        now = time.time()
         results = {}
+        to_fetch = []
+        for isin in isins:
+            if self._batch_cache.get(isin) and self._batch_cache_expiry.get(isin, 0) > now:
+                results[isin] = self._batch_cache[isin]
+            else:
+                to_fetch.append(isin)
+
+        self._log("Batch fetch starting", {"isins_count": len(isins), "from_cache": len(results),
+                                           "to_fetch": len(to_fetch), "max_workers": max_workers})
+        if not to_fetch:
+            return results
+
+        def fetch_one(isin):
+            # Verrou par ISIN : deux requêtes simultanées ne téléchargent pas deux fois
+            with self._lock_for(("history", isin)):
+                if self._batch_cache.get(isin) and self._batch_cache_expiry.get(isin, 0) > time.time():
+                    return self._batch_cache[isin]
+                return self._fetch_all_prices_for_isin(isin)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Soumettre toutes les tâches en parallèle
-            futures = {executor.submit(self._fetch_all_prices_for_isin, isin): isin for isin in isins}
+            futures = {executor.submit(fetch_one, isin): isin for isin in to_fetch}
 
             # Récupérer les résultats au fur et à mesure
             for future in concurrent.futures.as_completed(futures):
@@ -538,9 +606,12 @@ class PriceService:
                     prices = future.result()
                     results[isin] = prices
 
-                    # Mettre à jour le cache
-                    self._batch_cache[isin] = prices
-                    self._batch_sorted_dates.pop(isin, None)
+                    # Mettre à jour le cache (seules les séries non vides sont gardées 1 h)
+                    if self._batch_cache.get(isin) is not prices:
+                        self._batch_cache[isin] = prices
+                        self._batch_sorted_dates.pop(isin, None)
+                    if prices:
+                        self._batch_cache_expiry[isin] = time.time() + self.HISTORY_TTL
 
                     self._log("Batch fetch completed for ISIN", {
                         "isin": isin,
@@ -597,7 +668,7 @@ class PriceService:
 
     def _get_fx_history_to_eur(self, currency: str) -> Dict[date, float]:
         """Historique journalier du taux <currency> -> EUR (Yahoo, ex. USDEUR=X), mis en cache."""
-        if currency in self._fx_cache:
+        if currency in self._fx_cache and self._fx_cache_expiry.get(currency, 0) > time.time():
             return self._fx_cache[currency]
         rates: Dict[date, float] = {}
         try:
@@ -609,6 +680,8 @@ class PriceService:
         except Exception as e:
             self._log("Failed to fetch FX history", {"currency": currency, "error": str(e)})
         self._fx_cache[currency] = rates
+        # Un échec n'est mémorisé que 5 min (nouvel essai rapide), un succès 12 h
+        self._fx_cache_expiry[currency] = time.time() + (self.FX_TTL if rates else 300)
         return rates
 
     def _convert_history_to_eur(self, prices: Dict[date, float], currency: str) -> Dict[date, float]:
@@ -624,7 +697,8 @@ class PriceService:
             cur, factor = 'ILS', 0.01
         cur = cur.upper()
 
-        rates = self._get_fx_history_to_eur(cur)
+        with self._lock_for(("fx", cur)):  # plusieurs ISIN en USD → un seul téléchargement
+            rates = self._get_fx_history_to_eur(cur)
         if not rates:
             # Sans taux de change, mieux vaut ne rien renvoyer que des prix faux :
             # le calcul retombera sur les autres sources de prix.

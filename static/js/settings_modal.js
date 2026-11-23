@@ -123,6 +123,7 @@ function resetData() {
     if (confirm(confirmMessage)) {
         // Effacer toutes les données
         localStorage.clear();
+        window.invalidatePortfolioCaches?.();
 
         alert('Données locales réinitialisées. La page va se recharger.');
         window.location.reload();

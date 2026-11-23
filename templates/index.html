@@ -2618,54 +2618,6 @@
             }, 400);
         }
 
-        // Chargement des données du portefeuille
-        async function loadPortfolioData() {
-            try {
-                const accountType = userAccountType || localStorage.getItem('accountType') || 'pea';
-                const response = await fetch(`/api/portfolio?account_type=${accountType}`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error('Erreur lors du chargement du portefeuille');
-                }
-
-                const result = await response.json();
-                if (result.success) {
-                    portfolioData = result.data;
-                    // Masquer le loading et afficher le contenu
-                    document.getElementById('loadingState').style.display = 'none';
-                    document.getElementById('portfolioContent').style.display = 'block';
-                    
-                    // Déclencher les animations de manière séquentielle
-                    setTimeout(() => {
-                        document.querySelector('.main-kpis').classList.add('animate-in');
-                        document.querySelectorAll('.main-kpi-card').forEach((card, index) => {
-                            setTimeout(() => card.classList.add('animate-in'), index * 150);
-                        });
-                    }, 100);
-                    
-                    
-                    setTimeout(() => {
-                        document.querySelector('.positions-table').classList.add('animate-in');
-                    }, 1000);
-                    
-                    updatePortfolioDisplay();
-                } else {
-                    throw new Error(result.error || 'Erreur inconnue');
-                }
-            } catch (error) {
-                console.error('Erreur lors du chargement du portefeuille:', error);
-                // Masquer le loading et afficher l'état vide
-                document.getElementById('loadingState').style.display = 'none';
-                document.getElementById('portfolioContent').style.display = 'block';
-                showEmptyState();
-            }
-        }
-
         function updatePortfolioDisplay() {
             if (!portfolioData) return;
 
@@ -2732,10 +2684,10 @@
             // Mettre à jour le tableau des positions
             setTimeout(() => updatePositionsTable(), 600);
 
-            // Charger les données mensuelles du portefeuille
+            // Graphique : données déjà préchargées (ou en cache), plus besoin d'attendre longtemps
             setTimeout(() => {
                 loadPortfolioChart();
-            }, 800);
+            }, 300);
         }
 
         function animateCounter(elementId, targetValue, suffix = '', prefix = '') {
@@ -2897,11 +2849,14 @@
         let portfolioChart = null;
         let currentPeriod = '3m';
         const CHART_GRANULARITIES = ['day', 'week', 'month', 'year'];
-        const CHART_CACHE_TTL_MS = 5 * 60 * 1000;
+        const CHART_CACHE_TTL_MS = 5 * 60 * 1000;          // au-delà : affiché puis rafraîchi en arrière-plan
+        const CHART_CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000; // au-delà : ignoré
         let currentGranularity = 'month';
         // Cache des séries par granularité : { day: [...], week: [...], month: [...], year: [...] }
         const chartDataByGranularity = {};
         let chartRequestSeq = 0;
+        const chartFetchedAt = {};       // { granularité: timestamp de la donnée en cache }
+        const chartFetchPromises = {};   // { granularité: Promise } : une seule requête en vol par granularité
         // Métriques avancées (renvoyées uniquement avec la série mensuelle)
         let cachedAdvancedMetrics = null;
         let advancedMetricsShown = false;
@@ -2915,14 +2870,16 @@
         } catch (e) {
         }
 
-        // Restaurer le cache depuis sessionStorage au démarrage (moins de 5 minutes)
+        // Restaurer le cache depuis sessionStorage au démarrage : affiché tout de suite,
+        // puis revalidé en arrière-plan s'il a plus de 5 minutes
         CHART_GRANULARITIES.forEach(g => {
             try {
                 const cached = sessionStorage.getItem('portfolioChartData_' + g);
                 if (cached) {
                     const { data, timestamp, advancedMetrics } = JSON.parse(cached);
-                    if (Date.now() - timestamp < CHART_CACHE_TTL_MS && Array.isArray(data) && data.length) {
+                    if (Date.now() - timestamp < CHART_CACHE_MAX_AGE_MS && Array.isArray(data) && data.length) {
                         chartDataByGranularity[g] = data;
+                        chartFetchedAt[g] = timestamp;
                         if (g === 'month' && advancedMetrics) {
                             cachedAdvancedMetrics = advancedMetrics;
                         }
@@ -2968,6 +2925,60 @@
         }
 
         // Chargement et affichage du graphique mensuel
+        /**
+         * Récupère la série d'une granularité (une seule requête en vol par granularité,
+         * partagée entre le préchargement au démarrage, les clics et la revalidation).
+         * Met à jour le cache mémoire + sessionStorage et les métriques avancées.
+         */
+        function fetchChartData(granularity) {
+            if (chartFetchPromises[granularity]) return chartFetchPromises[granularity];
+            if (!authToken) return Promise.reject(new Error('Utilisateur non authentifié'));
+
+            const promise = fetch('/api/portfolio/monthly-values?granularity=' + encodeURIComponent(granularity), {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`
+                }
+            })
+                .then(response => {
+                    if (!response.ok) throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+                    return response.json();
+                })
+                .then(result => {
+                    if (!result.success) throw new Error(result.error || 'Erreur inconnue');
+                    chartDataByGranularity[granularity] = result.data;
+                    chartFetchedAt[granularity] = Date.now();
+                    try {
+                        sessionStorage.setItem('portfolioChartData_' + granularity, JSON.stringify({
+                            data: result.data,
+                            timestamp: chartFetchedAt[granularity],
+                            advancedMetrics: result.advanced_metrics || null
+                        }));
+                    } catch (e) {
+                    }
+                    if (result.advanced_metrics) {
+                        cachedAdvancedMetrics = result.advanced_metrics;
+                        advancedMetricsShown = true;
+                        updateAdvancedMetrics(result.advanced_metrics);
+                    }
+                    return result.data;
+                })
+                .finally(() => { delete chartFetchPromises[granularity]; });
+
+            chartFetchPromises[granularity] = promise;
+            return promise;
+        }
+
+        // Préchargement dès la connexion, en parallèle de /api/portfolio
+        // (avant : le graphique ne partait qu'après le portefeuille + 800 ms)
+        function prefetchPortfolioChart() {
+            const g = currentGranularity;
+            const cached = chartDataByGranularity[g];
+            if (cached && cached.length && Date.now() - (chartFetchedAt[g] || 0) < CHART_CACHE_TTL_MS) return;
+            fetchChartData(g).catch(err => console.warn('Préchargement graphique:', err.message));
+        }
+
         async function loadPortfolioChart(period = null, granularity = null) {
             if (period) {
                 currentPeriod = period;
@@ -2977,79 +2988,44 @@
             }
             const requestedGranularity = currentGranularity;
             syncGranularityButtons();
+            const requestId = ++chartRequestSeq;
 
-            // Si les données sont déjà en cache, utiliser le cache (pas de rechargement)
+            // Données en cache : affichage immédiat, revalidation en arrière-plan si périmées
             const cachedData = chartDataByGranularity[requestedGranularity];
             if (cachedData && cachedData.length) {
-                chartRequestSeq++; // invalide une éventuelle requête en cours
                 createPortfolioChart(filterDataByPeriod(cachedData, currentPeriod));
                 ensureAdvancedMetrics();
+
+                const isStale = Date.now() - (chartFetchedAt[requestedGranularity] || 0) >= CHART_CACHE_TTL_MS;
+                if (isStale || chartFetchPromises[requestedGranularity]) {
+                    fetchChartData(requestedGranularity)
+                        .then(data => {
+                            // Toujours sur la même vue et données changées : on redessine en silence
+                            if (requestId !== chartRequestSeq) return;
+                            if (JSON.stringify(data) === JSON.stringify(cachedData)) return;
+                            createPortfolioChart(filterDataByPeriod(data, currentPeriod));
+                        })
+                        .catch(err => console.warn('Revalidation graphique:', err.message));
+                }
                 return;
             }
 
-            const requestId = ++chartRequestSeq;
-
-            // Animation de chargement pendant la récupération
+            // Pas de cache : animation de chargement le temps de la requête (déjà en vol si préchargée)
             startLoadingAnimation();
 
             try {
-                if (!authToken) {
-                    throw new Error('Utilisateur non authentifié');
+                const data = await fetchChartData(requestedGranularity);
+                if (!advancedMetricsShown) ensureAdvancedMetrics();
+
+                // Une autre granularité/période a été demandée entre-temps : ne pas écraser
+                if (requestId !== chartRequestSeq) {
+                    return;
                 }
 
-                const response = await fetch('/api/portfolio/monthly-values?granularity=' + encodeURIComponent(requestedGranularity), {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Erreur ${response.status}: ${response.statusText}`);
-                }
-
-                const result = await response.json();
-
-                if (result.success) {
-                    // Stocker les données complètes dans le cache (par granularité)
-                    chartDataByGranularity[requestedGranularity] = result.data;
-
-                    // Sauvegarder dans sessionStorage pour persistance entre onglets
-                    try {
-                        sessionStorage.setItem('portfolioChartData_' + requestedGranularity, JSON.stringify({
-                            data: result.data,
-                            timestamp: Date.now(),
-                            advancedMetrics: result.advanced_metrics || null
-                        }));
-                    } catch (e) {
-                    }
-
-                    // Afficher les métriques avancées si disponibles (série mensuelle)
-                    if (result.advanced_metrics) {
-                        cachedAdvancedMetrics = result.advanced_metrics;
-                        advancedMetricsShown = true;
-                        updateAdvancedMetrics(result.advanced_metrics);
-                    } else {
-                        ensureAdvancedMetrics();
-                    }
-
-                    // Une autre granularité/période a été demandée entre-temps : ne pas écraser
-                    if (requestId !== chartRequestSeq) {
-                        return;
-                    }
-
-                    // Filtrer les données selon la période sélectionnée
-                    const filteredData = filterDataByPeriod(result.data, currentPeriod);
-
-                    // Arrêter l'animation de chargement et afficher le vrai graphique
-                    stopLoadingAnimation();
-                    setTimeout(() => {
-                        createPortfolioChart(filteredData);
-                    }, 300); // Petite transition pour un effet plus fluide
-                } else {
-                    throw new Error(result.error || 'Erreur inconnue');
-                }
+                stopLoadingAnimation();
+                setTimeout(() => {
+                    createPortfolioChart(filterDataByPeriod(data, currentPeriod));
+                }, 300); // Petite transition pour un effet plus fluide
             } catch (error) {
                 console.error('Erreur lors du chargement du graphique:', error);
                 if (requestId !== chartRequestSeq) {
@@ -3057,14 +3033,16 @@
                 }
                 stopLoadingAnimation();
                 const loadingState = document.getElementById('chartLoadingState');
-                loadingState.style.display = 'block';
-                loadingState.innerHTML = `
-                    <div style="color: var(--muted); text-align: center;">
-                        <div style="font-size: 2rem; margin-bottom: 10px;">⚠️</div>
-                        <div>Erreur de chargement</div>
-                        <div style="font-size: 0.9rem; opacity: 0.7;">${error.message}</div>
-                    </div>
-                `;
+                if (loadingState) {
+                    loadingState.style.display = 'block';
+                    loadingState.innerHTML = `
+                        <div style="color: var(--muted); text-align: center;">
+                            <div style="font-size: 2rem; margin-bottom: 10px;">⚠️</div>
+                            <div>Erreur de chargement</div>
+                            <div style="font-size: 0.9rem; opacity: 0.7;">${error.message}</div>
+                        </div>
+                    `;
+                }
             }
         }
 
@@ -3079,27 +3057,7 @@
                 return;
             }
             if (advancedMetricsRequest || !authToken) return;
-            advancedMetricsRequest = fetch('/api/portfolio/monthly-values?granularity=month', {
-                headers: { 'Authorization': `Bearer ${authToken}` }
-            })
-                .then(r => r.ok ? r.json() : null)
-                .then(result => {
-                    if (!result || !result.success) return;
-                    chartDataByGranularity.month = result.data;
-                    try {
-                        sessionStorage.setItem('portfolioChartData_month', JSON.stringify({
-                            data: result.data,
-                            timestamp: Date.now(),
-                            advancedMetrics: result.advanced_metrics || null
-                        }));
-                    } catch (e) {
-                    }
-                    if (result.advanced_metrics) {
-                        cachedAdvancedMetrics = result.advanced_metrics;
-                        advancedMetricsShown = true;
-                        updateAdvancedMetrics(result.advanced_metrics);
-                    }
-                })
+            advancedMetricsRequest = fetchChartData('month')
                 .catch(err => console.error('Erreur chargement métriques avancées:', err))
                 .finally(() => { advancedMetricsRequest = null; });
         }
@@ -3847,8 +3805,10 @@
                     // Afficher les liens de navigation pour utilisateurs connectés
                     showAuthenticatedNavigation();
 
-                    // Vérifier si c'est la première fois et charger les données
+                    // Vérifier si c'est la première fois et charger les données.
+                    // Le graphique est demandé en même temps que le portefeuille (et non après).
                     if (checkFirstTimeUser()) {
+                        prefetchPortfolioChart();
                         loadPortfolioData();
                     }
                 } else {
@@ -3973,8 +3933,59 @@
             }
         }
 
-        // Mettre à jour la fonction loadPortfolioData pour inclure l'authentification
+        // Clé du cache local du portefeuille (le scénario fiscal dépend du type de compte)
+        function portfolioCacheKey() {
+            const accountType = userAccountType || localStorage.getItem('accountType') || 'pea';
+            return 'portfolioSummary_' + accountType;
+        }
+
+        function readPortfolioCache() {
+            try {
+                const raw = sessionStorage.getItem(portfolioCacheKey());
+                if (!raw) return null;
+                const { data, timestamp } = JSON.parse(raw);
+                // Au-delà de 12 h on repart de zéro
+                if (!data || Date.now() - timestamp > 12 * 60 * 60 * 1000) return null;
+                return data;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function showPortfolio(data, { animate = true } = {}) {
+            portfolioData = data;
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('portfolioContent').style.display = 'block';
+
+            if (animate) {
+                // Déclencher les animations de manière séquentielle
+                setTimeout(() => {
+                    document.querySelector('.main-kpis').classList.add('animate-in');
+                    document.querySelectorAll('.main-kpi-card').forEach((card, index) => {
+                        setTimeout(() => card.classList.add('animate-in'), index * 150);
+                    });
+                }, 100);
+
+                setTimeout(() => {
+                    document.querySelector('.positions-table').classList.add('animate-in');
+                }, 1000);
+            }
+
+            updatePortfolioDisplay();
+        }
+
+        /**
+         * Chargement du portefeuille en "stale-while-revalidate" :
+         * 1. les dernières données connues (sessionStorage) s'affichent immédiatement ;
+         * 2. l'API est appelée en parallèle et l'affichage n'est refait que si les chiffres ont changé.
+         * Le cache est vidé à chaque ajout / suppression / import d'ordres (invalidatePortfolioCaches).
+         */
         async function loadPortfolioData() {
+            const cached = readPortfolioCache();
+            if (cached) {
+                showPortfolio(cached);
+            }
+
             try {
                 if (!authToken) {
                     throw new Error('Utilisateur non authentifié');
@@ -3995,30 +4006,21 @@
 
                 const result = await response.json();
                 if (result.success) {
-                    portfolioData = result.data;
-                    // Masquer le loading et afficher le contenu
-                    document.getElementById('loadingState').style.display = 'none';
-                    document.getElementById('portfolioContent').style.display = 'block';
-
-                    // Déclencher les animations de manière séquentielle
-                    setTimeout(() => {
-                        document.querySelector('.main-kpis').classList.add('animate-in');
-                        document.querySelectorAll('.main-kpi-card').forEach((card, index) => {
-                            setTimeout(() => card.classList.add('animate-in'), index * 150);
-                        });
-                    }, 100);
-
-
-                    setTimeout(() => {
-                        document.querySelector('.positions-table').classList.add('animate-in');
-                    }, 1000);
-
-                    updatePortfolioDisplay();
+                    try {
+                        sessionStorage.setItem(portfolioCacheKey(), JSON.stringify({ data: result.data, timestamp: Date.now() }));
+                    } catch (e) {
+                    }
+                    // Rien n'a changé depuis l'affichage du cache : on ne retouche pas l'écran
+                    if (cached && JSON.stringify(cached) === JSON.stringify(result.data)) {
+                        return;
+                    }
+                    showPortfolio(result.data, { animate: !cached });
                 } else {
                     throw new Error(result.error || 'Erreur inconnue');
                 }
             } catch (error) {
                 console.error('Erreur lors du chargement du portefeuille:', error);
+                if (cached) return; // on garde l'affichage du cache plutôt qu'un écran vide
                 // Masquer le loading et afficher l'état vide
                 document.getElementById('loadingState').style.display = 'none';
                 document.getElementById('portfolioContent').style.display = 'block';

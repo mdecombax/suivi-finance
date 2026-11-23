@@ -4,6 +4,8 @@ Extracts and consolidates data from multiple sources (Yahoo Finance, JustETF, Fi
 """
 
 import logging
+import time
+import concurrent.futures
 from datetime import datetime
 from typing import Dict, Any, List, Optional, Callable
 
@@ -34,6 +36,21 @@ class PositionService:
         self.price_service = price_service
         self.firebase_service = firebase_service
         self.debug_log = debug_logger or (lambda msg, data=None: None)
+        # Données de marché (identiques pour tous les utilisateurs) mises en cache :
+        # {(source, isin): (expiration, données)}
+        self._market_cache: Dict[Any, Any] = {}
+
+    YAHOO_INFO_TTL = 3600     # fiche fonds + moyennes mobiles : 1 h
+    JUSTETF_QUOTE_TTL = 600   # cotation / variation du jour : 10 min
+
+    def _cached(self, key, ttl: int, fetch: Callable[[], Dict[str, Any]]) -> Dict[str, Any]:
+        hit = self._market_cache.get(key)
+        if hit and hit[0] > time.time():
+            return hit[1]
+        data = fetch()
+        if data:  # ne pas mémoriser un échec
+            self._market_cache[key] = (time.time() + ttl, data)
+        return data
 
     def get_enriched_position_data(self, isin: str, user_id: str) -> Dict[str, Any]:
         """
@@ -53,15 +70,21 @@ class PositionService:
             Dict containing enriched position data
         """
         try:
-            # Get basic price quote
-            current_price_quote = self.price_service.get_current_price(isin)
-
-            # Fetch data from all sources
-            yahoo_info = self._fetch_yahoo_data(isin)
-            justetf_data = self._fetch_justetf_data(isin)
-            portfolio_info = self._calculate_portfolio_info(
-                isin, user_id, current_price_quote
-            )
+            # Toutes les sources en parallèle (elles étaient appelées l'une après l'autre),
+            # données de marché servies par cache quand elles sont fraîches
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+                quote_future = executor.submit(self.price_service.get_current_price, isin)
+                yahoo_future = executor.submit(self._cached, ("yahoo", isin), self.YAHOO_INFO_TTL,
+                                               lambda: self._fetch_yahoo_data(isin))
+                justetf_future = executor.submit(self._cached, ("justetf", isin), self.JUSTETF_QUOTE_TTL,
+                                                 lambda: self._fetch_justetf_data(isin))
+                current_price_quote = quote_future.result()
+                # Les ordres de l'utilisateur (Firestore) se lisent pendant que le marché répond
+                portfolio_info = self._calculate_portfolio_info(
+                    isin, user_id, current_price_quote
+                )
+                yahoo_info = yahoo_future.result()
+                justetf_data = justetf_future.result()
 
             # Combine all data
             return {

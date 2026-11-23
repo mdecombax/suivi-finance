@@ -3,6 +3,7 @@ Service for portfolio management operations including performance calculations a
 """
 
 import json
+import concurrent.futures
 from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -23,6 +24,16 @@ class PortfolioService:
         self.orders_file = Path(orders_file_path)
         self.price_service = price_service
         self.logger = debug_logger
+        # Noms de positions : ISIN -> nom, pré-chargés depuis data/isin_map.json
+        # (mêmes noms que l'import), complétés au besoin par Yahoo Finance puis mémorisés.
+        self._name_cache: Dict[str, Optional[str]] = {}
+        try:
+            isin_map_path = Path(__file__).resolve().parent.parent / "data" / "isin_map.json"
+            if isin_map_path.exists():
+                name_to_isin = json.loads(isin_map_path.read_text(encoding="utf-8"))
+                self._name_cache = {isin: name for name, isin in name_to_isin.items()}
+        except Exception as e:
+            self._log("Chargement d'isin_map.json impossible", {"error": str(e)})
     
     def _log(self, message: str, extra: Optional[Dict[str, Any]] = None):
         """Log debug information if logger is available."""
@@ -174,14 +185,33 @@ class PortfolioService:
         }
     
     def _get_position_name(self, isin: str) -> Optional[str]:
-        """Get the short name for a position from Yahoo Finance."""
+        """Nom d'une position : isin_map.json d'abord, Yahoo Finance en repli.
+
+        Le résultat (même None) est mémorisé pour la durée de vie du process :
+        l'appel Yahoo coûtait ~0,5-1,5 s par ISIN et était refait à chaque requête.
+        """
+        if isin in self._name_cache:
+            return self._name_cache[isin]
+        name = None
         try:
             ticker = yf.Ticker(isin)
             info = ticker.info or {}
-            return info.get('shortName') or info.get('longName') or None
+            name = info.get('shortName') or info.get('longName') or None
         except Exception as e:
             self._log(f"Error fetching name for {isin}", {"error": str(e)})
-            return None
+        self._name_cache[isin] = name
+        return name
+
+    def _fetch_quotes_and_names(self, isins: List[str]) -> tuple:
+        """Prix courants + noms de toutes les positions, en parallèle (au lieu d'un par un)."""
+        if not isins:
+            return {}, {}
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(isins) * 2)) as executor:
+            quote_futures = {isin: executor.submit(self.price_service.get_current_price, isin) for isin in isins}
+            name_futures = {isin: executor.submit(self._get_position_name, isin) for isin in isins}
+            quotes = {isin: f.result() for isin, f in quote_futures.items()}
+            names = {isin: f.result() for isin, f in name_futures.items()}
+        return quotes, names
 
     def _calculate_position_summaries(self, orders: List[InvestmentOrder]) -> List[PositionSummary]:
         """Calculate aggregated position summaries by ISIN."""
@@ -192,6 +222,9 @@ class PortfolioService:
                 isin_groups[order.isin] = []
             isin_groups[order.isin].append(order)
 
+        # Prix courants et noms récupérés en parallèle (servis par les caches ensuite)
+        quotes, names = self._fetch_quotes_and_names(list(isin_groups.keys()))
+
         positions = []
         for isin, isin_orders in isin_groups.items():
             # Calculate aggregated values
@@ -200,11 +233,10 @@ class PortfolioService:
             average_unit_price = total_invested / total_quantity if total_quantity > 0 else 0.0
 
             # Get current price
-            current_price_quote = self.price_service.get_current_price(isin)
+            current_price_quote = quotes[isin]
             current_price = current_price_quote.price if current_price_quote.is_valid else None
 
-            # Get position name from Yahoo Finance
-            position_name = self._get_position_name(isin)
+            position_name = names[isin]
 
             # Calculate current value and P&L
             current_value = None
@@ -549,8 +581,11 @@ class PortfolioService:
         total_value = 0.0
         positions_detail = []
 
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, min(8, len(isin_positions)))) as executor:
+            quotes = dict(zip(isin_positions, executor.map(self.price_service.get_current_price, isin_positions)))
+
         for isin, pos in isin_positions.items():
-            quote = self.price_service.get_current_price(isin)
+            quote = quotes[isin]
             if quote.is_valid and quote.price > 0:
                 value = quote.price * pos['quantity']
                 total_value += value

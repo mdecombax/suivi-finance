@@ -287,6 +287,7 @@
                 total_eur: r.total_eur,
             }));
             const result = await apiPost('/api/orders/import/confirm', { orders });
+            window.invalidatePortfolioCaches?.(); // les nouveaux ordres doivent apparaître tout de suite
             renderDone(result);
             goToStep(3);
             window.haptics?.success(); // ordres importés

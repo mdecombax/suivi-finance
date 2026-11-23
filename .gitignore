@@ -88,3 +88,4 @@ app_legacy.py
 firebase-config.json
 *firebase-adminsdk*.json
 .aider*
+.perf/
