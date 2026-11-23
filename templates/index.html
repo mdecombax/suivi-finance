@@ -4036,6 +4036,9 @@
             const container = document.getElementById('recommendationsContainer');
             const list = document.getElementById('recommendationsList');
 
+            // Section absente du DOM : rien à afficher, ne pas casser le chargement
+            if (!container || !list) return;
+
             if (!metrics || !metrics.score_breakdown) {
                 container.style.display = 'none';
                 return;
