@@ -661,8 +661,8 @@ def revenu_passif_api():
         xirr = float(xirr_raw) if xirr_raw is not None else None
 
         # Taux fiscal selon le régime
-        tax_rates = {"pea": 0.175, "cto": 0.30}
-        tax_rate = tax_rates.get(account_type, 0.175)
+        tax_rates = {"pea": 0.186, "cto": 0.30}
+        tax_rate = tax_rates.get(account_type, 0.186)
 
         # Taux de rendement annuel
         rate = (xirr / 100) if xirr and xirr > 0 else 0.07

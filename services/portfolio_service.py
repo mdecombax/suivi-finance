@@ -381,7 +381,7 @@ class PortfolioService:
         current_value: float, 
         profit_loss_absolute: float
     ) -> Dict[str, FiscalScenario]:
-        """Calculate fiscal scenarios for CTO (30% flat tax) and PEA (17.5% CSG/CRDS)."""
+        """Calculate fiscal scenarios for CTO (30% flat tax) and PEA (18.6% CSG/CRDS)."""
         scenarios = {
             "cto": FiscalScenario(
                 name="CTO (Flat Tax 30%)",
@@ -393,9 +393,9 @@ class PortfolioService:
                 color="cto"
             ),
             "pea": FiscalScenario(
-                name="PEA (17.5% CSG/CRDS)",
+                name="PEA (18.6% CSG/CRDS)",
                 description="Equity savings plan after 5 years",
-                tax_rate=0.175,
+                tax_rate=0.186,
                 net_value=None,
                 tax_amount=None,
                 icon="📈",
